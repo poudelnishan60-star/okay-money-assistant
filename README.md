@@ -144,7 +144,12 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | done |
 | 3 | Backend REST API | done |
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | done |
-| 5 | App screens | |
-| 6 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling | |
-| 7 | App chat | |
+| 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | |
+| 6 | App chat: fonts, website layout, O-Kay chat screen | |
+| 7 | App screens: insights, transactions, budgets, goals, bills, settings | |
 | 8 | Notifications, polish, golden tests, 50-question eval | |
+| 9 | Deploy the website and backend | |
+
+For now the assistant ships as a **public website** (the Flutter web build) and merges into the
+Khalti app later; see "Public website first" in [CLAUDE.md](CLAUDE.md). It is an unofficial
+prototype, not affiliated with Khalti, and uses mock data only.

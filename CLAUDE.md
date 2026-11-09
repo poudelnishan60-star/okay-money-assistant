@@ -116,12 +116,24 @@ A seed script creating one demo user with 90 days and about 150 transactions: in
 - Currency: "Rs." with Nepali lakh grouping (Rs. 1,25,000.50).
 - Dates: AD by default with a BS toggle. Use a maintained BS-date package (e.g. nepali_utils in Flutter, nepali-datetime in Python).
 
+## Public website first (decided 9 Nov 2026)
+For now the assistant ships as a separate public website; merging into the Khalti app comes later.
+- The website is the Flutter app built for web (same code merges into the Khalti app later).
+- On desktop, show a centered phone-width column; the design stays mobile-first.
+- Visible label on every screen: "Unofficial prototype, not affiliated with Khalti". No Khalti logos.
+- Each visitor gets their own copy of the demo data (budgets, goals, chat history), not one shared user.
+- Rate-limit /chat per visitor and overall so the free Groq quota can't be drained.
+- Bundle DM Sans and Noto Sans Devanagari (OFL) instead of relying on system fonts.
+- Hosting for the website and the backend is decided at the deploy step; the Groq key stays on the server.
+
 ## Build order
+Steps 1-4 are done. The order after that was changed to chat first.
 1. Repo setup: folders, README, .env.example, .gitignore, lint config
 2. Backend data: SQLite schema, mock-data seed, categorizer, recurring-payment detector, budget math, forecast, with unit tests
 3. Backend REST API: transactions, insights, budgets, goals, bills
 4. App foundation: theme tokens, shared components, navigation, ApiClient, HostAppBridge mock
-5. App screens: insights dashboard, transactions, budgets, goals, bills, settings
-6. Backend AI: Groq LLMClient, tools, /chat streaming, system prompt, masking, 429 handling
-7. App chat: O-Kay chat screen with streaming, rich cards, suggestion chips, confirmations
+5. Backend AI: Groq LLMClient, tools, /chat streaming, system prompt, masking, 429 handling, per-visitor demo sessions, rate limits
+6. App chat: bundled fonts, website layout (phone-width column, unofficial label), O-Kay chat screen with streaming, rich cards, suggestion chips, confirmations
+7. App screens: insights dashboard, transactions, budgets, goals, bills, settings
 8. Notifications, polish, golden tests for key screens, and an evaluation script with 50 questions (English, Nepali, Romanized Nepali) that checks the expected tool calls and numbers
+9. Deploy: host the website and the backend (choice of hosts decided then)
