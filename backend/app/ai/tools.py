@@ -460,41 +460,49 @@ def get_budgets(ctx: ToolContext, _: NoArgs) -> ToolResult:
 
 
 class UpsertBudgetArgs(BaseModel):
-    category: Category | None = Field(None, description="null = overall budget")
+    # Required on purpose: a missing category must never silently become the overall budget
+    # (the model once dropped it for "set a food budget"). "Overall" is said explicitly.
+    category: Category | Literal["Overall"]
     limit_amount: float = Field(gt=0, le=1_00_00_000)
     calendar: Literal["AD", "BS"] = "AD"
 
     @field_validator("category")
     @classmethod
-    def _spending_only(cls, v: Category | None) -> Category | None:
+    def _spending_only(cls, v: Category | str) -> Category | str:
         if v in NON_SPENDING:
             raise ValueError("budgets are for spending categories only")
         return v
 
+    @property
+    def budget_category(self) -> Category | None:
+        """None = the overall budget."""
+        return None if self.category == "Overall" else Category(self.category)
+
 
 def upsert_budget(ctx: ToolContext, args: UpsertBudgetArgs) -> ToolResult:
+    category = args.budget_category
     limit = _rupees_to_paisa(args.limit_amount)
     assert limit is not None  # noqa: S101
     cal = CalendarSystem(args.calendar)
     period = month_period(ctx.today, cal)
-    name = args.category.value if args.category else "Overall"
+    name = category.value if category else "Overall"
     q = select(Budget).where(Budget.user_id == ctx.user_id)
     q = (
         q.where(Budget.category.is_(None))
-        if args.category is None
-        else q.where(Budget.category == args.category.value)
+        if category is None
+        else q.where(Budget.category == category.value)
     )
     existing = ctx.session.scalar(q)
     txns = ctx.source.list_transactions(
         ctx.user_id, TransactionFilter(start=period.start, end=ctx.today)
     )
-    spent = spent_in_period(txns, period, args.category)
+    spent = spent_in_period(txns, period, category)
     status = evaluate_budget(
         limit_paisa=limit,
         spent_paisa=spent,
         period=period,
         today=ctx.today,
-        category=args.category,
+        category=category,
         calendar=cal,
     )
     details = [
@@ -514,7 +522,7 @@ def upsert_budget(ctx: ToolContext, args: UpsertBudgetArgs) -> ToolResult:
             method="POST",
             path="/budgets",
             body={
-                "category": args.category.value if args.category else None,
+                "category": category.value if category else None,
                 "limit_paisa": limit,
                 "calendar": args.calendar,
             },
@@ -522,11 +530,11 @@ def upsert_budget(ctx: ToolContext, args: UpsertBudgetArgs) -> ToolResult:
     )
     data = {
         "status": "NOT SAVED YET: waiting for the user to tap Confirm on the card",
-        "budget": f"{name} (one category)" if args.category else "Overall (all spending)",
+        "budget": f"{name} (one category)" if category else "Overall (all spending)",
         "new_limit": _rs(limit),
         "current_limit": _rs(existing.limit_paisa) if existing else None,
         "spent_this_month": _rs(spent),
-        "would_be_used": f"{status.percent_used:g}%",
+        "already_used_of_new_limit": f"{status.percent_used:g}%",
     }
     return ToolResult(data, [card], {"budget_proposal"})
 
@@ -908,17 +916,17 @@ TOOLS: dict[str, Tool] = {
         Tool("get_budgets", "Monthly budgets: limit, spent, left.", NoArgs, get_budgets, _obj({})),
         Tool(
             "upsert_budget",
-            "PROPOSE a monthly budget (category null = overall). Saved only when the user "
-            "taps Confirm.",
+            "PROPOSE a monthly budget for one category, or category Overall for all "
+            "spending. Saved only when the user taps Confirm.",
             UpsertBudgetArgs,
             upsert_budget,
             _obj(
                 {
-                    "category": {"type": ["string", "null"], "enum": [*SPENDING_CATEGORIES, None]},
+                    "category": {"type": "string", "enum": [*SPENDING_CATEGORIES, "Overall"]},
                     "limit_amount": {"type": "number"},
                     "calendar": {"type": "string", "enum": ["AD", "BS"]},
                 },
-                ["limit_amount"],
+                ["category", "limit_amount"],
             ),
         ),
         Tool(

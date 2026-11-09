@@ -8,10 +8,13 @@
 ///   5. uses [buildOkayTheme] (or maps [OkayColors] etc. onto its own design system).
 library;
 
+export 'chat/chat_screen.dart' show ChatScreen;
 export 'config.dart';
 export 'core/api_client.dart' show ApiClient, ApiException, apiClientProvider;
 export 'core/money.dart' show formatNpr;
+export 'core/preferences.dart';
 export 'core/privacy.dart';
+export 'core/visitor_session.dart' show MemorySessionStore, SessionStore, sessionStoreProvider;
 export 'data/me.dart' show Me, meProvider;
 export 'host/host_app_bridge.dart';
 export 'host/mock_host_app_bridge.dart';

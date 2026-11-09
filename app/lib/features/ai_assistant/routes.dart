@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'chat/chat_screen.dart';
 import 'config.dart';
 import 'screens/coming_soon_screen.dart';
 import 'screens/ui_kit_screen.dart';
@@ -35,38 +36,37 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
       return null;
     },
     routes: [
-      GoRoute(
-        path: 'chat',
-        builder: (context, state) => const ComingSoonScreen(
-          title: 'O-Kay',
-          step: 7,
-          note: 'Chat with your money: streamed answers, cards and follow-up chips.',
-        ),
-      ),
+      GoRoute(path: 'chat', builder: (context, state) => const ChatScreen()),
       GoRoute(
         path: 'insights',
-        builder: (context, state) => const ComingSoonScreen(title: 'Money Insights', step: 5),
+        builder: (context, state) => const ComingSoonScreen(title: 'Money Insights', step: 7),
       ),
       GoRoute(
         path: 'transactions',
-        builder: (context, state) => const ComingSoonScreen(title: 'Transactions', step: 5),
+        builder: (context, state) => ComingSoonScreen(
+          title: 'Transactions',
+          step: 7,
+          note: state.uri.queryParameters.isEmpty
+              ? null
+              : 'Will open filtered by: ${state.uri.queryParameters.entries.map((e) => '${e.key}=${e.value}').join(', ')}',
+        ),
       ),
       GoRoute(
         path: 'budgets',
-        builder: (context, state) => const ComingSoonScreen(title: 'Budgets', step: 5),
+        builder: (context, state) => const ComingSoonScreen(title: 'Budgets', step: 7),
       ),
       GoRoute(
         path: 'goals',
-        builder: (context, state) => const ComingSoonScreen(title: 'Savings goals', step: 5),
+        builder: (context, state) => const ComingSoonScreen(title: 'Savings goals', step: 7),
       ),
       GoRoute(
         path: 'bills',
         builder: (context, state) =>
-            const ComingSoonScreen(title: 'Bills & subscriptions', step: 5),
+            const ComingSoonScreen(title: 'Bills & subscriptions', step: 7),
       ),
       GoRoute(
         path: 'settings',
-        builder: (context, state) => const ComingSoonScreen(title: 'Assistant settings', step: 5),
+        builder: (context, state) => const ComingSoonScreen(title: 'Assistant settings', step: 7),
       ),
       GoRoute(path: 'ui-kit', builder: (context, state) => const UiKitScreen()),
     ],

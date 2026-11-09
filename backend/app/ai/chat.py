@@ -3,6 +3,8 @@
 Events produced (sent as server-sent events by routes_chat):
   status  {"tool": "..."}                         a tool is running (optional for clients)
   token   {"text": "..."}                         streamed answer text
+  reset   {}                                      drop the text so far: the answer failed
+                                                  the grounding check and is redone
   done    {"message_id", "cards", "suggestions", "language", "error"}   always last
 """
 
@@ -11,8 +13,9 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import re
 import time
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,6 +44,53 @@ log = logging.getLogger(__name__)
 audit = logging.getLogger("okay.audit")
 
 MAX_CARDS = 4
+
+_AMOUNT = re.compile(r"(?:Rs\.?|रु\.?)\s?[\d,०-९]+(?:\.[\d०-९]+)?")
+_BARE_NUMBER = re.compile(r"[\d०-९][\d,०-९]*(?:\.[\d०-९]+)?")
+_CONFIRM_CLAIM = re.compile(
+    r"(?:tap|press|click|thich\w*|थिच\w*)\W+(?:\w+\W+){0,3}?(?:\*\*)?confirm"
+    r"|confirm(?:\*\*)?\W+(?:\w+\W+){0,2}?(?:thich\w*|थिच\w*)",
+    re.IGNORECASE,
+)
+_BUTTON_CLAIM = re.compile(
+    r"button below|tap the [^.]{0,40}button|I(?:'ve| have) opened|tala ko button|तलको बटन",
+    re.IGNORECASE,
+)
+
+
+def _norm(number: str) -> str:
+    """'Rs. 1,270.00' / 'रु. १,२७०' / '1270' -> '1270'."""
+    number = re.sub(r"^(?:Rs\.?|रु\.?)\s*", "", number.strip())
+    digits = number.translate(str.maketrans("०१२३४५६७८९", "0123456789"))
+    digits = re.sub(r"[^\d.]", "", digits)
+    return re.sub(r"\.0+$", "", digits)
+
+
+def check_answer(text: str, cards: list[dict[str, Any]], grounded: str) -> str | None:
+    """Code-level guard for "the LLM never makes up numbers or actions". Returns the
+    problem to correct, or None if the answer is fine.
+
+    - every "Rs." amount must appear in a tool result this turn or earlier in the chat;
+    - "tap Confirm" needs a confirm_action card, "the button below" an open_app_flow card."""
+    allowed = {_norm(a) for a in _BARE_NUMBER.findall(grounded)}
+    bad = sorted({a for a in _AMOUNT.findall(text) if _norm(a) not in allowed})
+    if bad:
+        return (
+            f"ungrounded amounts: {', '.join(bad)} are not in any tool result. Call the "
+            "right tool and use only the amounts it returns."
+        )
+    shown = {c.get("type") for c in cards}
+    if _CONFIRM_CLAIM.search(text) and "confirm_action" not in shown:
+        return (
+            "missing confirm card: you told the user to tap Confirm, but no Confirm card "
+            "was shown. Call upsert_budget or upsert_goal, or don't mention Confirm."
+        )
+    if _BUTTON_CLAIM.search(text) and "open_app_flow" not in shown:
+        return (
+            "missing button: you mentioned a button or an opened screen, but none was "
+            "shown. Call open_app_flow, or don't mention it."
+        )
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +190,63 @@ class ChatService:
         content = f'<tool_result name="{call.name}">\n{payload}\n</tool_result>'
         return content, result
 
+    def _rounds(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]],
+        max_rounds: int,
+        out: list[str],
+        cards: list[dict[str, Any]],
+        topics: set[str],
+        tool_texts: list[str],
+        force_first_tool: bool = False,
+    ) -> Generator[ChatEvent, None, int]:
+        """Model <-> tools until it answers in text (at most `max_rounds` tool rounds; the
+        round after that may not use tools). Streams events; returns tool rounds used."""
+        for round_no in range(max_rounds + 1):
+            allow_tools = round_no < max_rounds
+            round_text: list[str] = []
+            calls: list[ToolCall] = []
+            started = False
+            choice = "required" if force_first_tool and round_no == 0 and allow_tools else "auto"
+            for ev in self.llm.stream_chat(messages, tools if allow_tools else None, choice):
+                if isinstance(ev, TextDelta):
+                    if not started and out and not out[-1].endswith("\n"):
+                        out.append("\n\n")
+                        yield ChatEvent("token", {"text": "\n\n"})
+                    started = True
+                    round_text.append(ev.text)
+                    out.append(ev.text)
+                    yield ChatEvent("token", {"text": ev.text})
+                elif isinstance(ev, ToolCallsReady) and allow_tools:
+                    calls = ev.calls
+            if not calls:
+                return round_no
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": "".join(round_text) or None,
+                    "tool_calls": [
+                        {
+                            "id": c.id,
+                            "type": "function",
+                            "function": {"name": c.name, "arguments": c.arguments},
+                        }
+                        for c in calls
+                    ],
+                }
+            )
+            for call in calls:
+                yield ChatEvent("status", {"tool": call.name})
+                content, result = self._run(call)
+                tool_texts.append(content)
+                messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
+                if result is not None:
+                    topics |= result.topics
+                    cards.extend(card.model_dump(mode="json") for card in result.cards)
+            self.session.commit()
+        return max_rounds
+
     # -- the conversation turn ---------------------------------------------------------
     def respond(self, text: str, language: str = "auto") -> Iterator[ChatEvent]:
         lang = resolve_language(text, language)
@@ -148,15 +255,15 @@ class ChatService:
         history = self._history()
         self._store("user", clean, lang)
 
-        answer: list[str] = []
+        prefix = ""  # fixed text that always stays (the secret warning)
         cards: list[dict[str, Any]] = []
         topics: set[str] = set()
+        tool_texts: list[str] = []
         error: str | None = None
 
         if had_secret:
-            warning = message("secret_warning", lang) + "\n\n"
-            answer.append(warning)
-            yield ChatEvent("token", {"text": warning})
+            prefix = message("secret_warning", lang) + "\n\n"
+            yield ChatEvent("token", {"text": prefix})
 
         user_turn = clean
         if had_secret:
@@ -170,55 +277,51 @@ class ChatService:
             {"role": "user", "content": user_turn},
         ]
         tools = openai_tool_specs()
+        known = " ".join([clean, *(str(m["content"] or "") for m in history)])
 
+        attempt: list[str] = []
         try:
-            for round_no in range(self.max_tool_rounds + 1):
-                allow_tools = round_no < self.max_tool_rounds
-                round_text: list[str] = []
-                calls: list[ToolCall] = []
-                started_text = False
-                for ev in self.llm.stream_chat(messages, tools if allow_tools else None):
-                    if isinstance(ev, TextDelta):
-                        if not started_text and answer and not answer[-1].endswith("\n"):
-                            answer.append("\n\n")
-                            yield ChatEvent("token", {"text": "\n\n"})
-                        started_text = True
-                        round_text.append(ev.text)
-                        answer.append(ev.text)
-                        yield ChatEvent("token", {"text": ev.text})
-                    elif isinstance(ev, ToolCallsReady) and allow_tools:
-                        calls = ev.calls
-                if not calls:
-                    break
+            used = yield from self._rounds(
+                messages, tools, self.max_tool_rounds, attempt, cards, topics, tool_texts
+            )
+            problem = check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts))
+            if problem:
+                # The answer stated a number no tool gave, or promised a card that doesn't
+                # exist. Take the streamed text back and give the model one chance to fix it.
+                log.warning("answer failed the grounding check: %s", problem.split(":")[0])
+                yield ChatEvent("reset", {})
+                if prefix:
+                    yield ChatEvent("token", {"text": prefix})
+                messages.append({"role": "assistant", "content": "".join(attempt)})
                 messages.append(
                     {
-                        "role": "assistant",
-                        "content": "".join(round_text) or None,
-                        "tool_calls": [
-                            {
-                                "id": c.id,
-                                "type": "function",
-                                "function": {"name": c.name, "arguments": c.arguments},
-                            }
-                            for c in calls
-                        ],
+                        "role": "system",
+                        "content": f"Correction needed: {problem} "
+                        "Answer the user's last message again.",
                     }
                 )
-                for call in calls:
-                    yield ChatEvent("status", {"tool": call.name})
-                    content, result = self._run(call)
-                    messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
-                    if result is not None:
-                        topics |= result.topics
-                        for card in result.cards:
-                            cards.append(card.model_dump(mode="json"))
-                self.session.commit()
+                attempt = []
+                # Both problems are fixed by looking something up or showing a card, so the
+                # first corrective round must call a tool.
+                yield from self._rounds(
+                    messages,
+                    tools,
+                    max(self.max_tool_rounds - used, 1),
+                    attempt,
+                    cards,
+                    topics,
+                    tool_texts,
+                    force_first_tool=True,
+                )
+                if check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts)):
+                    log.warning("answer still fails the grounding check after a correction")
         except LLMNotConfiguredError:
             error = "not_configured"
         except LLMBusyError:
             error = "busy"
         except LLMUnavailableError:
             error = "unavailable"
+        answer = [prefix, *attempt] if prefix else attempt
 
         if error:
             note = message(error, lang)

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config.dart';
 import 'dates.dart';
+import 'visitor_session.dart';
 
 /// The one way the assistant talks to its backend. Repositories use this; nothing else does.
 /// No API keys ever live in the app: every LLM call happens on the backend.
@@ -14,19 +15,24 @@ class ApiClient {
     required this.baseUrl,
     http.Client? httpClient,
     this.userId,
+    this.session,
     this.timeout = const Duration(seconds: 20),
   }) : _http = httpClient ?? http.Client();
 
   final Uri baseUrl;
+
+  /// Fixed user (prototype header). Ignored when [session] is set.
   final String? userId;
+
+  /// Public website: a visitor session that is created on first use and renewed if expired.
+  final SessionProvider? session;
   final Duration timeout;
   final http.Client _http;
 
-  Map<String, String> get _headers => {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json; charset=utf-8',
-    'X-User-Id': ?userId,
-  };
+  Future<Map<String, String>> _headers({String accept = 'application/json'}) async {
+    final id = session != null ? await session!.currentId() : userId;
+    return {'Accept': accept, 'Content-Type': 'application/json; charset=utf-8', 'X-User-Id': ?id};
+  }
 
   /// Builds the URL. Null query values are dropped; DateTimes become 'YYYY-MM-DD'.
   Uri uri(String path, [Map<String, Object?>? query]) {
@@ -41,53 +47,32 @@ class ApiClient {
   }
 
   Future<Object?> getJson(String path, {Map<String, Object?>? query}) =>
-      _send('GET', path, query: query);
+      send('GET', path, query: query);
 
-  Future<Object?> postJson(String path, Object? body) => _send('POST', path, body: body);
+  Future<Object?> postJson(String path, Object? body) => send('POST', path, body: body);
 
-  Future<Object?> putJson(String path, Object? body) => _send('PUT', path, body: body);
+  Future<Object?> putJson(String path, Object? body) => send('PUT', path, body: body);
 
-  Future<Object?> patchJson(String path, Object? body) => _send('PATCH', path, body: body);
+  Future<Object?> patchJson(String path, Object? body) => send('PATCH', path, body: body);
 
-  Future<void> delete(String path) => _send('DELETE', path);
+  Future<void> delete(String path) => send('DELETE', path);
 
-  /// A raw streamed response (for the chat's server-sent events in step 7).
-  Future<http.StreamedResponse> openStream(String path, {Object? body}) async {
-    final request = http.Request('POST', uri(path))
-      ..headers.addAll({..._headers, 'Accept': 'text/event-stream'});
-    if (body != null) request.body = jsonEncode(body);
-    try {
-      final response = await _http.send(request).timeout(timeout);
-      if (response.statusCode >= 400) {
-        final bytes = await response.stream.toBytes();
-        throw ApiException.fromResponse(response.statusCode, bytes);
-      }
-      return response;
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException.network();
-    } on http.ClientException {
-      throw const ApiException.network();
-    }
-  }
-
-  Future<Object?> _send(
+  /// Any JSON request (e.g. the request carried by a chat confirm card).
+  Future<Object?> send(
     String method,
     String path, {
     Map<String, Object?>? query,
     Object? body,
   }) async {
-    final request = http.Request(method, uri(path, query))..headers.addAll(_headers);
-    if (body != null) request.body = jsonEncode(body);
-    final http.Response response;
-    try {
-      response = await http.Response.fromStream(await _http.send(request).timeout(timeout));
-    } on TimeoutException {
-      throw const ApiException.network();
-    } on http.ClientException {
-      throw const ApiException.network();
-    }
+    final response = await _withSessionRetry<http.Response>(
+      () async {
+        final request = http.Request(method, uri(path, query))..headers.addAll(await _headers());
+        if (body != null) request.body = jsonEncode(body);
+        return http.Response.fromStream(await _http.send(request).timeout(timeout));
+      },
+      statusOf: (r) => r.statusCode,
+      bodyOf: (r) async => r.bodyBytes,
+    );
     if (response.statusCode >= 400) {
       throw ApiException.fromResponse(response.statusCode, response.bodyBytes);
     }
@@ -95,6 +80,46 @@ class ApiClient {
     // Decode as UTF-8 explicitly: the server may not send a charset, and http would then
     // fall back to latin1 and garble 'Café' and Devanagari.
     return jsonDecode(utf8.decode(response.bodyBytes));
+  }
+
+  /// A streamed POST (the chat's server-sent events). Errors arrive as ApiException.
+  Future<http.StreamedResponse> openStream(String path, {Object? body}) async {
+    final response = await _withSessionRetry<http.StreamedResponse>(
+      () async {
+        final request = http.Request('POST', uri(path))
+          ..headers.addAll(await _headers(accept: 'text/event-stream'));
+        if (body != null) request.body = jsonEncode(body);
+        return _http.send(request).timeout(timeout);
+      },
+      statusOf: (r) => r.statusCode,
+      bodyOf: (r) => r.stream.toBytes(),
+    );
+    if (response.statusCode >= 400) {
+      throw ApiException.fromResponse(response.statusCode, await response.stream.toBytes());
+    }
+    return response;
+  }
+
+  /// Runs [attempt]; if the visitor session is unknown or expired (401, or 404 "unknown
+  /// user"), starts a new one and tries once more.
+  Future<T> _withSessionRetry<T>(
+    Future<T> Function() attempt, {
+    required int Function(T) statusOf,
+    required Future<List<int>> Function(T) bodyOf,
+  }) async {
+    try {
+      final first = await attempt();
+      final status = statusOf(first);
+      if (session == null || (status != 401 && status != 404)) return first;
+      final error = ApiException.fromResponse(status, await bodyOf(first));
+      if (status == 404 && error.message != 'unknown user') throw error;
+      await session!.renew();
+      return await attempt();
+    } on TimeoutException {
+      throw const ApiException.network();
+    } on http.ClientException {
+      throw const ApiException.network();
+    }
   }
 
   void close() => _http.close();
@@ -134,6 +159,7 @@ class ApiException implements Exception {
   final bool isNetwork;
 
   bool get isNotFound => statusCode == 404;
+  bool get isRateLimited => statusCode == 429;
 
   @override
   String toString() => 'ApiException($statusCode): $message';
@@ -150,6 +176,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     baseUrl: config.baseUrl,
     userId: config.userId,
+    session: ref.watch(sessionProviderProvider),
     httpClient: ref.watch(httpClientProvider),
   );
 });

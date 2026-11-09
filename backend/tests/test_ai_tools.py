@@ -211,3 +211,14 @@ def test_bad_calls_come_back_as_tool_errors(ctx: ToolContext) -> None:
     with pytest.raises(ToolError, match="needs month"):
         run_tool(ctx, "get_spending_summary", {"period": "month"})
     assert set(TOOLS) == {s["function"]["name"] for s in openai_tool_specs()}
+
+
+def test_budget_category_must_be_explicit(ctx: ToolContext) -> None:
+    """A dropped category must never silently become the overall budget."""
+    with pytest.raises(ToolError, match="category"):
+        run_tool(ctx, "upsert_budget", {"limit_amount": 6000})
+    overall = run_tool(ctx, "upsert_budget", {"category": "Overall", "limit_amount": 35000})
+    assert overall.cards[0].request.body["category"] is None
+    assert overall.cards[0].title == "Change Overall budget"
+    spec = next(s for s in openai_tool_specs() if s["function"]["name"] == "upsert_budget")
+    assert spec["function"]["parameters"]["required"] == ["category", "limit_amount"]

@@ -23,14 +23,14 @@ void main() {
 
     await tester.tap(find.text('Money Insights'));
     await tester.pumpAndSettle();
-    expect(find.text('Money Insights arrives in build step 5'), findsOneWidget);
+    expect(find.text('Money Insights arrives in build step 7'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Ask me'));
     await tester.pumpAndSettle();
-    expect(find.text('O-Kay arrives in build step 7'), findsOneWidget);
+    expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
   });
 
   testWidgets('flag off: no entry points and the routes bounce to Home', (tester) async {
@@ -42,7 +42,7 @@ void main() {
 
     GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.chat);
     await tester.pumpAndSettle();
-    expect(find.text('O-Kay arrives in build step 7'), findsNothing);
+    expect(find.text('Start Chatting with O-Kay'), findsNothing);
     expect(find.text('Financial Services'), findsOneWidget);
   });
 
@@ -52,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
     GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.root);
     await tester.pumpAndSettle();
-    expect(find.text('Money Insights arrives in build step 5'), findsOneWidget);
+    expect(find.text('Money Insights arrives in build step 7'), findsOneWidget);
   });
 
   testWidgets('bottom nav: tabs switch, active tab is pink, Scan & Pay is host-only', (

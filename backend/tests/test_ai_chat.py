@@ -293,3 +293,60 @@ def test_spending_only_filter(client: TestClient) -> None:
     assert spending["total"] == summary["transaction_count"]
     assert spending["total_debit_paisa"] == summary["total_spent_paisa"]
     assert spending["total"] < all_debits["total"]  # Smart Deposit / transfers left out
+
+
+# --- grounding check ---------------------------------------------------------------------
+
+
+def test_check_answer_rules() -> None:
+    from app.ai.chat import check_answer
+
+    grounded = '<tool_result>{"spent":"Rs. 1,270","usual":"Rs. 1,140.67"}</tool_result> 6000'
+    assert check_answer("You spent Rs. 1,270 (usual Rs 1140.67).", [], grounded) is None
+    assert check_answer("रु. १,२७० खर्च भयो।", [], grounded) is None  # Devanagari digits
+    assert check_answer("A budget of Rs. 6,000.00", [], grounded) is None  # user's own number
+    assert "ungrounded" in check_answer("You spent Rs. 9,999.", [], grounded)
+    assert "confirm" in check_answer("Tap **Confirm** to save it.", [], grounded)
+    assert check_answer("Tap Confirm to save it.", [{"type": "confirm_action"}], grounded) is None
+    assert "button" in check_answer("Tap the Pay button below.", [], grounded)
+    assert check_answer("Tap the button below.", [{"type": "open_app_flow"}], grounded) is None
+    assert check_answer("I can't confirm that number.", [], grounded) is None
+
+
+def test_invented_action_is_taken_back_and_redone(seeded: Session) -> None:
+    llm = FakeLLM(
+        say("I've proposed a food budget of Rs. 6,000. Tap Confirm to save it."),  # no tool!
+        call(("upsert_budget", {"category": "Food & Dining", "limit_amount": 6000})),
+        say("Tap Confirm to save your Rs. 6,000 food budget."),
+    )
+    events = _run(seeded, llm, "Set a food budget of 6000")
+    kinds = [e.event for e in events]
+    assert "reset" in kinds
+    after_reset = events[kinds.index("reset") + 1 :]
+    assert _text(after_reset) == "Tap Confirm to save your Rs. 6,000 food budget."
+    assert events[-1].data["cards"][0]["type"] == "confirm_action"
+    correction = llm.calls[1][0][-1]
+    assert correction["role"] == "system" and "missing confirm card" in correction["content"]
+    assert llm.tool_choices == ["auto", "required", "auto"]  # the redo must call a tool
+    stored = seeded.scalars(select(ChatMessage.content).where(ChatMessage.role == "assistant"))
+    assert list(stored) == ["Tap Confirm to save your Rs. 6,000 food budget."]
+
+
+def test_made_up_number_is_taken_back(seeded: Session) -> None:
+    llm = FakeLLM(
+        say("You spent Rs. 9,999 on food."),
+        call(("get_spending_summary", {"period": "this_month", "category": "Food & Dining"})),
+        say("You spent Rs. 1,270 on food."),
+    )
+    events = _run(seeded, llm, "food spending?")
+    assert [e.event for e in events].count("reset") == 1
+    assert events[-1].data["cards"][0]["type"] == "spending_summary"
+    assert "ungrounded amounts: Rs. 9,999" in llm.calls[1][0][-1]["content"]
+
+
+def test_only_one_correction_round(seeded: Session) -> None:
+    llm = FakeLLM(say("Rs. 1 extra."), say("Rs. 2 still made up."))
+    events = _run(seeded, llm, "?")
+    assert [e.event for e in events].count("reset") == 1
+    assert len(llm.calls) == 2
+    assert events[-1].event == "done"

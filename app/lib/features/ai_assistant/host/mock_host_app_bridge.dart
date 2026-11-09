@@ -118,9 +118,13 @@ class _SheetBody extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: OkaySpacing.sm),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(e.key, style: OkayText.subtitle)),
-                    Text(e.value!, style: OkayText.body),
+                    Text(e.key, style: OkayText.subtitle),
+                    const SizedBox(width: OkaySpacing.md),
+                    Expanded(
+                      child: Text(e.value!, style: OkayText.body, textAlign: TextAlign.end),
+                    ),
                   ],
                 ),
               ),

@@ -1,0 +1,309 @@
+[
+ {
+  "type": "spending_summary",
+  "period_label": "Oct 2026",
+  "start": "2026-10-01",
+  "end": "2026-10-31",
+  "category": null,
+  "total_paisa": 3509756,
+  "previous_paisa": 3728211,
+  "compared_with": "Sep 2026",
+  "change_percent": -5.9,
+  "link": {
+   "count": 50,
+   "filters": {
+    "start": "2026-10-01",
+    "end": "2026-10-31",
+    "spending_only": true
+   }
+  }
+ },
+ {
+  "type": "category_breakdown",
+  "period_label": "Oct 2026",
+  "total_paisa": 3509756,
+  "items": [
+   {
+    "category": "Food & Dining",
+    "spent_paisa": 971000,
+    "share_percent": 27.7
+   },
+   {
+    "category": "Groceries",
+    "spent_paisa": 710325,
+    "share_percent": 20.2
+   },
+   {
+    "category": "Shopping",
+    "spent_paisa": 650000,
+    "share_percent": 18.5
+   },
+   {
+    "category": "Education",
+    "spent_paisa": 350000,
+    "share_percent": 10.0
+   },
+   {
+    "category": "Bills & Utilities",
+    "spent_paisa": 349831,
+    "share_percent": 10.0
+   },
+   {
+    "category": "Transport",
+    "spent_paisa": 125700,
+    "share_percent": 3.6
+   },
+   {
+    "category": "Topup & Data",
+    "spent_paisa": 119900,
+    "share_percent": 3.4
+   },
+   {
+    "category": "Entertainment",
+    "spent_paisa": 85000,
+    "share_percent": 2.4
+   },
+   {
+    "category": "Health",
+    "spent_paisa": 83000,
+    "share_percent": 2.4
+   },
+   {
+    "category": "Other",
+    "spent_paisa": 65000,
+    "share_percent": 1.9
+   }
+  ],
+  "link": {
+   "count": 50,
+   "filters": {
+    "start": "2026-10-01",
+    "end": "2026-10-31",
+    "spending_only": true
+   }
+  }
+ },
+ {
+  "type": "budget_progress",
+  "items": [
+   {
+    "budget_id": 1,
+    "category": null,
+    "period_label": "Nov 2026",
+    "limit_paisa": 3000000,
+    "spent_paisa": 621380,
+    "percent_used": 20.7,
+    "level": "ok"
+   },
+   {
+    "budget_id": 3,
+    "category": "Entertainment",
+    "period_label": "Nov 2026",
+    "limit_paisa": 150000,
+    "spent_paisa": 0,
+    "percent_used": 0.0,
+    "level": "ok"
+   },
+   {
+    "budget_id": 2,
+    "category": "Groceries",
+    "period_label": "Nov 2026",
+    "limit_paisa": 900000,
+    "spent_paisa": 109280,
+    "percent_used": 12.1,
+    "level": "ok"
+   },
+   {
+    "budget_id": 4,
+    "category": "Shopping",
+    "period_label": "Kartik 2083",
+    "limit_paisa": 400000,
+    "spent_paisa": 120000,
+    "percent_used": 30.0,
+    "level": "ok"
+   }
+  ]
+ },
+ {
+  "type": "bills_list",
+  "items": [
+   {
+    "bill_id": "cfbbcab0d939",
+    "merchant": "Ncell",
+    "service": "data_pack",
+    "usual_amount_paisa": 49900,
+    "due_date": "2026-11-10",
+    "days_until_due": 1,
+    "overdue": false
+   },
+   {
+    "bill_id": "72fab69deda2",
+    "merchant": "Nepal Electricity Authority",
+    "service": "electricity",
+    "usual_amount_paisa": 114067,
+    "due_date": "2026-11-14",
+    "days_until_due": 5,
+    "overdue": false
+   },
+   {
+    "bill_id": "450591f78a41",
+    "merchant": "KUKL Khanepani",
+    "service": "khanepani",
+    "usual_amount_paisa": 50100,
+    "due_date": "2026-11-18",
+    "days_until_due": 9,
+    "overdue": false
+   },
+   {
+    "bill_id": "c2bceeb59eae",
+    "merchant": "Gurans Fibernet",
+    "service": "internet",
+    "usual_amount_paisa": 130000,
+    "due_date": "2026-11-21",
+    "days_until_due": 12,
+    "overdue": false
+   },
+   {
+    "bill_id": "861f3795680a",
+    "merchant": "Sajilo DTH",
+    "service": "tv",
+    "usual_amount_paisa": 45000,
+    "due_date": "2026-11-24",
+    "days_until_due": 15,
+    "overdue": false
+   },
+   {
+    "bill_id": "f3abd8c6890e",
+    "merchant": "Sikshya Language Institute",
+    "service": null,
+    "usual_amount_paisa": 350000,
+    "due_date": "2026-12-06",
+    "days_until_due": 27,
+    "overdue": false
+   }
+  ]
+ },
+ {
+  "type": "goal_progress",
+  "items": [
+   {
+    "goal_id": 1,
+    "name": "New laptop",
+    "target_paisa": 12000000,
+    "saved_paisa": 1800000,
+    "percent": 15.0,
+    "deadline": "2027-09-01",
+    "required_monthly_paisa": 1020000,
+    "state": "active"
+   },
+   {
+    "goal_id": 2,
+    "name": "Emergency fund",
+    "target_paisa": 5000000,
+    "saved_paisa": 850000,
+    "percent": 17.0,
+    "deadline": "2027-11-01",
+    "required_monthly_paisa": 345900,
+    "state": "active"
+   }
+  ]
+ },
+ {
+  "type": "transactions_preview",
+  "count": 11,
+  "total_debit_paisa": 824600,
+  "total_credit_paisa": 2900000,
+  "items": [
+   {
+    "id": "txn_0154",
+    "date": "2026-11-08",
+    "merchant": "Sasto Mitho Khaja Ghar",
+    "amount_paisa": 19000,
+    "direction": "debit",
+    "category": "Food & Dining"
+   },
+   {
+    "id": "txn_0153",
+    "date": "2026-11-08",
+    "merchant": "Chalo Taxi",
+    "amount_paisa": 15100,
+    "direction": "debit",
+    "category": "Transport"
+   },
+   {
+    "id": "txn_0152",
+    "date": "2026-11-07",
+    "merchant": "Mithai Mandir Sweets",
+    "amount_paisa": 41000,
+    "direction": "debit",
+    "category": "Food & Dining"
+   },
+   {
+    "id": "txn_0151",
+    "date": "2026-11-06",
+    "merchant": "Bikash Gurung",
+    "amount_paisa": 150000,
+    "direction": "credit",
+    "category": "Transfers"
+   },
+   {
+    "id": "txn_0150",
+    "date": "2026-11-06",
+    "merchant": "Sikshya Language Institute",
+    "amount_paisa": 350000,
+    "direction": "debit",
+    "category": "Education"
+   }
+  ],
+  "link": {
+   "count": 11,
+   "filters": {
+    "start": "2026-11-03",
+    "end": "2026-11-09"
+   }
+  }
+ },
+ {
+  "type": "confirm_action",
+  "action": "upsert_budget",
+  "title": "Set Food & Dining budget",
+  "details": [
+   {
+    "label": "Monthly limit",
+    "value": "Rs. 6,000"
+   },
+   {
+    "label": "Spent so far (Nov 2026)",
+    "value": "Rs. 1,270"
+   },
+   {
+    "label": "Month",
+    "value": "AD month"
+   }
+  ],
+  "request": {
+   "method": "POST",
+   "path": "/budgets",
+   "body": {
+    "category": "Food & Dining",
+    "limit_paisa": 600000,
+    "calendar": "AD"
+   }
+  },
+  "confirm_label": "Confirm"
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "bill_payment",
+  "service": "electricity",
+  "title": "Pay electricity bill",
+  "prefill": {
+   "amount_paisa": 114067,
+   "biller_name": "Nepal Electricity Authority",
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null
+  },
+  "note": "You'll confirm in Khalti with your MPIN."
+ }
+]

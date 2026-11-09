@@ -1,9 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:khalti_ai_assistant/demo_host/demo_host_app.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_repository.dart';
 
 const demoMe = Me(
   id: 'demo_user',
@@ -12,9 +18,19 @@ const demoMe = Me(
   balanceHidden: false,
 );
 
+/// Real card JSON produced by the backend tools (backend writes this fixture).
+List<Map<String, Object?>> fixtureCards() => (jsonDecode(
+  File('test/ai_assistant/fixtures/chat_cards.json').readAsStringSync(),
+) as List<Object?>).cast<Map<String, Object?>>();
+
+Map<String, Object?> fixtureCard(String type) =>
+    fixtureCards().firstWhere((c) => c['type'] == type);
+
 /// Phone-sized test surface (390 x 844 logical pixels).
-void usePhoneSize(WidgetTester tester) {
-  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+void usePhoneSize(WidgetTester tester) => useSize(tester, const Size(390, 844));
+
+void useSize(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
 }
@@ -28,19 +44,91 @@ Widget themed(Widget child, {List<Override> overrides = const []}) => ProviderSc
   ),
 );
 
-/// The whole demo host with no network: /me is faked.
-({Widget app, MockHostAppBridge bridge}) demoApp({bool enabled = true}) {
+/// Scripted chat backend: each send() plays the next script.
+class FakeChatRepository implements ChatRepository {
+  FakeChatRepository([List<List<ChatStreamEvent>>? scripts]) : scripts = [...?scripts];
+
+  final List<List<ChatStreamEvent>> scripts;
+  final sent = <(String, String)>[];
+  final confirmed = <ApiRequestSpec>[];
+  final feedback = <(int, String?)>[];
+  List<ChatMessage> historyMessages = [];
+  Object? sendError;
+
+  /// If set, the stream stays open after its events until this completes.
+  Completer<void>? holdOpen;
+  Object? confirmError;
+  bool cleared = false;
+
+  @override
+  Stream<ChatStreamEvent> send(String message, {String language = 'auto'}) async* {
+    sent.add((message, language));
+    if (sendError != null) throw sendError!;
+    final script = scripts.isEmpty ? <ChatStreamEvent>[] : scripts.removeAt(0);
+    for (final ev in script) {
+      await Future<void>.delayed(Duration.zero);
+      yield ev;
+    }
+    if (holdOpen != null) await holdOpen!.future;
+  }
+
+  @override
+  Future<List<ChatMessage>> history() async => historyMessages;
+
+  @override
+  Future<void> clearHistory() async => cleared = true;
+
+  @override
+  Future<void> setFeedback(int messageId, String? rating) async =>
+      feedback.add((messageId, rating));
+
+  @override
+  Future<void> confirm(ApiRequestSpec request) async {
+    if (confirmError != null) throw confirmError!;
+    confirmed.add(request);
+  }
+}
+
+/// A typical answer: tool status, two text tokens, then cards and chips.
+List<ChatStreamEvent> answer(
+  String text, {
+  List<String> cardTypes = const [],
+  int id = 7,
+  List<Suggestion> suggestions = const [Suggestion('This month vs last')],
+}) => [
+  const ToolStatusEvent('get_spending_summary'),
+  TokenEvent(text.substring(0, text.length ~/ 2)),
+  TokenEvent(text.substring(text.length ~/ 2)),
+  DoneEvent(
+    messageId: id,
+    cards: [for (final t in cardTypes) ChatCard.fromJson(fixtureCard(t))],
+    suggestions: suggestions,
+    language: 'en',
+  ),
+];
+
+/// The whole demo host with no network: /me and /chat are faked, no visitor sessions.
+({Widget app, MockHostAppBridge bridge, FakeChatRepository chat}) demoApp({
+  bool enabled = true,
+  FakeChatRepository? chat,
+}) {
   final key = GlobalKey<NavigatorState>();
   final bridge = MockHostAppBridge(key);
+  final repo = chat ?? FakeChatRepository();
   return (
     app: ProviderScope(
       overrides: [
         hostAppBridgeProvider.overrideWithValue(bridge),
         aiAssistantEnabledProvider.overrideWithValue(enabled),
+        assistantConfigProvider.overrideWithValue(
+          AssistantConfig(baseUrl: Uri.parse('http://test.invalid')),
+        ),
         meProvider.overrideWith((ref) async => demoMe),
+        chatRepositoryProvider.overrideWithValue(repo),
       ],
       child: DemoHostApp(navigatorKey: key),
     ),
     bridge: bridge,
+    chat: repo,
   );
 }

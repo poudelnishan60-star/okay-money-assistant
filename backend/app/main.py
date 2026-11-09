@@ -5,6 +5,7 @@ uvicorn app.main:app --reload
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -34,8 +35,23 @@ def _operation_id(route: APIRoute) -> str:
     return route.name
 
 
+def _configure_logging() -> None:
+    """Our warnings and the tool-call audit line go to the console (uvicorn only sets up its
+    own loggers). Prompts are never logged."""
+    app_log = logging.getLogger("app")
+    if not app_log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        for name, level in (("app", logging.WARNING), ("okay.audit", logging.INFO)):
+            logger = logging.getLogger(name)
+            logger.addHandler(handler)
+            logger.setLevel(level)
+            logger.propagate = False
+
+
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -> FastAPI:
     settings = settings or get_settings()
+    _configure_logging()
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
 

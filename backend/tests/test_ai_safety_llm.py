@@ -281,3 +281,57 @@ def test_parse_arguments() -> None:
     assert parse_arguments('{"a": 1}') == {"a": 1}
     with pytest.raises(ValueError):
         parse_arguments("[1, 2]")
+
+
+class _FailingStream:
+    """Yields some chunks, then raises like Groq does when it rejects a tool call mid-stream."""
+
+    def __init__(self, chunks: list[object], exc: Exception) -> None:
+        self.chunks, self.exc = chunks, exc
+
+    def __iter__(self):  # type: ignore[no-untyped-def]
+        yield from self.chunks
+        raise self.exc
+
+
+def _mid_stream_error() -> openai.APIError:
+    return openai.APIError(
+        "tool call validation failed: parameters for tool upsert_budget did not match schema",
+        request=REQ,
+        body=None,
+    )
+
+
+def test_tool_call_rejected_mid_stream_is_retried_on_the_next_model() -> None:
+    llm, comp, _ = _client(
+        [
+            _FailingStream(
+                [_chunk(tool_calls=[_tc(0, "c1", "upsert_budget", "{}")])], _mid_stream_error()
+            ),
+            [
+                _chunk(
+                    tool_calls=[
+                        _tc(
+                            0,
+                            "c2",
+                            "upsert_budget",
+                            '{"category": "Food & Dining", "limit_amount": 6000}',
+                        )
+                    ]
+                )
+            ],
+        ]
+    )
+    events = list(llm.stream_chat([], [{"type": "function"}]))
+    assert isinstance(events[-1], ToolCallsReady)
+    assert events[-1].calls[0].id == "c2"
+    assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+
+
+def test_mid_stream_failure_after_text_is_not_retried() -> None:
+    llm, comp, _ = _client([_FailingStream([_chunk("Sure, ")], _mid_stream_error())])
+    gen = llm.stream_chat([], [{"type": "function"}])
+    assert next(gen) == TextDelta("Sure, ")
+    with pytest.raises(LLMUnavailableError):
+        next(gen)
+    assert len(comp.requests) == 1  # the user already saw text: don't start over

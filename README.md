@@ -107,6 +107,10 @@ How it stays safe and correct:
   longer offered on Groq.) Qwen runs with `reasoning_effort=none`, and any
   `<think>` text is stripped.
 - Tool calls are logged (`tool_call_log`, masked arguments); raw prompts are not.
+- A code check backs the "never invents numbers or actions" rule: every "Rs." amount in an
+  answer must appear in a tool result (this turn or earlier in the chat), and "tap Confirm" /
+  "the button below" need that card. If not, the server sends a `reset` event (the app drops the
+  text) and the model gets one corrective round that must call a tool.
 - The last 20 messages are sent as context; at most 5 tool rounds per message.
 
 **Groq free tier:** 8,000 tokens/minute and 1,000 requests/day *per model*; one question
@@ -168,7 +172,38 @@ lib/features/ai_assistant/        THE FEATURE: drops into the Khalti app as one 
   host/                           HostAppBridge interface + mock ("would open X" sheets)
   widgets/                        shared components
   routes.dart                     /assistant/... routes behind the feature flag
-  screens/                        UI kit now; real screens in steps 5 and 7
+  chat/                           O-Kay chat: screen, controller, repository, cards
+  core/visitor_session.dart       public site: a private demo copy per browser
+  screens/                        UI kit; the other screens arrive in step 7
+```
+
+### The website (Flutter web)
+
+Start the backend, then build and serve the site:
+
+```bash
+cd app
+flutter build web --release
+python -m http.server 8080 --directory build/web --bind 127.0.0.1
+```
+
+Open http://127.0.0.1:8080. On a laptop the app sits in a centred phone-width column; every
+screen says "Unofficial prototype · not affiliated with Khalti · mock data only". Each browser
+gets its own copy of the demo data (`POST /sessions`, remembered in local storage, renewed if
+it expires); `--dart-define=OKAY_VISITOR_SESSIONS=false` makes everyone share the demo user.
+Fonts (DM Sans, Noto Sans Devanagari; SIL OFL, `app/assets/fonts/`) are bundled.
+
+### O-Kay chat
+
+Streamed answers, cards (spending, where-it-went bars, budgets, bills with Pay/Autopay, goals
+with Smart Deposit, transactions, confirm, open-in-Khalti), follow-up chips, thumbs, retry, clear
+chat. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
+flow via `HostAppBridge`. With the balance hidden, amounts in the answer text are masked too.
+
+Live end-to-end check against a running backend with a Groq key (not part of `flutter test`):
+
+```bash
+flutter test test_live/live_chat_test.dart
 ```
 
 The feature folder imports nothing from the rest of `lib/`; a test enforces it. The host
@@ -196,7 +231,7 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 3 | Backend REST API | done |
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | done |
 | 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | done |
-| 6 | App chat: fonts, website layout, O-Kay chat screen | |
+| 6 | App chat: fonts, website layout, O-Kay chat screen | done |
 | 7 | App screens: insights, transactions, budgets, goals, bills, settings | |
 | 8 | Notifications, polish, golden tests, 50-question eval | |
 | 9 | Deploy the website and backend | |

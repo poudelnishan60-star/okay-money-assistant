@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../features/ai_assistant/ai_assistant.dart';
 import 'home_screen.dart';
 import 'host_shell.dart';
+import 'web_frame.dart';
 
 GoRouter buildDemoRouter(GlobalKey<NavigatorState> rootNavigatorKey) => GoRouter(
   navigatorKey: rootNavigatorKey,
@@ -70,10 +71,11 @@ class _DemoHostAppState extends ConsumerState<DemoHostApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'O-Kay assistant (prototype)',
+      title: 'O-Kay · unofficial prototype',
       debugShowCheckedModeBanner: false,
       theme: buildOkayTheme(),
       routerConfig: _router,
+      builder: (context, child) => WebFrame(child: child ?? const SizedBox.shrink()),
     );
   }
 }

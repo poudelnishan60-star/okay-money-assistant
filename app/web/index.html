@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Unofficial prototype of an AI money assistant in a Khalti-style design. Not affiliated with Khalti. Mock data only.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,10 +29,23 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>khalti_ai_assistant</title>
+  <title>O-Kay · unofficial money-assistant prototype</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <style>
+    body { background: #0A0A0A; margin: 0; }
+    #okay-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #9E9E9E; font: 14px system-ui, sans-serif; }
+  </style>
 </head>
 <body>
+  <div id="okay-loading">Loading O-Kay… (unofficial prototype)</div>
+  <script>
+    // Remove the loading note once Flutter has drawn its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('okay-loading');
+      if (el) el.remove();
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

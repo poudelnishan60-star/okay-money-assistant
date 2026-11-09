@@ -36,11 +36,16 @@ class FakeLLM:
         self.complete_answers = list(complete or [])
         self.repeat_last = repeat_last
         self.calls: list[tuple[list[Message], list[dict[str, Any]] | None]] = []
+        self.tool_choices: list[str] = []
 
     def stream_chat(
-        self, messages: list[Message], tools: list[dict[str, Any]] | None
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None,
+        tool_choice: str = "auto",
     ) -> Iterator[LLMEvent]:
         self.calls.append((copy.deepcopy(messages), tools))
+        self.tool_choices.append(tool_choice)
         step = self.steps[0] if (self.repeat_last and len(self.steps) == 1) else self.steps.pop(0)
         if isinstance(step, Exception):
             raise step

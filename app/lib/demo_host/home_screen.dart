@@ -105,12 +105,14 @@ class HomeScreen extends ConsumerWidget {
                     (Icons.account_balance_outlined, 'Bank Transfer'),
                     (Icons.receipt_long_outlined, 'Pay Bills'),
                   ])
-                    _QuickAction(
-                      icon: icon,
-                      label: label,
-                      onTap: () => label == 'Send Money'
-                          ? bridge.openSendMoney(const SendMoneyPrefill())
-                          : showHostOnlySnack(context, label),
+                    Expanded(
+                      child: _QuickAction(
+                        icon: icon,
+                        label: label,
+                        onTap: () => label == 'Send Money'
+                            ? bridge.openSendMoney(const SendMoneyPrefill())
+                            : showHostOnlySnack(context, label),
+                      ),
                     ),
                 ],
               ),
@@ -186,7 +188,7 @@ class _QuickAction extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(OkayRadii.iconTile),
         child: SizedBox(
-          width: 76,
+          width: double.infinity,
           child: Column(
             children: [
               Container(

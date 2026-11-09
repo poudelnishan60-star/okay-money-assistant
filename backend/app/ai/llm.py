@@ -60,9 +60,13 @@ class LLMNotConfiguredError(LLMUnavailableError):
 
 class LLMClient(Protocol):
     def stream_chat(
-        self, messages: list[Message], tools: list[dict[str, Any]] | None
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None,
+        tool_choice: str = "auto",
     ) -> Iterator[LLMEvent]:
-        """Stream text deltas; if the model wants tools, finish with one ToolCallsReady."""
+        """Stream text deltas; if the model wants tools, finish with one ToolCallsReady.
+        tool_choice "required" forces at least one tool call."""
         ...
 
     def complete(self, messages: list[Message], *, json_object: bool = False) -> str: ...
@@ -161,15 +165,20 @@ class GroqLLMClient:
         chain = [self.settings.llm_model, *self.settings.fallback_models][:3]
         return chain + [chain[-1]] * (3 - len(chain))
 
-    def _create(self, **kwargs: Any) -> Any:
+    def _create(self, start_at: int = 0, **kwargs: Any) -> tuple[Any, int]:
+        """Call the API, moving down the model chain on retryable errors. Returns the response
+        and the try number used (so a stream that fails later can continue the chain)."""
         last_error: Exception | None = None
         rate_limited = False
         models = self._models()
-        for attempt, model in enumerate(models):
+        for attempt in range(start_at, len(models)):
+            model = models[attempt]
             if attempt > 0:
                 self._sleep(self.BACKOFF_SECONDS[attempt - 1])
             try:
-                return self._client.chat.completions.create(**self._params(model), **kwargs)
+                return self._client.chat.completions.create(
+                    **self._params(model), **kwargs
+                ), attempt
             except openai.RateLimitError as exc:
                 log.warning("LLM rate limited (try %d, model %s)", attempt + 1, model)
                 last_error, rate_limited = exc, True
@@ -183,14 +192,19 @@ class GroqLLMClient:
                 last_error = exc
             except openai.BadRequestError as exc:
                 if _error_code(exc) != "tool_use_failed":
-                    log.error("LLM request rejected: 400 %s", _error_code(exc))
+                    log.error("LLM request rejected: 400 %s %s", _error_code(exc), _error_text(exc))
                     raise LLMUnavailableError("400") from exc
                 # The model garbled a tool call (e.g. a misspelled tool name). Groq rejects the
                 # whole reply; another try, on the next model, usually gets it right.
                 log.warning("LLM tool call garbled (try %d, model %s)", attempt + 1, model)
                 last_error = exc
             except openai.APIStatusError as exc:
-                log.error("LLM request rejected: %s %s", exc.status_code, type(exc).__name__)
+                log.error(
+                    "LLM request rejected: %s %s %s",
+                    exc.status_code,
+                    _error_code(exc),
+                    _error_text(exc),
+                )
                 raise LLMUnavailableError(str(exc.status_code)) from exc
         if rate_limited:  # at least one model was only busy: "try again in a minute" is true
             raise LLMBusyError("rate limited") from last_error
@@ -198,36 +212,52 @@ class GroqLLMClient:
 
     # -- public API ---------------------------------------------------------------------
     def stream_chat(
-        self, messages: list[Message], tools: list[dict[str, Any]] | None
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None,
+        tool_choice: str = "auto",
     ) -> Iterator[LLMEvent]:
         kwargs: dict[str, Any] = {"messages": messages, "stream": True}
         if tools:
             kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
+            kwargs["tool_choice"] = tool_choice
             kwargs["parallel_tool_calls"] = True
-        stream = self._create(**kwargs)
-        think = ThinkFilter()
-        pending: dict[int, dict[str, str]] = {}
-        try:
-            for chunk in stream:
-                if not chunk.choices:
+        attempt = -1
+        while True:
+            stream, attempt = self._create(start_at=attempt + 1, **kwargs)
+            think = ThinkFilter()
+            pending: dict[int, dict[str, str]] = {}
+            sent_text = False
+            try:
+                for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    if getattr(delta, "content", None):
+                        text = think.feed(delta.content)
+                        if text:
+                            sent_text = True
+                            yield TextDelta(text)
+                    for tc in getattr(delta, "tool_calls", None) or []:
+                        slot = pending.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                        if tc.id:
+                            slot["id"] = tc.id
+                        if tc.function is not None:
+                            if tc.function.name:
+                                slot["name"] += tc.function.name
+                            if tc.function.arguments:
+                                slot["arguments"] += tc.function.arguments
+            except openai.APIError as exc:
+                # Groq checks tool calls against the schema and may reject the reply mid-stream
+                # (e.g. a required argument missing). If nothing reached the user yet, try the
+                # next model in the chain, like a garbled tool call at the start.
+                bad_tool_call = "tool call validation failed" in str(exc)
+                if bad_tool_call and not sent_text and attempt + 1 < len(self._models()):
+                    log.warning("LLM tool call rejected mid-stream (try %d); retrying", attempt + 1)
                     continue
-                delta = chunk.choices[0].delta
-                if getattr(delta, "content", None):
-                    text = think.feed(delta.content)
-                    if text:
-                        yield TextDelta(text)
-                for tc in getattr(delta, "tool_calls", None) or []:
-                    slot = pending.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
-                    if tc.id:
-                        slot["id"] = tc.id
-                    if tc.function is not None:
-                        if tc.function.name:
-                            slot["name"] += tc.function.name
-                        if tc.function.arguments:
-                            slot["arguments"] += tc.function.arguments
-        except openai.APIError as exc:
-            raise LLMUnavailableError("stream interrupted") from exc
+                log.error("LLM stream interrupted: %s %s", type(exc).__name__, str(exc)[:200])
+                raise LLMUnavailableError("stream interrupted") from exc
+            break
         rest = think.flush()
         if rest:
             yield TextDelta(rest)
@@ -243,7 +273,7 @@ class GroqLLMClient:
         kwargs: dict[str, Any] = {"messages": messages}
         if json_object:
             kwargs["response_format"] = {"type": "json_object"}
-        response = self._create(**kwargs)
+        response, _ = self._create(**kwargs)
         text = response.choices[0].message.content or ""
         think = ThinkFilter()
         return (think.feed(text) + think.flush()).strip()
@@ -255,11 +285,22 @@ def _error_code(exc: openai.APIStatusError) -> str | None:
     return err.get("code") if isinstance(err, dict) else None
 
 
+def _error_text(exc: openai.APIStatusError) -> str:
+    """The provider's short error message (never the prompt or the failed generation)."""
+    body = exc.body if isinstance(exc.body, dict) else {}
+    err = body.get("error", body)
+    msg = err.get("message") if isinstance(err, dict) else None
+    return str(msg or "")[:200]
+
+
 class UnconfiguredLLMClient:
     """Used when GROQ_API_KEY is missing: every call says so (the chat shows a clear note)."""
 
     def stream_chat(
-        self, messages: list[Message], tools: list[dict[str, Any]] | None
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None,
+        tool_choice: str = "auto",
     ) -> Iterator[LLMEvent]:
         raise LLMNotConfiguredError("GROQ_API_KEY is not set")
 

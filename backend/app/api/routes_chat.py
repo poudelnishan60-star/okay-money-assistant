@@ -2,6 +2,7 @@
 
     event: status   data: {"tool": "get_spending_summary"}            (0..n, optional)
     event: token    data: {"text": "Yo mahina khana ma "}             (1..n)
+    event: reset    data: {}         (rare: drop the text so far; a corrected answer follows)
     event: done     data: {"message_id": 7, "cards": [...], "suggestions": [...],
                            "language": "rom", "error": null}           (always last)
 
@@ -63,7 +64,7 @@ def _sse(event: str, data: dict[str, object]) -> str:
     response_class=StreamingResponse,
     responses={
         200: {
-            "description": "Server-sent events: status*, token+, done.",
+            "description": "Server-sent events: status*, token+, (reset, token+)?, done.",
             "content": {"text/event-stream": {}},
         },
         429: {"description": "Too many messages; see Retry-After."},

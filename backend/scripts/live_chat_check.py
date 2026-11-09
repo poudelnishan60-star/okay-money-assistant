@@ -55,11 +55,14 @@ class RecordingLLM:
         self.calls = 0
 
     def stream_chat(
-        self, messages: list[Message], tools: list[dict[str, Any]] | None
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None,
+        tool_choice: str = "auto",
     ) -> Iterator[LLMEvent]:
         self.calls += 1
         self.tool_text = [m["content"] for m in messages if m.get("role") == "tool"]
-        yield from self.inner.stream_chat(messages, tools)
+        yield from self.inner.stream_chat(messages, tools, tool_choice)
 
     def complete(self, messages: list[Message], *, json_object: bool = False) -> str:
         self.calls += 1
