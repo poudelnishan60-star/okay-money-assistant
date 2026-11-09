@@ -19,7 +19,25 @@ py -3.13 -m venv .venv            # macOS/Linux: python3 -m venv .venv
 .venv/Scripts/activate            # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env              # then put your GROQ_API_KEY in .env
+python -m app.seed                # (re)create khalti_ai.db with the demo data
 uvicorn app.main:app --reload
+```
+
+The seed is reproducible: a fixed random seed plus the anchor date decide every row. By default
+the 90 days of history end yesterday (Nepal time); `python -m app.seed --anchor 2026-11-09`
+pins it (the tests use that date). Merchants are invented and amounts are labelled estimates of
+typical Kathmandu prices; see the docstring in `backend/app/seed.py`.
+
+Backend layout:
+
+```
+app/domain.py        types: transaction, category, direction (money is integer paisa)
+app/models.py        SQLite schema (SQLAlchemy)
+app/sources/         TransactionSource / BillSource / DepositSource + Mock* implementations
+app/services/        categorizer, recurring detector, budgets, goals, forecast
+app/periods.py       AD and BS months in Nepal time
+app/money.py         "Rs. 1,25,000.50" formatting
+app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
 ```
 
 - Health check: http://127.0.0.1:8000/health
@@ -54,7 +72,7 @@ The Android emulator reaches the backend at `http://10.0.2.2:8000`; desktop and 
 | # | Step | Status |
 |---|------|--------|
 | 1 | Repo setup: folders, README, .env.example, .gitignore, lint config | done |
-| 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | |
+| 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | done |
 | 3 | Backend REST API | |
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | |
 | 5 | App screens | |
