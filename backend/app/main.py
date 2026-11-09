@@ -13,16 +13,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 
+from app.ai.llm import LLMClient, build_llm_client
 from app.api import (
     routes_bills,
     routes_budgets_goals,
+    routes_chat,
     routes_insights,
     routes_meta,
+    routes_session,
     routes_transactions,
 )
 from app.config import Settings, get_settings
 from app.db import init_db, make_engine, make_session_factory
 from app.models import User
+from app.ratelimit import RateLimiter
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -30,7 +34,7 @@ def _operation_id(route: APIRoute) -> str:
     return route.name
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -> FastAPI:
     settings = settings or get_settings()
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
@@ -61,6 +65,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = session_factory
+    app.state.llm = llm or build_llm_client(settings)
+    app.state.rate_limiter = RateLimiter()
 
     app.add_middleware(
         CORSMiddleware,
@@ -70,6 +76,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(routes_meta.router)
+    app.include_router(routes_session.router)
+    app.include_router(routes_chat.router)
     app.include_router(routes_transactions.router)
     app.include_router(routes_insights.router)
     app.include_router(routes_budgets_goals.budgets)

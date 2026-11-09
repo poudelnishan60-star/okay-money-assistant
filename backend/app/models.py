@@ -9,6 +9,8 @@ Tables
 - goals                    savings goals
 - recurring_feedback       user confirmed / dismissed a detected recurring payment
 - faq_articles             mock help articles for search_help_articles
+- chat_messages            chat history per user (masked)
+- tool_call_log            audit log of the assistant's tool calls (no raw prompts)
 """
 
 from __future__ import annotations
@@ -146,3 +148,35 @@ class FaqArticle(Base):
     question: Mapped[str] = mapped_column(String(300))
     answer: Mapped[str] = mapped_column(Text)
     tags: Mapped[str] = mapped_column(String(300), default="")  # space-separated search terms
+
+
+class ChatMessage(Base):
+    """Chat history. Stored AFTER masking: phone/account/reference numbers and anything that
+    looked like an MPIN/OTP/password never reach this table."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(10))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
+    cards_json: Mapped[str] = mapped_column(Text, default="[]")
+    suggestions_json: Mapped[str] = mapped_column(Text, default="[]")
+    language: Mapped[str | None] = mapped_column(String(10))
+    feedback: Mapped[str | None] = mapped_column(String(10))  # "up" | "down"
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt, index=True)
+
+
+class ToolCallLog(Base):
+    """Audit log of tool calls (name, masked arguments, outcome). Raw prompts are NOT logged."""
+
+    __tablename__ = "tool_call_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    tool: Mapped[str] = mapped_column(String(60))
+    arguments_json: Mapped[str] = mapped_column(Text)
+    ok: Mapped[bool] = mapped_column(Boolean)
+    error: Mapped[str | None] = mapped_column(String(300))
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt)

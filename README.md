@@ -36,6 +36,7 @@ app/models.py        SQLite schema (SQLAlchemy)
 app/sources/         TransactionSource / BillSource / DepositSource + Mock* implementations
 app/api/             FastAPI routes, request/response schemas, dependencies
 app/services/        categorizer, recurring detector, budgets, goals, forecast, insights, bills
+app/ai/              LLM client, tools, cards, prompt, safety (masking), chat loop, classifier
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
 app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
@@ -70,6 +71,48 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET | `/smart-deposits` | existing Smart Deposit plans (read-only) |
 | GET | `/bills` | detected bills & subscriptions, soonest due first |
 | PUT | `/bills/{id}/status` | `confirmed` / `dismissed` / `detected` (undo) |
+| POST | `/sessions` | public site: a private copy of the demo data for this visitor |
+| POST | `/chat` | ask O-Kay; streams server-sent events (see below) |
+| GET / DELETE | `/chat/history` | the conversation / clear it |
+| PUT | `/chat/messages/{id}/feedback` | thumbs `up` / `down` |
+
+### O-Kay chat (AI)
+
+Copy `backend/.env.example` to `backend/.env` (exactly that name) and put your Groq key in it
+(`GROQ_API_KEY=...`, from https://console.groq.com/keys). Without a key the chat still works end
+to end but answers "O-Kay isn't connected yet".
+
+`POST /chat {"message": "yo mahina khana ma kati kharcha bhayo?", "language": "auto"}` streams:
+
+```
+event: status  data: {"tool": "get_spending_summary"}
+event: token   data: {"text": "Yo mahina khana ma Rs. 1,270 kharcha bhayo."}
+event: done    data: {"message_id": 7, "cards": [...], "suggestions": [...], "language": "rom", "error": null}
+```
+
+How it stays safe and correct:
+
+- The model never does arithmetic. Its tools (`app/ai/tools.py`) compute every number with the
+  same services as the REST API and hand over pre-formatted amounts; cards are built in code.
+- Budgets and goals are only *proposed* (`confirm_action` card); the app saves them by calling
+  `POST /budgets` / `POST /goals` after the user taps Confirm.
+- It never moves money: payments become an `open_app_flow` card that opens Khalti's own
+  screen; the user finishes with MPIN.
+- Before anything goes to Groq: phone, account and reference numbers are masked, an
+  MPIN/OTP/password typed into the chat is removed (and the user is warned), merchant names
+  and notes are neutralized and wrapped in `<tool_result>` tags as data.
+- HTTP 429 from Groq: up to 3 tries with backoff (the last on the fallback model), then
+  "O-Kay is busy, please try again in a minute". Qwen runs with `reasoning_effort=none`, and any
+  `<think>` text is stripped.
+- Tool calls are logged (`tool_call_log`, masked arguments); raw prompts are not.
+- The last 20 messages are sent as context; at most 5 tool rounds per message.
+
+Unknown merchants (rules couldn't place them) are categorized by the LLM once per merchant and
+cached: `python -m app.ai.classifier`.
+
+For the public website set `PUBLIC_MODE=true`: each visitor calls `POST /sessions` and sends the
+returned id as `X-User-Id`; copies expire after `SESSION_TTL_DAYS`. `/chat` is rate-limited per
+visitor and overall (see `.env.example`).
 
 Lint and tests:
 
@@ -144,7 +187,7 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | done |
 | 3 | Backend REST API | done |
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | done |
-| 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | |
+| 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | done |
 | 6 | App chat: fonts, website layout, O-Kay chat screen | |
 | 7 | App screens: insights, transactions, budgets, goals, bills, settings | |
 | 8 | Notifications, polish, golden tests, 50-question eval | |

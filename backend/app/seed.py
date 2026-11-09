@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import random
 import string
 from dataclasses import dataclass
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -28,11 +29,13 @@ from app.db import Base, init_db, make_engine, make_session_factory
 from app.domain import Direction, TxnType
 from app.models import (
     Budget,
+    ChatMessage,
     FaqArticle,
     Goal,
     MerchantCategoryCache,
     MerchantOverride,
     RecurringFeedback,
+    ToolCallLog,
     TransactionRow,
     User,
 )
@@ -433,7 +436,7 @@ class _Generator:
         )
 
     # -- balances, bank top-ups, ids ---------------------------------------------------
-    def finalize(self) -> list[tuple[str, str, Draft, int]]:
+    def finalize(self, id_prefix: str = "txn") -> list[tuple[str, str, Draft, int]]:
         """Sort, insert bank loads so the wallet never goes below the buffer, then assign
         ids, references and running balances. Returns (id, reference, draft, balance_after)."""
         ordered = sorted(self.drafts, key=lambda d: d.occurred_at)
@@ -472,22 +475,31 @@ class _Generator:
         for i, d in enumerate(out, start=1):
             balance += -d.amount_paisa if d.direction is Direction.DEBIT else d.amount_paisa
             ref = "".join(self.rng.choice(ref_chars) for _ in range(11))
-            result.append((f"txn_{i:04d}", ref, d, balance))
+            result.append((f"{id_prefix}_{i:04d}", ref, d, balance))
         return result
 
 
 def generate(
-    anchor: dt.date, seed: int = SEED
+    anchor: dt.date, seed: int = SEED, id_prefix: str = "txn"
 ) -> tuple[_Generator, list[tuple[str, str, Draft, int]]]:
     gen = _Generator(anchor, seed)
     gen.recurring()
     gen.everyday()
     gen.trip()
-    return gen, gen.finalize()
+    return gen, gen.finalize(id_prefix)
+
+
+def _id_prefix(user_id: str) -> str:
+    """Transaction ids are global primary keys, so each visitor's copy gets its own prefix."""
+    if user_id == DEMO_USER_ID:
+        return "txn"
+    return "txn_" + hashlib.sha1(user_id.encode(), usedforsecurity=False).hexdigest()[:10]
 
 
 def _clear(session: Session) -> None:
     for model in (
+        ChatMessage,
+        ToolCallLog,
         TransactionRow,
         MerchantOverride,
         MerchantCategoryCache,
@@ -500,29 +512,38 @@ def _clear(session: Session) -> None:
         session.execute(delete(model))
 
 
-def seed_database(
-    session: Session, anchor: dt.date | None = None, seed: int = SEED
-) -> dict[str, object]:
-    """Replace all data with the demo dataset. Returns a short summary."""
-    anchor = anchor or today_npt()
-    _clear(session)
-    gen, rows = generate(anchor, seed)
+def ensure_faq(session: Session) -> None:
+    """Help articles are shared by everyone; add them once."""
+    if session.scalar(select(FaqArticle.id).limit(1)) is None:
+        session.add_all(FaqArticle(question=q, answer=a, tags=t) for q, a, t in FAQ_ARTICLES)
 
-    session.add(
-        User(id=DEMO_USER_ID, name=DEMO_USER_NAME, phone=gen.user_phone, balance_hidden=False)
-    )
+
+def seed_user(
+    session: Session,
+    user_id: str = DEMO_USER_ID,
+    anchor: dt.date | None = None,
+    seed: int = SEED,
+    *,
+    commit: bool = True,
+) -> dict[str, object]:
+    """Give one user their own copy of the demo data (90 days of history, budgets, goals).
+    Public-site visitors each get one of these. Returns a short summary."""
+    anchor = anchor or today_npt()
+    gen, rows = generate(anchor, seed, _id_prefix(user_id))
+
+    session.add(User(id=user_id, name=DEMO_USER_NAME, phone=gen.user_phone, balance_hidden=False))
     session.flush()
 
-    categorizer = Categorizer(session)  # rules only; the LLM fallback arrives in step 6
+    categorizer = Categorizer(session)  # rules + any cached LLM answers (no LLM calls here)
     deposits_paisa = 0
     for txn_id, ref, d, balance_after in rows:
-        cat = categorizer.categorize(DEMO_USER_ID, d.type, d.service, d.merchant)
+        cat = categorizer.categorize(user_id, d.type, d.service, d.merchant)
         if d.type is TxnType.DEPOSIT:
             deposits_paisa += d.amount_paisa
         session.add(
             TransactionRow(
                 id=txn_id,
-                user_id=DEMO_USER_ID,
+                user_id=user_id,
                 occurred_at=d.occurred_at,
                 type=d.type.value,
                 direction=d.direction.value,
@@ -543,12 +564,10 @@ def seed_database(
     # Food has no budget on purpose: the "Set a food budget" chip should have work to do.
     session.add_all(
         [
-            Budget(user_id=DEMO_USER_ID, category=None, limit_paisa=30_000_00, calendar="AD"),
-            Budget(user_id=DEMO_USER_ID, category="Groceries", limit_paisa=9_000_00, calendar="AD"),
-            Budget(
-                user_id=DEMO_USER_ID, category="Entertainment", limit_paisa=1_500_00, calendar="AD"
-            ),
-            Budget(user_id=DEMO_USER_ID, category="Shopping", limit_paisa=4_000_00, calendar="BS"),
+            Budget(user_id=user_id, category=None, limit_paisa=30_000_00, calendar="AD"),
+            Budget(user_id=user_id, category="Groceries", limit_paisa=9_000_00, calendar="AD"),
+            Budget(user_id=user_id, category="Entertainment", limit_paisa=1_500_00, calendar="AD"),
+            Budget(user_id=user_id, category="Shopping", limit_paisa=4_000_00, calendar="BS"),
         ]
     )
     laptop_deadline = dt.date(
@@ -557,14 +576,14 @@ def seed_database(
     session.add_all(
         [
             Goal(
-                user_id=DEMO_USER_ID,
+                user_id=user_id,
                 name="New laptop",
                 target_paisa=1_20_000_00,
                 saved_paisa=12_000_00 + deposits_paisa,
                 deadline=laptop_deadline,
             ),
             Goal(
-                user_id=DEMO_USER_ID,
+                user_id=user_id,
                 name="Emergency fund",
                 target_paisa=50_000_00,
                 saved_paisa=8_500_00,
@@ -572,11 +591,10 @@ def seed_database(
             ),
         ]
     )
-    session.add_all(FaqArticle(question=q, answer=a, tags=t) for q, a, t in FAQ_ARTICLES)
-    session.commit()
-
+    if commit:
+        session.commit()
     return {
-        "user": DEMO_USER_ID,
+        "user": user_id,
         "transactions": len(rows),
         "first_day": gen.first.isoformat(),
         "last_day": gen.last.isoformat(),
@@ -584,6 +602,15 @@ def seed_database(
         "closing_balance_paisa": rows[-1][3] if rows else STARTING_BALANCE_PAISA,
         "faq_articles": len(FAQ_ARTICLES),
     }
+
+
+def seed_database(
+    session: Session, anchor: dt.date | None = None, seed: int = SEED
+) -> dict[str, object]:
+    """Replace ALL data with the demo dataset (one demo user + FAQ)."""
+    _clear(session)
+    ensure_faq(session)
+    return seed_user(session, DEMO_USER_ID, anchor, seed)
 
 
 def main() -> None:

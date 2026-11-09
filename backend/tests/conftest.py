@@ -66,17 +66,38 @@ def make_txn(
 
 
 @pytest.fixture
-def client():
-    """API client over a fresh in-memory DB seeded at ANCHOR, with 'today' pinned to ANCHOR."""
+def make_client():
+    """Factory: API client over a fresh in-memory DB seeded at ANCHOR, 'today' pinned to ANCHOR,
+    with optional settings overrides and a fake LLM."""
+    from contextlib import ExitStack
+
     from fastapi.testclient import TestClient
 
     from app.api.deps import get_today
     from app.config import Settings
     from app.main import create_app
 
-    app = create_app(Settings(_env_file=None, database_url="sqlite://", auto_seed=False))
-    app.dependency_overrides[get_today] = lambda: ANCHOR
-    with TestClient(app) as c:
+    stack = ExitStack()
+
+    def _make(llm=None, **overrides):
+        settings = Settings(
+            _env_file=None,
+            database_url="sqlite://",
+            auto_seed=False,
+            groq_api_key=None,
+            **overrides,
+        )
+        app = create_app(settings, llm=llm)
+        app.dependency_overrides[get_today] = lambda: ANCHOR
+        c = stack.enter_context(TestClient(app))
         with app.state.session_factory() as s:
             seed_database(s, ANCHOR)
-        yield c
+        return c
+
+    yield _make
+    stack.close()
+
+
+@pytest.fixture
+def client(make_client):
+    return make_client()

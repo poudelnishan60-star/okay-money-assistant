@@ -51,6 +51,9 @@ def list_transactions(
     direction: Direction | None = None,
     min_paisa: Annotated[int | None, Query(ge=0)] = None,
     max_paisa: Annotated[int | None, Query(ge=0)] = None,
+    spending_only: Annotated[
+        bool, Query(description="Only spending (no transfers, savings or income).")
+    ] = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> TransactionPage:
@@ -68,6 +71,8 @@ def list_transactions(
             max_paisa=max_paisa,
         ),
     )
+    if spending_only:
+        txns = [t for t in txns if t.is_spending]
     txns.reverse()  # newest first
     return TransactionPage(
         items=[TransactionOut.of(t) for t in txns[offset : offset + limit]],

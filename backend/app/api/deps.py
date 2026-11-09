@@ -27,12 +27,18 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 
 def get_user_id(
+    request: Request,
     session: SessionDep,
     x_user_id: Annotated[
         str | None,
-        Header(description="Prototype only: which user. Real auth replaces this header."),
+        Header(
+            description="Prototype only: the visitor's session id from POST /sessions. "
+            "Real Khalti auth replaces this header."
+        ),
     ] = None,
 ) -> str:
+    if not x_user_id and request.app.state.settings.public_mode:
+        raise HTTPException(status_code=401, detail="Start a session first (POST /sessions).")
     user_id = x_user_id or DEMO_USER_ID
     if session.get(User, user_id) is None:
         raise HTTPException(status_code=404, detail="unknown user")

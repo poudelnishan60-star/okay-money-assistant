@@ -1,6 +1,9 @@
-# Secrets — never commit
+# Secrets — never commit (also catches renamed copies like backend.env.txt)
 .env
 *.env
+.env.*
+*.env.txt
+*.env.*.txt
 !.env.example
 
 # Python
