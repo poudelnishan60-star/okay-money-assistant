@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Demo host shell. In step 4 this mounts the AI assistant feature
-/// (lib/features/ai_assistant/) behind a feature flag.
+import 'demo_host/demo_host_app.dart';
+
+/// Runs the demo host with the O-Kay assistant mounted, as the Khalti app will.
+///   flutter run -d chrome
+///   flutter run --dart-define=OKAY_API_BASE_URL=http://192.168.1.10:8000   (phone on Wi-Fi)
+///   flutter run --dart-define=OKAY_AI_ENABLED=false                         (flag off)
 void main() {
-  runApp(const DemoHostApp());
-}
-
-class DemoHostApp extends StatelessWidget {
-  const DemoHostApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'O-Kay Assistant (prototype)',
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(body: Center(child: Text('O-Kay assistant prototype'))),
-    );
-  }
+  runApp(buildDemoApp());
 }

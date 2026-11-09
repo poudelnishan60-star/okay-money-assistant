@@ -12,8 +12,8 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^3.5.0
   go_router: ^18.1.3
-  nepali_utils: ^3.0.8
-
+  http: ^1.6.0
+  intl: ^0.20.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -314,3 +314,14 @@ def test_bills_list_and_status(client: TestClient) -> None:
 
     assert client.put("/bills/nope/status", json={"status": "confirmed"}).status_code == 404
     assert client.put(f"/bills/{bid}/status", json={"status": "paid"}).status_code == 422
+
+
+def test_cors_allows_local_dev_origins_only(client: TestClient) -> None:
+    ok = client.options(
+        "/me", headers={"Origin": "http://localhost:51234", "Access-Control-Request-Method": "GET"}
+    )
+    assert ok.headers.get("access-control-allow-origin") == "http://localhost:51234"
+    bad = client.options(
+        "/me", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"}
+    )
+    assert "access-control-allow-origin" not in bad.headers

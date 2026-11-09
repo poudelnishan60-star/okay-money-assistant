@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     llm_model: str = "qwen/qwen3.8-27b"
     llm_fallback_model: str = "llama-3.3-70b-versatile"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'khalti_ai.db').as_posix()}"
-    cors_origins: str = "http://localhost,http://127.0.0.1"
+    cors_origins: str = ""  # extra exact origins, comma-separated
+    # Dev default: any localhost / 127.0.0.1 port (Flutter web picks a random port).
+    cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     # Prototype convenience: seed the demo data on startup if the database has no users.
     auto_seed: bool = True
 

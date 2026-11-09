@@ -82,18 +82,59 @@ pytest
 
 ## App
 
-Requires the Flutter SDK (stable channel, Dart 3).
+Requires the Flutter SDK (stable channel, Dart 3; developed on Flutter 3.47.9). Start the
+backend first, then:
 
 ```bash
 cd app
 flutter pub get
 flutter analyze
 flutter test
-flutter run                       # pick a device / emulator / chrome
+flutter run -d chrome             # or an Android emulator / phone
 ```
 
-The Android emulator reaches the backend at `http://10.0.2.2:8000`; desktop and web use
-`http://127.0.0.1:8000`. The base URL is set in the app's config (added in step 4).
+The app finds the backend at `http://10.0.2.2:8000` on the Android emulator and
+`http://127.0.0.1:8000` elsewhere. Override at build time:
+
+```bash
+flutter run --dart-define=OKAY_API_BASE_URL=http://192.168.1.10:8000   # phone on Wi-Fi
+flutter run --dart-define=OKAY_AI_ENABLED=false                         # feature flag off
+```
+
+App layout:
+
+```
+lib/main.dart                     runs the demo host
+lib/demo_host/                    stand-in for the Khalti app (Home, bottom nav, Menu)
+lib/features/ai_assistant/        THE FEATURE: drops into the Khalti app as one folder
+  ai_assistant.dart               public API for the host
+  config.dart                     base URL, feature flag
+  theme/okay_theme.dart           every design token (colours, type, radii, spacing)
+  core/api_client.dart            the one HTTP client (JSON, errors, SSE stream for chat)
+  core/money.dart, dates.dart     "Rs. 1,25,000.50", AD/BS dates in Nepal time
+  core/bs_date.dart (+ _data)     BS calendar, generated from the backend's table
+  core/privacy.dart               hide-balance masking
+  host/                           HostAppBridge interface + mock ("would open X" sheets)
+  widgets/                        shared components
+  routes.dart                     /assistant/... routes behind the feature flag
+  screens/                        UI kit now; real screens in steps 5 and 7
+```
+
+The feature folder imports nothing from the rest of `lib/`; a test enforces it. The host
+overrides `hostAppBridgeProvider`, mounts `aiAssistantRoutes()`, and keeps
+`amountPrivacyProvider` in sync with its hide-balance toggle. Menu → "Assistant UI kit"
+shows every token and component.
+
+**BS dates.** The app's BS calendar table is generated from the backend's `nepali-datetime`,
+so both sides always agree:
+
+```bash
+cd backend && python scripts/export_bs_calendar.py
+```
+
+`nepali_utils` 3.0.8 was not used: it converts AD to BS one day late (9 Nov 2026 gave
+Kartik 24; the published calendar says Kartik 23) and its 2084 table differs from the
+published calendar (Jestha 2084 has 31 days, not 32).
 
 ## Build steps
 
@@ -102,7 +143,7 @@ The Android emulator reaches the backend at `http://10.0.2.2:8000`; desktop and 
 | 1 | Repo setup: folders, README, .env.example, .gitignore, lint config | done |
 | 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | done |
 | 3 | Backend REST API | done |
-| 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | |
+| 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | done |
 | 5 | App screens | |
 | 6 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling | |
 | 7 | App chat | |
