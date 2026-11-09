@@ -1,0 +1,23 @@
+name: khalti_ai_assistant
+description: "O-Kay AI financial assistant prototype (Khalti). Mock data only."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  fl_chart: ^1.3.0
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.5.0
+  go_router: ^18.1.3
+  nepali_utils: ^3.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
