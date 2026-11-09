@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy.orm import Session
-
 from app.domain import Category, Direction, TxnType
-from app.models import RecurringFeedback
 from app.services.recurring import Cadence, _month_day, detect_recurring
 from app.sources.mock import MockBillSource, MockDepositSource, MockTransactionSource
 from tests.conftest import ANCHOR, USER, make_txn
@@ -120,22 +117,16 @@ def test_seeded_recurring_series(source: MockTransactionSource) -> None:
     assert nea.next_due == dt.date(2026, 11, 14)
 
 
-def test_bill_source_lists_upcoming_bills_and_respects_dismissals(
-    seeded: Session, source: MockTransactionSource
-) -> None:
-    bills_src = MockBillSource(seeded, source)
-    bills = bills_src.upcoming_bills(USER, ANCHOR, 30)
+def test_bill_source_lists_upcoming_bills(source: MockTransactionSource) -> None:
+    bills = MockBillSource(source).upcoming_bills(USER, ANCHOR, 30)
     names = [b.merchant for b in bills]
     assert "Smart Deposit - New laptop" not in names  # savings, not a bill
     assert "Sagarmatha Remit" not in names  # income
     assert names[0] == "Ncell"  # soonest first (due 10 Nov)
     assert [b.due_date for b in bills] == sorted(b.due_date for b in bills)
     assert all(b.category is not Category.SAVINGS for b in bills)
-
-    ncell = bills[0]
-    seeded.add(RecurringFeedback(user_id=USER, series_key=ncell.series_key, status="dismissed"))
-    seeded.flush()
-    assert "Ncell" not in [b.merchant for b in bills_src.upcoming_bills(USER, ANCHOR, 30)]
+    nea = next(b for b in bills if b.service == "electricity")
+    assert (nea.cadence, nea.last_paid) == ("monthly", dt.date(2026, 10, 10))
 
 
 def test_deposit_source(source: MockTransactionSource) -> None:

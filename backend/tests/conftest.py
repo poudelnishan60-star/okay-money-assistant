@@ -63,3 +63,20 @@ def make_txn(
         service=service,
         category=category,
     )
+
+
+@pytest.fixture
+def client():
+    """API client over a fresh in-memory DB seeded at ANCHOR, with 'today' pinned to ANCHOR."""
+    from fastapi.testclient import TestClient
+
+    from app.api.deps import get_today
+    from app.config import Settings
+    from app.main import create_app
+
+    app = create_app(Settings(_env_file=None, database_url="sqlite://", auto_seed=False))
+    app.dependency_overrides[get_today] = lambda: ANCHOR
+    with TestClient(app) as c:
+        with app.state.session_factory() as s:
+            seed_database(s, ANCHOR)
+        yield c

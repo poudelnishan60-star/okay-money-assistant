@@ -73,6 +73,36 @@ def last_n_days(today: dt.date, n: int) -> Period:
     return Period(today - dt.timedelta(days=n - 1), today, f"Last {n} days")
 
 
+def month_period_from_key(key: str, calendar: CalendarSystem = CalendarSystem.AD) -> Period:
+    """'2026-10' (AD) or '2083-07' (BS) -> that month. ValueError on a bad key."""
+    try:
+        year_s, month_s = key.split("-")
+        year, month = int(year_s), int(month_s)
+        if calendar is CalendarSystem.AD:
+            first = dt.date(year, month, 1)
+        else:
+            first = nd.date(year, month, 1).to_datetime_date()
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise ValueError(f"bad month {key!r}; expected YYYY-MM") from exc
+    return month_period(first, calendar)
+
+
+def custom_period(start: dt.date, end: dt.date) -> Period:
+    if end < start:
+        raise ValueError("end is before start")
+    return Period(start, end, f"{start:%d %b} - {end:%d %b %Y}")
+
+
+def previous_period(period: Period, calendar: CalendarSystem | None) -> Period:
+    """The month before (when `calendar` is given) or the same-length range just before."""
+    if calendar is not None:
+        return month_period(period.start - dt.timedelta(days=1), calendar)
+    end = period.start - dt.timedelta(days=1)
+    start = end - dt.timedelta(days=period.days - 1)
+    label = "Previous 7 days" if period.days == 7 else custom_period(start, end).label
+    return Period(start, end, label)
+
+
 def to_bs_string(day: dt.date) -> str:
     """'2083-07-23' style BS date string."""
     return str(nd.date.from_datetime_date(day))

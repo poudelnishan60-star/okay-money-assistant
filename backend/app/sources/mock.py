@@ -9,8 +9,13 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.domain import Category, CategorySource, Direction, Transaction, TxnType
-from app.models import RecurringFeedback, TransactionRow
-from app.sources.base import SmartDepositPlan, TransactionFilter, UpcomingBill
+from app.models import TransactionRow
+from app.sources.base import (
+    SmartDepositPlan,
+    TransactionFilter,
+    TransactionSource,
+    UpcomingBill,
+)
 
 
 def row_to_domain(row: TransactionRow) -> Transaction:
@@ -103,30 +108,22 @@ class MockTransactionSource:
         return list(self.session.scalars(q))
 
 
-def _dismissed_keys(session: Session, user_id: str) -> set[str]:
-    q = select(RecurringFeedback.series_key).where(
-        RecurringFeedback.user_id == user_id, RecurringFeedback.status == "dismissed"
-    )
-    return set(session.scalars(q))
-
-
 class MockBillSource:
     """Upcoming bills and subscriptions come from recurring-payment detection over the mock
     history. Khalti's version would ask the billers (NEA, KUKL, ISPs) for real due amounts.
 
-    Smart Deposit installments are recurring too, but they are savings, not bills."""
+    Smart Deposit installments are recurring too, but they are savings, not bills.
+    The user's confirm/dismiss choices are the assistant's own data: see services/bills.py."""
 
     NOT_BILLS = frozenset({Category.SAVINGS})
     OVERDUE_GRACE_DAYS = 7  # still list a bill that was expected up to a week ago
 
-    def __init__(self, session: Session, transactions: MockTransactionSource) -> None:
-        self.session = session
+    def __init__(self, transactions: TransactionSource) -> None:
         self.transactions = transactions
 
     def upcoming_bills(self, user_id: str, today: dt.date, within_days: int) -> list[UpcomingBill]:
         from app.services.recurring import detect_recurring
 
-        dismissed = _dismissed_keys(self.session, user_id)
         series = detect_recurring(
             self.transactions.list_transactions(user_id, TransactionFilter(end=today)),
             as_of=today,
@@ -138,15 +135,18 @@ class MockBillSource:
                 series_key=s.key,
                 merchant=s.merchant,
                 service=s.service,
+                type=s.type,
                 category=s.category,
                 subcategory=s.subcategory,
+                cadence=s.cadence.value,
                 usual_amount_paisa=s.usual_amount_paisa,
+                last_amount_paisa=s.last_amount_paisa,
+                last_paid=s.last_date,
                 due_date=s.next_due,
             )
             for s in series
             if s.direction is Direction.DEBIT
             and s.category not in self.NOT_BILLS
-            and s.key not in dismissed
             and earliest <= s.next_due <= horizon
         ]
         return sorted(bills, key=lambda b: (b.due_date, b.merchant))
@@ -156,7 +156,7 @@ class MockDepositSource:
     """Smart Deposit plans inferred from the deposit installments in the mock history.
     The assistant only reads these and deep-links to Smart Deposit; it never rebuilds it."""
 
-    def __init__(self, transactions: MockTransactionSource) -> None:
+    def __init__(self, transactions: TransactionSource) -> None:
         self.transactions = transactions
 
     def smart_deposits(self, user_id: str, today: dt.date) -> list[SmartDepositPlan]:

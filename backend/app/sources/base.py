@@ -54,18 +54,23 @@ class TransactionSource(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class UpcomingBill:
-    series_key: str
+    series_key: str  # stable id of the recurring series (merchant/service)
     merchant: str
-    service: str | None
+    service: str | None  # e.g. "electricity": used to pre-fill the Pay flow
+    type: TxnType
     category: Category
     subcategory: str | None
+    cadence: str  # "weekly" | "fortnightly" | "monthly"
     usual_amount_paisa: int
-    due_date: dt.date
+    last_amount_paisa: int
+    last_paid: dt.date
+    due_date: dt.date  # may be up to a week in the past (overdue)
 
 
 class BillSource(Protocol):
     def upcoming_bills(self, user_id: str, today: dt.date, within_days: int) -> list[UpcomingBill]:
-        """Bills expected within `within_days` of today, soonest first."""
+        """Bills expected within `within_days` of today (plus recently overdue ones),
+        soonest first. Knows nothing about the user's confirm/dismiss choices."""
         ...
 
 

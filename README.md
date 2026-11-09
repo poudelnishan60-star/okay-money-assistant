@@ -34,7 +34,8 @@ Backend layout:
 app/domain.py        types: transaction, category, direction (money is integer paisa)
 app/models.py        SQLite schema (SQLAlchemy)
 app/sources/         TransactionSource / BillSource / DepositSource + Mock* implementations
-app/services/        categorizer, recurring detector, budgets, goals, forecast
+app/api/             FastAPI routes, request/response schemas, dependencies
+app/services/        categorizer, recurring detector, budgets, goals, forecast, insights, bills
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
 app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
@@ -42,6 +43,33 @@ app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
 
 - Health check: http://127.0.0.1:8000/health
 - API contract (OpenAPI): http://127.0.0.1:8000/docs and `/openapi.json`
+- If the database is empty, the server seeds the demo data on startup (`AUTO_SEED=true`).
+  `backend/.env` and the default `backend/khalti_ai.db` are found from any working directory.
+
+### API
+
+Conventions: money is **integer paisa** in fields ending `_paisa` (Rs. 1 = 100; the app
+formats it); dates are AD `YYYY-MM-DD`; timestamps carry the Nepal offset (`+05:45`); periods
+are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_user`
+(prototype only; real Khalti auth replaces it in `app/api/deps.py`).
+
+| Method | Path | What |
+|---|---|---|
+| GET | `/me` | name, balance, balance-hidden flag |
+| GET | `/categories` | categories, subcategories, which count as spending |
+| GET | `/transactions` | newest first; `period=7d/14d/30d/this_month` or `start`/`end`; filter by `category`, `merchant`, `type`, `direction`, `min_paisa`, `max_paisa`; `limit`/`offset` |
+| GET | `/transactions/{id}` | one transaction |
+| PATCH | `/transactions/{id}/category` | recategorize; `apply_to_merchant` for all from that merchant |
+| GET | `/insights/summary` | `period=month/week/custom`, `month=YYYY-MM`, `calendar=AD/BS`: totals, % change, categories, daily bars, top merchants |
+| GET | `/insights/dashboard` | summary + unusual spending + insight cards + forecast, in one call |
+| GET | `/insights/forecast` | `days=N` or to month end; low-balance warning (`threshold_paisa`) |
+| GET / POST | `/budgets` | this month's status of each budget / create-or-update by category |
+| PATCH / DELETE | `/budgets/{id}` | edit / remove |
+| GET / POST | `/goals` | goals with progress and "needs Rs. X/month" / create |
+| PATCH / DELETE | `/goals/{id}` | edit / remove |
+| GET | `/smart-deposits` | existing Smart Deposit plans (read-only) |
+| GET | `/bills` | detected bills & subscriptions, soonest due first |
+| PUT | `/bills/{id}/status` | `confirmed` / `dismissed` / `detected` (undo) |
 
 Lint and tests:
 
@@ -73,7 +101,7 @@ The Android emulator reaches the backend at `http://10.0.2.2:8000`; desktop and 
 |---|------|--------|
 | 1 | Repo setup: folders, README, .env.example, .gitignore, lint config | done |
 | 2 | Backend data: schema, seed, categorizer, recurring detector, budgets, forecast | done |
-| 3 | Backend REST API | |
+| 3 | Backend REST API | done |
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | |
 | 5 | App screens | |
 | 6 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling | |

@@ -1,18 +1,13 @@
-from fastapi.testclient import TestClient
-
 from app.config import Settings
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_health() -> None:
+def test_health(client) -> None:
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
 
 
-def test_openapi_contract_is_served() -> None:
+def test_openapi_contract_is_served(client) -> None:
     res = client.get("/openapi.json")
     assert res.status_code == 200
     assert res.json()["info"]["title"] == "Khalti O-Kay AI Assistant API"
