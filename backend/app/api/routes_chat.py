@@ -78,7 +78,13 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
             f"chat:user:{user_id}",
             [Limit(settings.rate_chat_per_minute, 60), Limit(settings.rate_chat_per_day, 86_400)],
         ),
-        ("chat:global", [Limit(settings.rate_chat_global_per_hour, 3600)]),
+        (
+            "chat:global",
+            [
+                Limit(settings.rate_chat_global_per_minute, 60),
+                Limit(settings.rate_chat_global_per_hour, 3600),
+            ],
+        ),
     ):
         verdict = limiter.check(key, limits)
         if not verdict.allowed:

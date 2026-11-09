@@ -17,6 +17,8 @@ Build an AI financial assistant for Khalti, a Nepali digital wallet (currency: N
   - Base URL: https://api.groq.com/openai/v1
   - API key from env var GROQ_API_KEY, kept in backend/.env only (gitignored); provide a .env.example
   - Model from env var LLM_MODEL: default qwen/qwen3.8-27b, fallback llama-3.3-70b-versatile
+    (changed 9 Nov 2026: llama-3.3-70b-versatile is no longer offered on Groq, so the fallbacks are
+    openai/gpt-oss-120b then openai/gpt-oss-20b, set in LLM_FALLBACK_MODEL)
   - Use the official openai Python SDK pointed at Groq's base URL, behind an LLMClient interface so the provider can be swapped later
   - On HTTP 429 (free-tier limit): retry with exponential backoff (max 3 tries), then return a friendly "O-Kay is busy, please try again in a minute" message
 - All LLM calls happen in the backend. The app never holds API keys.

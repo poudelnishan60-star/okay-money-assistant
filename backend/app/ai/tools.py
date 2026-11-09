@@ -522,7 +522,7 @@ def upsert_budget(ctx: ToolContext, args: UpsertBudgetArgs) -> ToolResult:
     )
     data = {
         "status": "NOT SAVED YET: waiting for the user to tap Confirm on the card",
-        "budget": name,
+        "budget": f"{name} (one category)" if args.category else "Overall (all spending)",
         "new_limit": _rs(limit),
         "current_limit": _rs(existing.limit_paisa) if existing else None,
         "spent_this_month": _rs(spent),
@@ -697,6 +697,12 @@ def get_balance_forecast(ctx: ToolContext, args: ForecastArgs) -> ToolResult:
     data = {
         "today": ctx.today.isoformat(),
         "until": f.horizon_end.isoformat(),
+        "covers": f"today to {f.horizon_end:%d %b %Y} ({(f.horizon_end - ctx.today).days} days)"
+        + (
+            ", the end of this month"
+            if f.horizon_end == month_period(ctx.today).end
+            else ", NOT the end of this month"
+        ),
         "balance_now": _rs(f.current_balance_paisa),
         "projected_balance_at_end": _rs(f.projected_end_balance_paisa),
         "lowest_projected_balance": _rs(f.lowest_balance_paisa),
@@ -826,8 +832,8 @@ def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
                 prefill.monthly_amount_paisa = p.required_monthly_paisa
     card = OpenAppFlowCard(flow=args.flow, service=args.service, title=title, prefill=prefill)
     data = {
-        "status": "A button was shown. NOTHING has been paid or sent: the user finishes in "
-        "the Khalti app with their MPIN.",
+        "status": "A button is shown under your answer; nothing has opened yet. Tell the user "
+        "to tap it. NOTHING has been paid or sent: they finish in Khalti with their MPIN.",
         "button": title,
         "prefilled_amount": _rs(prefill.amount_paisa) if prefill.amount_paisa else None,
     }
@@ -848,39 +854,30 @@ class Tool:
 
 def _period_props() -> dict[str, Any]:
     return {
-        "period": {
-            "type": "string",
-            "enum": list(PeriodPreset.__args__),
-            "description": "Pick a preset. 'month' needs month; 'custom' needs start/end.",
-        },
-        "month": {"type": "string", "description": "YYYY-MM, in the chosen calendar"},
-        "calendar": {
-            "type": "string",
-            "enum": ["AD", "BS"],
-            "description": "BS for Nepali months like Kartik 2083",
-        },
-        "start": {"type": "string", "description": "YYYY-MM-DD (custom period)"},
-        "end": {"type": "string", "description": "YYYY-MM-DD (custom period)"},
+        "period": {"type": "string", "enum": list(PeriodPreset.__args__)},
+        "month": {"type": "string", "description": "YYYY-MM (period=month)"},
+        "calendar": {"type": "string", "enum": ["AD", "BS"]},
+        "start": {"type": "string", "description": "YYYY-MM-DD (period=custom)"},
+        "end": {"type": "string", "description": "YYYY-MM-DD (period=custom)"},
     }
 
 
 def _obj(props: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "properties": props,
-        "required": required or [],
-        "additionalProperties": False,
-    }
+    spec: dict[str, Any] = {"type": "object", "properties": props}
+    if required:
+        spec["required"] = required
+    return spec
 
 
+# Descriptions are kept short on purpose: every request carries them, and the Groq free tier
+# allows 8,000 tokens per minute per model.
 TOOLS: dict[str, Tool] = {
     t.name: t
     for t in [
         Tool(
             "get_spending_summary",
-            "Total spending for a period with the comparison to the previous period, broken down "
-            "by category, merchant or day, plus unusual spending. Pass category to focus on one "
-            "category (e.g. food).",
+            "Spending total vs previous period, by category/merchant/day, unusual spending. "
+            "category= focuses on one category.",
             SpendingSummaryArgs,
             get_spending_summary,
             _obj(
@@ -893,46 +890,32 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_transactions",
-            "List the user's transactions for a period, optionally filtered. Returns the count, "
-            "totals and the latest ten.",
+            "Transactions for a period: count, totals, latest ten.",
             TransactionsArgs,
             get_transactions,
             _obj(
                 {
                     **_period_props(),
                     "category": {"type": "string", "enum": CATEGORY_VALUES},
-                    "merchant": {
-                        "type": "string",
-                        "description": "part of the merchant/person name",
-                    },
+                    "merchant": {"type": "string"},
                     "type": {"type": "string", "enum": [t.value for t in TxnType]},
                     "direction": {"type": "string", "enum": ["debit", "credit"]},
-                    "min_amount": {"type": "number", "description": "rupees"},
-                    "max_amount": {"type": "number", "description": "rupees"},
+                    "min_amount": {"type": "number"},
+                    "max_amount": {"type": "number"},
                 }
             ),
         ),
-        Tool(
-            "get_budgets",
-            "The user's monthly budgets with how much is spent and left.",
-            NoArgs,
-            get_budgets,
-            _obj({}),
-        ),
+        Tool("get_budgets", "Monthly budgets: limit, spent, left.", NoArgs, get_budgets, _obj({})),
         Tool(
             "upsert_budget",
-            "PROPOSE creating or changing a monthly budget. Shows a Confirm card; nothing is saved "
-            "until the user taps Confirm.",
+            "PROPOSE a monthly budget (category null = overall). Saved only when the user "
+            "taps Confirm.",
             UpsertBudgetArgs,
             upsert_budget,
             _obj(
                 {
-                    "category": {
-                        "type": ["string", "null"],
-                        "enum": [*SPENDING_CATEGORIES, None],
-                        "description": "null for an overall budget",
-                    },
-                    "limit_amount": {"type": "number", "description": "monthly limit in rupees"},
+                    "category": {"type": ["string", "null"], "enum": [*SPENDING_CATEGORIES, None]},
+                    "limit_amount": {"type": "number"},
                     "calendar": {"type": "string", "enum": ["AD", "BS"]},
                 },
                 ["limit_amount"],
@@ -940,54 +923,53 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_goals",
-            "The user's savings goals with progress and the monthly saving needed.",
+            "Savings goals: progress, monthly saving needed.",
             NoArgs,
             get_goals,
             _obj({}),
         ),
         Tool(
             "upsert_goal",
-            "PROPOSE creating or updating a savings goal. Shows a Confirm card; nothing is saved "
-            "until the user taps Confirm.",
+            "PROPOSE a savings goal (goal_id to change one). Saved only when the user taps "
+            "Confirm.",
             UpsertGoalArgs,
             upsert_goal,
             _obj(
                 {
                     "name": {"type": "string"},
-                    "target_amount": {"type": "number", "description": "rupees"},
+                    "target_amount": {"type": "number"},
                     "deadline": {"type": "string", "description": "YYYY-MM-DD"},
-                    "saved_amount": {"type": "number", "description": "rupees already saved"},
-                    "goal_id": {"type": "integer", "description": "to update an existing goal"},
+                    "saved_amount": {"type": "number"},
+                    "goal_id": {"type": "integer"},
                 },
                 ["name", "target_amount", "deadline"],
             ),
         ),
         Tool(
             "get_recurring_payments",
-            "Detected recurring bills and subscriptions with usual amount and next due date.",
+            "Recurring bills/subscriptions: usual amount, next due.",
             RecurringArgs,
             get_recurring_payments,
-            _obj({"within_days": {"type": "integer", "description": "default 45"}}),
+            _obj({"within_days": {"type": "integer"}}),
         ),
         Tool(
             "get_balance_forecast",
-            "Projected wallet balance: until the end of this month by default, or for N days. "
-            "Warns if it may drop below Rs. 1,000.",
+            "Projected balance. Omit days for this month's end; days=N only if asked.",
             ForecastArgs,
             get_balance_forecast,
-            _obj({"days": {"type": "integer", "description": "1-90; omit for month end"}}),
+            _obj({"days": {"type": "integer"}}),
         ),
         Tool(
             "search_help_articles",
-            "Search Khalti help articles (how to load money, pay bills, reset MPIN, KYC...).",
+            "Khalti help articles (how-to questions).",
             HelpArgs,
             search_help_articles,
             _obj({"query": {"type": "string"}}, ["query"]),
         ),
         Tool(
             "open_app_flow",
-            "Show a button that opens Khalti's own screen, pre-filled: pay a bill, send money, "
-            "set up Autopay or Smart Deposit. The assistant never moves money itself.",
+            "Button that opens Khalti's own screen pre-filled (pay bill, send money, Autopay, "
+            "Smart Deposit). Never moves money.",
             AppFlowArgs,
             open_app_flow,
             _obj(
@@ -997,7 +979,7 @@ TOOLS: dict[str, Tool] = {
                         "enum": ["bill_payment", "send_money", "autopay", "smart_deposit"],
                     },
                     "service": {"type": "string", "enum": SERVICES},
-                    "amount": {"type": "number", "description": "rupees"},
+                    "amount": {"type": "number"},
                     "recipient_name": {"type": "string"},
                     "goal_id": {"type": "integer"},
                 },

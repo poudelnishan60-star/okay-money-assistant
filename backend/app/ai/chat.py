@@ -114,7 +114,9 @@ class ChatService:
         ok, error, result = True, None, None
         try:
             result = run_tool(self.ctx, call.name, parse_arguments(call.arguments))
-            payload = json.dumps(result.data, ensure_ascii=False, default=str)
+            payload = json.dumps(
+                result.data, ensure_ascii=False, default=str, separators=(",", ":")
+            )
         except (ToolError, ValueError) as exc:
             ok, error = False, str(exc)[:300]
             payload = json.dumps({"error": error})

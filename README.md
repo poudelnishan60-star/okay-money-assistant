@@ -101,11 +101,19 @@ How it stays safe and correct:
 - Before anything goes to Groq: phone, account and reference numbers are masked, an
   MPIN/OTP/password typed into the chat is removed (and the user is warned), merchant names
   and notes are neutralized and wrapped in `<tool_result>` tags as data.
-- HTTP 429 from Groq: up to 3 tries with backoff (the last on the fallback model), then
-  "O-Kay is busy, please try again in a minute". Qwen runs with `reasoning_effort=none`, and any
+- HTTP 429 from Groq (or a garbled tool call): up to 3 tries with backoff, moving down the model
+  chain qwen/qwen3.8-27b -> openai/gpt-oss-120b -> openai/gpt-oss-20b, then
+  "O-Kay is busy, please try again in a minute". (The spec's llama-3.3-70b-versatile is no
+  longer offered on Groq.) Qwen runs with `reasoning_effort=none`, and any
   `<think>` text is stripped.
 - Tool calls are logged (`tool_call_log`, masked arguments); raw prompts are not.
 - The last 20 messages are sent as context; at most 5 tool rounds per message.
+
+**Groq free tier:** 8,000 tokens/minute and 1,000 requests/day *per model*; one question
+uses about 3,000 tokens, so expect roughly 2-3 questions a minute per model. Fine for a demo;
+a busy public site needs a paid Groq tier (or lower limits in `.env`).
+
+Live check against Groq (mock data only): `python scripts/live_chat_check.py`.
 
 Unknown merchants (rules couldn't place them) are categorized by the LLM once per merchant and
 cached: `python -m app.ai.classifier`.

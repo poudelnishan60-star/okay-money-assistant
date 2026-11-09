@@ -19,7 +19,7 @@ def test_default_llm_settings(monkeypatch) -> None:
     s = Settings(_env_file=None)
     assert s.llm_base_url == "https://api.groq.com/openai/v1"
     assert s.llm_model == "qwen/qwen3.8-27b"
-    assert s.llm_fallback_model == "llama-3.3-70b-versatile"
+    assert s.fallback_models == ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
     assert s.groq_api_key is None
 
 

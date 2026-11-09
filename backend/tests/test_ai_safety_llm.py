@@ -166,10 +166,11 @@ def test_429_retries_with_backoff_then_falls_back() -> None:
     )
     events = list(llm.stream_chat([{"role": "user", "content": "hi"}], None))
     assert events == [TextDelta("Namaste")]
+    # Groq limits are per model, so each retry moves down the chain
     assert [r["model"] for r in comp.requests] == [
         "qwen/qwen3.8-27b",
-        "qwen/qwen3.8-27b",
-        "llama-3.3-70b-versatile",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
     ]
     assert sleeps == [1.0, 2.0]  # exponential backoff
 
@@ -184,7 +185,44 @@ def test_three_429s_mean_busy() -> None:
 def test_retired_model_goes_straight_to_fallback() -> None:
     llm, comp, _ = _client([_err(openai.NotFoundError, 404), [_chunk("ok")]])
     assert list(llm.stream_chat([], None)) == [TextDelta("ok")]
-    assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "llama-3.3-70b-versatile"]
+    assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+
+
+def test_busy_beats_missing_fallback() -> None:
+    """Primary rate-limited, fallbacks missing: the honest message is still 'busy'."""
+    llm, _, _ = _client(
+        [
+            _err(openai.RateLimitError, 429),
+            _err(openai.NotFoundError, 404),
+            _err(openai.NotFoundError, 404),
+        ]
+    )
+    with pytest.raises(LLMBusyError):
+        list(llm.stream_chat([], None))
+
+
+def test_short_fallback_chain_repeats_the_last_model() -> None:
+    llm, comp, _ = _client(
+        [_err(openai.RateLimitError, 429)] * 3, llm_fallback_model="openai/gpt-oss-20b"
+    )
+    with pytest.raises(LLMBusyError):
+        list(llm.stream_chat([], None))
+    assert [r["model"] for r in comp.requests] == [
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-20b",
+    ]
+
+
+def test_garbled_tool_call_moves_to_the_next_model() -> None:
+    garbled = openai.BadRequestError(
+        "x",
+        response=httpx.Response(400, request=REQ),
+        body={"error": {"code": "tool_use_failed", "message": "tool call validation failed"}},
+    )
+    llm, comp, _ = _client([garbled, [_chunk("ok")]])
+    assert list(llm.stream_chat([], [{"type": "function"}])) == [TextDelta("ok")]
+    assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
 
 
 def test_bad_request_is_not_retried() -> None:
@@ -201,9 +239,14 @@ def test_qwen_runs_in_instruct_mode_and_llama_gets_no_extras() -> None:
     assert first["extra_body"] == {"reasoning_effort": "none"}
     assert first["tool_choice"] == "auto" and first["parallel_tool_calls"] is True
     assert first["stream"] is True
-    llm.settings = llm.settings.model_copy(update={"llm_model": "llama-3.3-70b-versatile"})
+    llm.settings = llm.settings.model_copy(update={"llm_model": "openai/gpt-oss-120b"})
     list(llm.stream_chat([], None))
-    assert "extra_body" not in comp.requests[1] and "tools" not in comp.requests[1]
+    assert comp.requests[1]["extra_body"] == {"reasoning_effort": "low", "include_reasoning": False}
+    assert "tools" not in comp.requests[1]
+    llm.settings = llm.settings.model_copy(update={"llm_model": "some/other-model"})
+    comp.outcomes.append([_chunk("c")])
+    list(llm.stream_chat([], None))
+    assert "extra_body" not in comp.requests[2]
 
 
 def test_streamed_tool_calls_are_assembled() -> None:

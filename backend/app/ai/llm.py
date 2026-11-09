@@ -1,9 +1,10 @@
 """LLM access behind a small interface, so the provider can be swapped later.
 
 GroqLLMClient uses the official `openai` SDK pointed at Groq's OpenAI-compatible API.
-On HTTP 429 it retries with exponential backoff (3 tries in total, the last one on the
-fallback model, since Groq limits are per model), then raises LLMBusyError so the chat can
-answer "O-Kay is busy, please try again in a minute".
+On HTTP 429 it retries with exponential backoff, 3 tries in total, moving down the model
+chain (primary, then the fallbacks: Groq limits are per model, so another model usually has
+room), then raises LLMBusyError so the chat can answer "O-Kay is busy, please try again in a
+minute".
 """
 
 from __future__ import annotations
@@ -147,14 +148,22 @@ class GroqLLMClient:
             if self.settings.llm_reasoning_effort != "none":
                 extra["reasoning_format"] = "hidden"  # required with tools; keeps it out
             params["extra_body"] = extra
+        elif model.startswith("openai/gpt-oss"):
+            # Reasoning stays in a separate field (never in content); keep it short and unsent.
+            params["extra_body"] = {
+                "reasoning_effort": self.settings.llm_gpt_oss_reasoning_effort,
+                "include_reasoning": False,
+            }
         return params
 
     def _models(self) -> list[str]:
-        primary, fallback = self.settings.llm_model, self.settings.llm_fallback_model
-        return [primary, primary, fallback or primary]
+        """3 tries: primary, then each fallback; repeat the last one if the chain is short."""
+        chain = [self.settings.llm_model, *self.settings.fallback_models][:3]
+        return chain + [chain[-1]] * (3 - len(chain))
 
     def _create(self, **kwargs: Any) -> Any:
         last_error: Exception | None = None
+        rate_limited = False
         models = self._models()
         for attempt, model in enumerate(models):
             if attempt > 0:
@@ -163,21 +172,27 @@ class GroqLLMClient:
                 return self._client.chat.completions.create(**self._params(model), **kwargs)
             except openai.RateLimitError as exc:
                 log.warning("LLM rate limited (try %d, model %s)", attempt + 1, model)
-                last_error = exc
+                last_error, rate_limited = exc, True
             except (openai.APIConnectionError, openai.InternalServerError) as exc:
                 log.warning(
                     "LLM unavailable (try %d, model %s): %s", attempt + 1, model, type(exc).__name__
                 )
                 last_error = exc
-            except openai.NotFoundError as exc:  # model retired / renamed: go to fallback
-                log.error("LLM model %s not found; trying fallback", model)
+            except openai.NotFoundError as exc:  # model retired / renamed: next in chain
+                log.error("LLM model %s not found; trying the next model", model)
                 last_error = exc
-                if model != models[-1]:
-                    models[attempt + 1 :] = [models[-1]] * (len(models) - attempt - 1)
+            except openai.BadRequestError as exc:
+                if _error_code(exc) != "tool_use_failed":
+                    log.error("LLM request rejected: 400 %s", _error_code(exc))
+                    raise LLMUnavailableError("400") from exc
+                # The model garbled a tool call (e.g. a misspelled tool name). Groq rejects the
+                # whole reply; another try, on the next model, usually gets it right.
+                log.warning("LLM tool call garbled (try %d, model %s)", attempt + 1, model)
+                last_error = exc
             except openai.APIStatusError as exc:
                 log.error("LLM request rejected: %s %s", exc.status_code, type(exc).__name__)
                 raise LLMUnavailableError(str(exc.status_code)) from exc
-        if isinstance(last_error, openai.RateLimitError):
+        if rate_limited:  # at least one model was only busy: "try again in a minute" is true
             raise LLMBusyError("rate limited") from last_error
         raise LLMUnavailableError("provider unavailable") from last_error
 
@@ -232,6 +247,12 @@ class GroqLLMClient:
         text = response.choices[0].message.content or ""
         think = ThinkFilter()
         return (think.feed(text) + think.flush()).strip()
+
+
+def _error_code(exc: openai.APIStatusError) -> str | None:
+    body = exc.body if isinstance(exc.body, dict) else {}
+    err = body.get("error", body)
+    return err.get("code") if isinstance(err, dict) else None
 
 
 class UnconfiguredLLMClient:
