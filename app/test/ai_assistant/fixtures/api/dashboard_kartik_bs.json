@@ -1,0 +1,324 @@
+{
+ "summary": {
+  "period": {
+   "start": "2026-10-18",
+   "end": "2026-11-16",
+   "label": "Kartik 2083",
+   "days": 30
+  },
+  "previous_period": {
+   "start": "2026-09-17",
+   "end": "2026-10-17",
+   "label": "Aswin 2083",
+   "days": 31
+  },
+  "in_progress": true,
+  "covered_end": "2026-11-09",
+  "total_spent_paisa": 1758307,
+  "previous_total_spent_paisa": 3373281,
+  "previous_compare_paisa": 2760697,
+  "comparison_basis": "same_days",
+  "change_percent": -36.3,
+  "income_paisa": 2750000,
+  "money_in_paisa": 2950000,
+  "transaction_count": 32,
+  "by_category": [
+   {
+    "category": "Groceries",
+    "spent_paisa": 460207,
+    "count": 4,
+    "share_percent": 26.2,
+    "previous_spent_paisa": 628097
+   },
+   {
+    "category": "Food & Dining",
+    "spent_paisa": 395000,
+    "count": 16,
+    "share_percent": 22.5,
+    "previous_spent_paisa": 854000
+   },
+   {
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1,
+    "share_percent": 19.9,
+    "previous_spent_paisa": 350000
+   },
+   {
+    "category": "Bills & Utilities",
+    "spent_paisa": 222900,
+    "count": 3,
+    "share_percent": 12.7,
+    "previous_spent_paisa": 175000
+   },
+   {
+    "category": "Shopping",
+    "spent_paisa": 120000,
+    "count": 1,
+    "share_percent": 6.8,
+    "previous_spent_paisa": 530000
+   },
+   {
+    "category": "Topup & Data",
+    "spent_paisa": 90000,
+    "count": 3,
+    "share_percent": 5.1,
+    "previous_spent_paisa": 10000
+   },
+   {
+    "category": "Transport",
+    "spent_paisa": 75200,
+    "count": 3,
+    "share_percent": 4.3,
+    "previous_spent_paisa": 65600
+   },
+   {
+    "category": "Entertainment",
+    "spent_paisa": 45000,
+    "count": 1,
+    "share_percent": 2.6,
+    "previous_spent_paisa": 0
+   },
+   {
+    "category": "Health",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 83000
+   },
+   {
+    "category": "Other",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 65000
+   }
+  ],
+  "daily": [
+   {
+    "date": "2026-10-18",
+    "spent_paisa": 121900
+   },
+   {
+    "date": "2026-10-19",
+    "spent_paisa": 46500
+   },
+   {
+    "date": "2026-10-20",
+    "spent_paisa": 130564
+   },
+   {
+    "date": "2026-10-21",
+    "spent_paisa": 24500
+   },
+   {
+    "date": "2026-10-22",
+    "spent_paisa": 130000
+   },
+   {
+    "date": "2026-10-23",
+    "spent_paisa": 21500
+   },
+   {
+    "date": "2026-10-24",
+    "spent_paisa": 45000
+   },
+   {
+    "date": "2026-10-25",
+    "spent_paisa": 51800
+   },
+   {
+    "date": "2026-10-26",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-27",
+    "spent_paisa": 449663
+   },
+   {
+    "date": "2026-10-28",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-29",
+    "spent_paisa": 54000
+   },
+   {
+    "date": "2026-10-30",
+    "spent_paisa": 43000
+   },
+   {
+    "date": "2026-10-31",
+    "spent_paisa": 18500
+   },
+   {
+    "date": "2026-11-01",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-11-02",
+    "spent_paisa": 141780
+   },
+   {
+    "date": "2026-11-03",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-11-04",
+    "spent_paisa": 35500
+   },
+   {
+    "date": "2026-11-05",
+    "spent_paisa": 19000
+   },
+   {
+    "date": "2026-11-06",
+    "spent_paisa": 350000
+   },
+   {
+    "date": "2026-11-07",
+    "spent_paisa": 41000
+   },
+   {
+    "date": "2026-11-08",
+    "spent_paisa": 34100
+   },
+   {
+    "date": "2026-11-09",
+    "spent_paisa": 0
+   }
+  ],
+  "top_merchants": [
+   {
+    "merchant": "Sikshya Language Institute",
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1
+   },
+   {
+    "merchant": "Sajilo Supermarket",
+    "category": "Groceries",
+    "spent_paisa": 342927,
+    "count": 2
+   },
+   {
+    "merchant": "Gurans Fibernet",
+    "category": "Bills & Utilities",
+    "spent_paisa": 130000,
+    "count": 1
+   },
+   {
+    "merchant": "Digital Ghar",
+    "category": "Shopping",
+    "spent_paisa": 120000,
+    "count": 1
+   },
+   {
+    "merchant": "Golden Crust Bakery",
+    "category": "Food & Dining",
+    "spent_paisa": 117500,
+    "count": 4
+   }
+  ]
+ },
+ "unusual": [],
+ "highlights": [
+  {
+   "kind": "month_over_month",
+   "severity": "positive",
+   "message": "You've spent 36.3% less than the same days of Aswin 2083 (Rs. 17,583.07 vs Rs. 27,606.97).",
+   "data": {
+    "change_percent": -36.3,
+    "current_paisa": 1758307,
+    "previous_paisa": 2760697,
+    "basis": "same_days"
+   }
+  },
+  {
+   "kind": "top_category",
+   "severity": "info",
+   "message": "Groceries is your biggest category: Rs. 4,602.07 (26.2% of spending).",
+   "data": {
+    "category": "Groceries",
+    "spent_paisa": 460207,
+    "share_percent": 26.2
+   }
+  },
+  {
+   "kind": "top_merchant",
+   "severity": "info",
+   "message": "You spent the most at Sikshya Language Institute: Rs. 3,500 over 1 payment.",
+   "data": {
+    "merchant": "Sikshya Language Institute",
+    "spent_paisa": 350000,
+    "count": 1
+   }
+  },
+  {
+   "kind": "month_end_balance",
+   "severity": "positive",
+   "message": "Projected balance on 16 Nov: Rs. 18,382.46.",
+   "data": {
+    "horizon_end": "2026-11-16",
+    "projected_end_balance_paisa": 1838246
+   }
+  }
+ ],
+ "forecast": {
+  "as_of": "2026-11-09",
+  "horizon_end": "2026-11-16",
+  "current_balance_paisa": 2394486,
+  "avg_daily_spend_paisa": 56039,
+  "lookback_days": 30,
+  "projected_end_balance_paisa": 1838246,
+  "lowest_balance_paisa": 1838246,
+  "lowest_date": "2026-11-16",
+  "threshold_paisa": 100000,
+  "below_threshold": false,
+  "first_below_date": null,
+  "scheduled": [
+   {
+    "date": "2026-11-10",
+    "merchant": "Ncell",
+    "category": "Topup & Data",
+    "amount_paisa": -49900
+   },
+   {
+    "date": "2026-11-14",
+    "merchant": "Nepal Electricity Authority",
+    "category": "Bills & Utilities",
+    "amount_paisa": -114067
+   }
+  ],
+  "points": [
+   {
+    "date": "2026-11-10",
+    "balance_paisa": 2288547
+   },
+   {
+    "date": "2026-11-11",
+    "balance_paisa": 2232508
+   },
+   {
+    "date": "2026-11-12",
+    "balance_paisa": 2176469
+   },
+   {
+    "date": "2026-11-13",
+    "balance_paisa": 2120430
+   },
+   {
+    "date": "2026-11-14",
+    "balance_paisa": 1950324
+   },
+   {
+    "date": "2026-11-15",
+    "balance_paisa": 1894285
+   },
+   {
+    "date": "2026-11-16",
+    "balance_paisa": 1838246
+   }
+  ]
+ }
+}

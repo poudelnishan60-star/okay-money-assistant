@@ -42,6 +42,22 @@ abstract final class OkayColors {
   static const textSecondary = Color(0xFF9E9E9E);
 }
 
+/// Chart colours. Single-series charts use [single]. The category donut uses [categorical] in
+/// this fixed order (never cycled) and folds the rest into [other]. Validated as a set on the
+/// dark card surface #1E1E1E: lightness band, chroma, colour-blind separation of neighbours
+/// (worst ΔE 8.4) incl. the last-next-to-first pair on a ring, and >= 3:1 contrast.
+abstract final class OkayChartColors {
+  static const single = OkayColors.accentPink;
+  static const categorical = <Color>[
+    Color(0xFF3987E5), // blue
+    Color(0xFFD95926), // orange
+    Color(0xFF199E70), // aqua
+    Color(0xFFC98500), // yellow
+    Color(0xFFD55181), // magenta
+  ];
+  static const other = Color(0xFF7A7A7A);
+}
+
 abstract final class OkayRadii {
   static const double card = 24;
   static const double iconTile = 18;

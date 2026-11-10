@@ -23,7 +23,7 @@ void main() {
 
     await tester.tap(find.text('Money Insights'));
     await tester.pumpAndSettle();
-    expect(find.text('Money Insights arrives in build step 7'), findsOneWidget);
+    expect(find.text('Spent so far'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
@@ -52,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
     GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.root);
     await tester.pumpAndSettle();
-    expect(find.text('Money Insights arrives in build step 7'), findsOneWidget);
+    expect(find.text('Spent so far'), findsOneWidget);
   });
 
   testWidgets('bottom nav: tabs switch, active tab is pink, Scan & Pay is host-only', (

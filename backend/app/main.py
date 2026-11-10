@@ -22,6 +22,7 @@ from app.api import (
     routes_insights,
     routes_meta,
     routes_session,
+    routes_settings,
     routes_transactions,
 )
 from app.config import Settings, get_settings
@@ -93,6 +94,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     )
     app.include_router(routes_meta.router)
     app.include_router(routes_session.router)
+    app.include_router(routes_settings.router)
     app.include_router(routes_chat.router)
     app.include_router(routes_transactions.router)
     app.include_router(routes_insights.router)

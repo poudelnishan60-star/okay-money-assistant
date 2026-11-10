@@ -1,0 +1,316 @@
+{
+ "summary": {
+  "period": {
+   "start": "2026-10-01",
+   "end": "2026-10-31",
+   "label": "Oct 2026",
+   "days": 31
+  },
+  "previous_period": {
+   "start": "2026-09-01",
+   "end": "2026-09-30",
+   "label": "Sep 2026",
+   "days": 30
+  },
+  "in_progress": false,
+  "covered_end": "2026-10-31",
+  "total_spent_paisa": 3509756,
+  "previous_total_spent_paisa": 3728211,
+  "previous_compare_paisa": 3728211,
+  "comparison_basis": "full_period",
+  "change_percent": -5.9,
+  "income_paisa": 2800000,
+  "money_in_paisa": 3850000,
+  "transaction_count": 50,
+  "by_category": [
+   {
+    "category": "Food & Dining",
+    "spent_paisa": 971000,
+    "count": 25,
+    "share_percent": 27.7,
+    "previous_spent_paisa": 823500
+   },
+   {
+    "category": "Groceries",
+    "spent_paisa": 710325,
+    "count": 6,
+    "share_percent": 20.2,
+    "previous_spent_paisa": 1103844
+   },
+   {
+    "category": "Shopping",
+    "spent_paisa": 650000,
+    "count": 3,
+    "share_percent": 18.5,
+    "previous_spent_paisa": 0
+   },
+   {
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1,
+    "share_percent": 10.0,
+    "previous_spent_paisa": 350000
+   },
+   {
+    "category": "Bills & Utilities",
+    "spent_paisa": 349831,
+    "count": 4,
+    "share_percent": 10.0,
+    "previous_spent_paisa": 339167
+   },
+   {
+    "category": "Transport",
+    "spent_paisa": 125700,
+    "count": 4,
+    "share_percent": 3.6,
+    "previous_spent_paisa": 124800
+   },
+   {
+    "category": "Topup & Data",
+    "spent_paisa": 119900,
+    "count": 3,
+    "share_percent": 3.4,
+    "previous_spent_paisa": 59900
+   },
+   {
+    "category": "Entertainment",
+    "spent_paisa": 85000,
+    "count": 2,
+    "share_percent": 2.4,
+    "previous_spent_paisa": 265000
+   },
+   {
+    "category": "Health",
+    "spent_paisa": 83000,
+    "count": 1,
+    "share_percent": 2.4,
+    "previous_spent_paisa": 0
+   },
+   {
+    "category": "Other",
+    "spent_paisa": 65000,
+    "count": 1,
+    "share_percent": 1.9,
+    "previous_spent_paisa": 42000
+   },
+   {
+    "category": "Travel",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 620000
+   }
+  ],
+  "daily": [
+   {
+    "date": "2026-10-01",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-02",
+    "spent_paisa": 120700
+   },
+   {
+    "date": "2026-10-03",
+    "spent_paisa": 88000
+   },
+   {
+    "date": "2026-10-04",
+    "spent_paisa": 43500
+   },
+   {
+    "date": "2026-10-05",
+    "spent_paisa": 548145
+   },
+   {
+    "date": "2026-10-06",
+    "spent_paisa": 296900
+   },
+   {
+    "date": "2026-10-07",
+    "spent_paisa": 293000
+   },
+   {
+    "date": "2026-10-08",
+    "spent_paisa": 287000
+   },
+   {
+    "date": "2026-10-09",
+    "spent_paisa": 83000
+   },
+   {
+    "date": "2026-10-10",
+    "spent_paisa": 126931
+   },
+   {
+    "date": "2026-10-11",
+    "spent_paisa": 20500
+   },
+   {
+    "date": "2026-10-12",
+    "spent_paisa": 260753
+   },
+   {
+    "date": "2026-10-13",
+    "spent_paisa": 76900
+   },
+   {
+    "date": "2026-10-14",
+    "spent_paisa": 31500
+   },
+   {
+    "date": "2026-10-15",
+    "spent_paisa": 56000
+   },
+   {
+    "date": "2026-10-16",
+    "spent_paisa": 40000
+   },
+   {
+    "date": "2026-10-17",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-18",
+    "spent_paisa": 121900
+   },
+   {
+    "date": "2026-10-19",
+    "spent_paisa": 46500
+   },
+   {
+    "date": "2026-10-20",
+    "spent_paisa": 130564
+   },
+   {
+    "date": "2026-10-21",
+    "spent_paisa": 24500
+   },
+   {
+    "date": "2026-10-22",
+    "spent_paisa": 130000
+   },
+   {
+    "date": "2026-10-23",
+    "spent_paisa": 21500
+   },
+   {
+    "date": "2026-10-24",
+    "spent_paisa": 45000
+   },
+   {
+    "date": "2026-10-25",
+    "spent_paisa": 51800
+   },
+   {
+    "date": "2026-10-26",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-27",
+    "spent_paisa": 449663
+   },
+   {
+    "date": "2026-10-28",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-10-29",
+    "spent_paisa": 54000
+   },
+   {
+    "date": "2026-10-30",
+    "spent_paisa": 43000
+   },
+   {
+    "date": "2026-10-31",
+    "spent_paisa": 18500
+   }
+  ],
+  "top_merchants": [
+   {
+    "merchant": "Sajilo Supermarket",
+    "category": "Groceries",
+    "spent_paisa": 551680,
+    "count": 3
+   },
+   {
+    "merchant": "Digital Ghar",
+    "category": "Shopping",
+    "spent_paisa": 395000,
+    "count": 2
+   },
+   {
+    "merchant": "Sikshya Language Institute",
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1
+   },
+   {
+    "merchant": "Mithai Mandir Sweets",
+    "category": "Food & Dining",
+    "spent_paisa": 293500,
+    "count": 2
+   },
+   {
+    "merchant": "Asan Bazaar Clothing",
+    "category": "Shopping",
+    "spent_paisa": 255000,
+    "count": 1
+   }
+  ]
+ },
+ "unusual": [
+  {
+   "category": "Shopping",
+   "current_paisa": 650000,
+   "usual_paisa": 94215,
+   "ratio": 6.9
+  }
+ ],
+ "highlights": [
+  {
+   "kind": "unusual_category",
+   "severity": "warning",
+   "message": "Shopping is at 6.9x its usual level: Rs. 6,500 vs about Rs. 942.",
+   "data": {
+    "category": "Shopping",
+    "current_paisa": 650000,
+    "usual_paisa": 94215,
+    "ratio": 6.9
+   }
+  },
+  {
+   "kind": "month_over_month",
+   "severity": "info",
+   "message": "You've spent 5.9% less than Sep 2026 (Rs. 35,097.56 vs Rs. 37,282.11).",
+   "data": {
+    "change_percent": -5.9,
+    "current_paisa": 3509756,
+    "previous_paisa": 3728211,
+    "basis": "full_period"
+   }
+  },
+  {
+   "kind": "top_category",
+   "severity": "info",
+   "message": "Food & Dining is your biggest category: Rs. 9,710 (27.7% of spending).",
+   "data": {
+    "category": "Food & Dining",
+    "spent_paisa": 971000,
+    "share_percent": 27.7
+   }
+  },
+  {
+   "kind": "top_merchant",
+   "severity": "info",
+   "message": "You spent the most at Sajilo Supermarket: Rs. 5,516.80 over 3 payments.",
+   "data": {
+    "merchant": "Sajilo Supermarket",
+    "spent_paisa": 551680,
+    "count": 3
+   }
+  }
+ ],
+ "forecast": null
+}

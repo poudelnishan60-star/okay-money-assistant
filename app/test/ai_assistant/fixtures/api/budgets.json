@@ -1,0 +1,82 @@
+[
+ {
+  "id": 1,
+  "category": null,
+  "calendar": "AD",
+  "period": {
+   "start": "2026-11-01",
+   "end": "2026-11-30",
+   "label": "Nov 2026",
+   "days": 30
+  },
+  "limit_paisa": 3000000,
+  "spent_paisa": 621380,
+  "remaining_paisa": 2378620,
+  "percent_used": 20.7,
+  "level": "ok",
+  "alerts_reached": [],
+  "days_left": 22,
+  "daily_allowance_paisa": 108119,
+  "projected_spend_paisa": 2071266
+ },
+ {
+  "id": 3,
+  "category": "Entertainment",
+  "calendar": "AD",
+  "period": {
+   "start": "2026-11-01",
+   "end": "2026-11-30",
+   "label": "Nov 2026",
+   "days": 30
+  },
+  "limit_paisa": 150000,
+  "spent_paisa": 0,
+  "remaining_paisa": 150000,
+  "percent_used": 0.0,
+  "level": "ok",
+  "alerts_reached": [],
+  "days_left": 22,
+  "daily_allowance_paisa": 6818,
+  "projected_spend_paisa": 0
+ },
+ {
+  "id": 2,
+  "category": "Groceries",
+  "calendar": "AD",
+  "period": {
+   "start": "2026-11-01",
+   "end": "2026-11-30",
+   "label": "Nov 2026",
+   "days": 30
+  },
+  "limit_paisa": 900000,
+  "spent_paisa": 109280,
+  "remaining_paisa": 790720,
+  "percent_used": 12.1,
+  "level": "ok",
+  "alerts_reached": [],
+  "days_left": 22,
+  "daily_allowance_paisa": 35941,
+  "projected_spend_paisa": 364266
+ },
+ {
+  "id": 4,
+  "category": "Shopping",
+  "calendar": "BS",
+  "period": {
+   "start": "2026-10-18",
+   "end": "2026-11-16",
+   "label": "Kartik 2083",
+   "days": 30
+  },
+  "limit_paisa": 400000,
+  "spent_paisa": 120000,
+  "remaining_paisa": 280000,
+  "percent_used": 30.0,
+  "level": "ok",
+  "alerts_reached": [],
+  "days_left": 8,
+  "daily_allowance_paisa": 35000,
+  "projected_spend_paisa": 156521
+ }
+]

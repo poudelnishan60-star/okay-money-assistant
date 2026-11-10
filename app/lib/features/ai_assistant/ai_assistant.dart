@@ -10,7 +10,7 @@ library;
 
 export 'chat/chat_screen.dart' show ChatScreen;
 export 'config.dart';
-export 'core/api_client.dart' show ApiClient, ApiException, apiClientProvider;
+export 'core/api_client.dart' show ApiClient, ApiException, apiClientProvider, httpClientProvider;
 export 'core/money.dart' show formatNpr;
 export 'core/preferences.dart';
 export 'core/privacy.dart';

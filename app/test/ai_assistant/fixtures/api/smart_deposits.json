@@ -1,0 +1,10 @@
+[
+ {
+  "id": "sd_1",
+  "name": "Smart Deposit - New laptop",
+  "installment_paisa": 200000,
+  "interval_days": 30,
+  "next_date": "2026-12-04",
+  "total_deposited_paisa": 600000
+ }
+]

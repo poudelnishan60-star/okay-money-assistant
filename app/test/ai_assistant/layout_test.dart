@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 
 import 'test_harness.dart';
 
@@ -55,6 +59,38 @@ void main() {
       await t.tap(find.text('Budgets'));
       await t.pumpAndSettle();
       expect(t.takeException(), isNull, reason: 'answer with every card');
+    });
+  }
+
+  for (final (width, scale) in [(320.0, 1.0), (360.0, 1.3), (390.0, 1.3)]) {
+    testWidgets('screens fit at $width px with text x$scale', (t) async {
+      useSize(t, Size(width, 4000));
+      t.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+      await t.pumpWidget(demoApp().app);
+      await t.pumpAndSettle();
+      final router = GoRouter.of(t.element(find.text('Financial Services')));
+      for (final path in [
+        OkayRoutes.insights,
+        OkayRoutes.transactions,
+        OkayRoutes.budgets,
+        OkayRoutes.goals,
+        OkayRoutes.bills,
+        OkayRoutes.settings,
+      ]) {
+        unawaited(router.push(path));
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull, reason: path);
+        if (path == OkayRoutes.budgets || path == OkayRoutes.goals) {
+          await t.tap(find.byIcon(Icons.add_rounded).first);
+          await t.pumpAndSettle();
+          expect(t.takeException(), isNull, reason: '$path sheet');
+          Navigator.of(t.element(find.text('Save'))).pop();
+          await t.pumpAndSettle();
+        }
+        router.pop();
+        await t.pumpAndSettle();
+      }
     });
   }
 }

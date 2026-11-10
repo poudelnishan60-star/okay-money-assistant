@@ -71,6 +71,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET | `/smart-deposits` | existing Smart Deposit plans (read-only) |
 | GET | `/bills` | detected bills & subscriptions, soonest due first |
 | PUT | `/bills/{id}/status` | `confirmed` / `dismissed` / `detected` (undo) |
+| GET / PUT | `/me/settings` | assistant settings: language, calendar, alerts, weekly-summary day, low-balance threshold |
 | POST | `/sessions` | public site: a private copy of the demo data for this visitor |
 | POST | `/chat` | ask O-Kay; streams server-sent events (see below) |
 | GET / DELETE | `/chat/history` | the conversation / clear it |
@@ -174,7 +175,8 @@ lib/features/ai_assistant/        THE FEATURE: drops into the Khalti app as one 
   routes.dart                     /assistant/... routes behind the feature flag
   chat/                           O-Kay chat: screen, controller, repository, cards
   core/visitor_session.dart       public site: a private demo copy per browser
-  screens/                        UI kit; the other screens arrive in step 7
+  data/                           models, repositories (one per screen) and Riverpod providers
+  screens/                        insights, transactions, budgets, goals, bills, settings, UI kit
 ```
 
 ### The website (Flutter web)
@@ -206,6 +208,39 @@ Live end-to-end check against a running backend with a Groq key (not part of `fl
 flutter test test_live/live_chat_test.dart
 ```
 
+### Money screens
+
+Reached from Home → Financial Services → "Money Insights" and from the chat's cards.
+
+- **Insights**: month selector (AD or BS months), total spent and change against the same days
+  of last month, insight cards (unusual spending, biggest category), month-end forecast with
+  a low-balance warning, category donut with a list, day-by-day bars, top merchants. Tapping a
+  category opens its transactions.
+- **Transactions**: period chips (7 / 14 / 30 days, this month, custom range), grouped by day
+  with the closing balance, paging. The detail sheet changes the category, optionally for every
+  transaction from that merchant.
+- **Budgets**: bars with words as well as colour (on track / near limit / over), "about Rs. X a
+  day for N days"; a sheet to create, edit or delete one (AD or BS month).
+- **Goals**: progress ring, target, deadline, "needs Rs. X/month", "Automate with Smart
+  Deposit" (opens the host's Smart Deposit through `HostAppBridge`).
+- **Bills**: detected recurring payments with next due date and usual amount, Pay now, Set up
+  Autopay, confirm or dismiss (with undo).
+- **Settings**: language (English / नेपाली / Auto), AD/BS, alerts, weekly-summary day, how the
+  data is used, clear chat history. Language and calendar apply to the chat and every screen.
+
+Widget tests answer from JSON fixtures exported from the real API, so they track the backend.
+Regenerate them after changing the seed or the API:
+
+```bash
+cd backend && python scripts/export_app_fixtures.py
+```
+
+Live check of every screen's reads and writes against a running backend (no Groq key needed):
+
+```bash
+flutter test test_live/live_screens_test.dart
+```
+
 The feature folder imports nothing from the rest of `lib/`; a test enforces it. The host
 overrides `hostAppBridgeProvider`, mounts `aiAssistantRoutes()`, and keeps
 `amountPrivacyProvider` in sync with its hide-balance toggle. Menu → "Assistant UI kit"
@@ -232,7 +267,7 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 4 | App foundation: theme, components, navigation, ApiClient, HostAppBridge mock | done |
 | 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | done |
 | 6 | App chat: fonts, website layout, O-Kay chat screen | done |
-| 7 | App screens: insights, transactions, budgets, goals, bills, settings | |
+| 7 | App screens: insights, transactions, budgets, goals, bills, settings | done |
 | 8 | Notifications, polish, golden tests, 50-question eval | |
 | 9 | Deploy the website and backend | |
 

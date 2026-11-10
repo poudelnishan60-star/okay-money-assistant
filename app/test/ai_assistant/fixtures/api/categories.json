@@ -1,0 +1,81 @@
+[
+ {
+  "name": "Food & Dining",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Groceries",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Transport",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Bills & Utilities",
+  "subcategories": [
+   "Electricity",
+   "Khanepani",
+   "Internet/TV"
+  ],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Topup & Data",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Travel",
+  "subcategories": [
+   "Flight",
+   "Bus",
+   "Hotel",
+   "Cable car"
+  ],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Shopping",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Education",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Health",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Entertainment",
+  "subcategories": [],
+  "counts_as_spending": true
+ },
+ {
+  "name": "Transfers",
+  "subcategories": [],
+  "counts_as_spending": false
+ },
+ {
+  "name": "Remittance",
+  "subcategories": [],
+  "counts_as_spending": false
+ },
+ {
+  "name": "Savings",
+  "subcategories": [],
+  "counts_as_spending": false
+ },
+ {
+  "name": "Other",
+  "subcategories": [],
+  "counts_as_spending": true
+ }
+]

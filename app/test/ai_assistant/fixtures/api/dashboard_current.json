@@ -1,0 +1,328 @@
+{
+ "summary": {
+  "period": {
+   "start": "2026-11-01",
+   "end": "2026-11-30",
+   "label": "Nov 2026",
+   "days": 30
+  },
+  "previous_period": {
+   "start": "2026-10-01",
+   "end": "2026-10-31",
+   "label": "Oct 2026",
+   "days": 31
+  },
+  "in_progress": true,
+  "covered_end": "2026-11-09",
+  "total_spent_paisa": 621380,
+  "previous_total_spent_paisa": 3509756,
+  "previous_compare_paisa": 1760245,
+  "comparison_basis": "same_days",
+  "change_percent": -64.7,
+  "income_paisa": 2750000,
+  "money_in_paisa": 2900000,
+  "transaction_count": 9,
+  "by_category": [
+   {
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1,
+    "share_percent": 56.3,
+    "previous_spent_paisa": 350000
+   },
+   {
+    "category": "Food & Dining",
+    "spent_paisa": 127000,
+    "count": 5,
+    "share_percent": 20.4,
+    "previous_spent_paisa": 547000
+   },
+   {
+    "category": "Groceries",
+    "spent_paisa": 109280,
+    "count": 1,
+    "share_percent": 17.6,
+    "previous_spent_paisa": 119645
+   },
+   {
+    "category": "Topup & Data",
+    "spent_paisa": 20000,
+    "count": 1,
+    "share_percent": 3.2,
+    "previous_spent_paisa": 0
+   },
+   {
+    "category": "Transport",
+    "spent_paisa": 15100,
+    "count": 1,
+    "share_percent": 2.4,
+    "previous_spent_paisa": 65600
+   },
+   {
+    "category": "Shopping",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 530000
+   },
+   {
+    "category": "Health",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 83000
+   },
+   {
+    "category": "Other",
+    "spent_paisa": 0,
+    "count": 0,
+    "share_percent": 0.0,
+    "previous_spent_paisa": 65000
+   }
+  ],
+  "daily": [
+   {
+    "date": "2026-11-01",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-11-02",
+    "spent_paisa": 141780
+   },
+   {
+    "date": "2026-11-03",
+    "spent_paisa": 0
+   },
+   {
+    "date": "2026-11-04",
+    "spent_paisa": 35500
+   },
+   {
+    "date": "2026-11-05",
+    "spent_paisa": 19000
+   },
+   {
+    "date": "2026-11-06",
+    "spent_paisa": 350000
+   },
+   {
+    "date": "2026-11-07",
+    "spent_paisa": 41000
+   },
+   {
+    "date": "2026-11-08",
+    "spent_paisa": 34100
+   },
+   {
+    "date": "2026-11-09",
+    "spent_paisa": 0
+   }
+  ],
+  "top_merchants": [
+   {
+    "merchant": "Sikshya Language Institute",
+    "category": "Education",
+    "spent_paisa": 350000,
+    "count": 1
+   },
+   {
+    "merchant": "Ratna Mart",
+    "category": "Groceries",
+    "spent_paisa": 109280,
+    "count": 1
+   },
+   {
+    "merchant": "Mithai Mandir Sweets",
+    "category": "Food & Dining",
+    "spent_paisa": 60000,
+    "count": 2
+   },
+   {
+    "merchant": "Golden Crust Bakery",
+    "category": "Food & Dining",
+    "spent_paisa": 48000,
+    "count": 2
+   },
+   {
+    "merchant": "Nepal Telecom",
+    "category": "Topup & Data",
+    "spent_paisa": 20000,
+    "count": 1
+   }
+  ]
+ },
+ "unusual": [],
+ "highlights": [
+  {
+   "kind": "month_over_month",
+   "severity": "positive",
+   "message": "You've spent 64.7% less than the same days of Oct 2026 (Rs. 6,213.80 vs Rs. 17,602.45).",
+   "data": {
+    "change_percent": -64.7,
+    "current_paisa": 621380,
+    "previous_paisa": 1760245,
+    "basis": "same_days"
+   }
+  },
+  {
+   "kind": "top_category",
+   "severity": "info",
+   "message": "Education is your biggest category: Rs. 3,500 (56.3% of spending).",
+   "data": {
+    "category": "Education",
+    "spent_paisa": 350000,
+    "share_percent": 56.3
+   }
+  },
+  {
+   "kind": "top_merchant",
+   "severity": "info",
+   "message": "You spent the most at Sikshya Language Institute: Rs. 3,500 over 1 payment.",
+   "data": {
+    "merchant": "Sikshya Language Institute",
+    "spent_paisa": 350000,
+    "count": 1
+   }
+  },
+  {
+   "kind": "month_end_balance",
+   "severity": "positive",
+   "message": "Projected balance on 30 Nov: Rs. 8,286.",
+   "data": {
+    "horizon_end": "2026-11-30",
+    "projected_end_balance_paisa": 828600
+   }
+  }
+ ],
+ "forecast": {
+  "as_of": "2026-11-09",
+  "horizon_end": "2026-11-30",
+  "current_balance_paisa": 2394486,
+  "avg_daily_spend_paisa": 56039,
+  "lookback_days": 30,
+  "projected_end_balance_paisa": 828600,
+  "lowest_balance_paisa": 828600,
+  "lowest_date": "2026-11-30",
+  "threshold_paisa": 100000,
+  "below_threshold": false,
+  "first_below_date": null,
+  "scheduled": [
+   {
+    "date": "2026-11-10",
+    "merchant": "Ncell",
+    "category": "Topup & Data",
+    "amount_paisa": -49900
+   },
+   {
+    "date": "2026-11-14",
+    "merchant": "Nepal Electricity Authority",
+    "category": "Bills & Utilities",
+    "amount_paisa": -114067
+   },
+   {
+    "date": "2026-11-18",
+    "merchant": "KUKL Khanepani",
+    "category": "Bills & Utilities",
+    "amount_paisa": -50100
+   },
+   {
+    "date": "2026-11-21",
+    "merchant": "Gurans Fibernet",
+    "category": "Bills & Utilities",
+    "amount_paisa": -130000
+   },
+   {
+    "date": "2026-11-24",
+    "merchant": "Sajilo DTH",
+    "category": "Bills & Utilities",
+    "amount_paisa": -45000
+   }
+  ],
+  "points": [
+   {
+    "date": "2026-11-10",
+    "balance_paisa": 2288547
+   },
+   {
+    "date": "2026-11-11",
+    "balance_paisa": 2232508
+   },
+   {
+    "date": "2026-11-12",
+    "balance_paisa": 2176469
+   },
+   {
+    "date": "2026-11-13",
+    "balance_paisa": 2120430
+   },
+   {
+    "date": "2026-11-14",
+    "balance_paisa": 1950324
+   },
+   {
+    "date": "2026-11-15",
+    "balance_paisa": 1894285
+   },
+   {
+    "date": "2026-11-16",
+    "balance_paisa": 1838246
+   },
+   {
+    "date": "2026-11-17",
+    "balance_paisa": 1782207
+   },
+   {
+    "date": "2026-11-18",
+    "balance_paisa": 1676068
+   },
+   {
+    "date": "2026-11-19",
+    "balance_paisa": 1620029
+   },
+   {
+    "date": "2026-11-20",
+    "balance_paisa": 1563990
+   },
+   {
+    "date": "2026-11-21",
+    "balance_paisa": 1377951
+   },
+   {
+    "date": "2026-11-22",
+    "balance_paisa": 1321912
+   },
+   {
+    "date": "2026-11-23",
+    "balance_paisa": 1265873
+   },
+   {
+    "date": "2026-11-24",
+    "balance_paisa": 1164834
+   },
+   {
+    "date": "2026-11-25",
+    "balance_paisa": 1108795
+   },
+   {
+    "date": "2026-11-26",
+    "balance_paisa": 1052756
+   },
+   {
+    "date": "2026-11-27",
+    "balance_paisa": 996717
+   },
+   {
+    "date": "2026-11-28",
+    "balance_paisa": 940678
+   },
+   {
+    "date": "2026-11-29",
+    "balance_paisa": 884639
+   },
+   {
+    "date": "2026-11-30",
+    "balance_paisa": 828600
+   }
+  ]
+ }
+}

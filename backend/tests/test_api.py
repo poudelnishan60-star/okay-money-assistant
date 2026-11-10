@@ -325,3 +325,30 @@ def test_cors_allows_local_dev_origins_only(client: TestClient) -> None:
         "/me", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"}
     )
     assert "access-control-allow-origin" not in bad.headers
+
+
+# --- assistant settings -------------------------------------------------------------------
+
+
+def test_settings_defaults_update_and_isolation(client: TestClient) -> None:
+    defaults = client.get("/me/settings").json()
+    assert defaults == {
+        "language": "auto",
+        "calendar": "AD",
+        "alerts": {"budget": True, "bills": True, "unusual": True, "weekly_summary": True},
+        "weekly_summary_day": "sunday",
+        "low_balance_threshold_paisa": 100000,
+    }
+    changed = {
+        **defaults,
+        "language": "ne",
+        "calendar": "BS",
+        "weekly_summary_day": "friday",
+        "alerts": {**defaults["alerts"], "unusual": False},
+    }
+    assert client.put("/me/settings", json=changed).json() == changed
+    assert client.get("/me/settings").json() == changed
+    visitor = client.post("/sessions").json()["session_id"]
+    assert client.get("/me/settings", headers={"X-User-Id": visitor}).json() == defaults
+    assert client.put("/me/settings", json={**changed, "language": "fr"}).status_code == 422
+    assert client.put("/me/settings", json={**changed, "calendar": "XX"}).status_code == 422

@@ -39,3 +39,19 @@ String formatNpr(int paisa, {bool alwaysDecimals = false, bool nepali = false}) 
 
 /// What a masked amount looks like when the user has hidden their balance.
 String maskedNpr({bool nepali = false}) => nepali ? 'रु. ••••' : 'Rs. ••••';
+
+/// What the user typed in an amount field -> paisa, or null if it isn't a positive amount.
+/// Accepts "6000", "6,000", "1,25,000.50" and Devanagari digits ("६,०००").
+int? parseRupees(String input) {
+  var text = input.trim().replaceAll(RegExp(r'^(Rs\.?|रु\.?)\s*', caseSensitive: false), '');
+  text = text.replaceAllMapped(RegExp('[०-९]'), (m) => '${'०१२३४५६७८९'.indexOf(m[0]!)}');
+  text = text.replaceAll(RegExp(r'[,\s]'), '');
+  final match = RegExp(r'^(\d{1,10})(?:\.(\d{1,2}))?$').firstMatch(text);
+  if (match == null) return null;
+  final paisa = int.parse(match[1]!) * 100 + int.parse((match[2] ?? '0').padRight(2, '0'));
+  return paisa > 0 ? paisa : null;
+}
+
+/// Paisa -> the plain number to pre-fill an amount field with ('6000', '1140.67').
+String rupeesInput(int paisa) =>
+    paisa % 100 == 0 ? '${paisa ~/ 100}' : (paisa / 100).toStringAsFixed(2);

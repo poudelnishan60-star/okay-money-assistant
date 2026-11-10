@@ -1,0 +1,12 @@
+{
+ "language": "auto",
+ "calendar": "AD",
+ "alerts": {
+  "budget": true,
+  "bills": true,
+  "unusual": true,
+  "weekly_summary": true
+ },
+ "weekly_summary_day": "sunday",
+ "low_balance_threshold_paisa": 100000
+}

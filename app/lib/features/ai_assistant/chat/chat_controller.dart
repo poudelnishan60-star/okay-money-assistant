@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../core/preferences.dart';
+import '../data/providers.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
 
@@ -186,6 +187,9 @@ class ChatController extends Notifier<ChatState> {
     try {
       await _repo.confirm(card.request);
       _setConfirm(key, const ConfirmState(ConfirmStatus.saved));
+      // The Budgets / Goals screens and the dashboard show the new numbers next time.
+      ref.invalidate(card.action == 'upsert_goal' ? goalsProvider : budgetsProvider);
+      ref.invalidate(dashboardProvider);
     } on ApiException catch (e) {
       _setConfirm(key, ConfirmState(ConfirmStatus.failed, e.message));
     }

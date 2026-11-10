@@ -211,7 +211,9 @@ void main() {
     await t.ensureVisible(link);
     await t.tap(link);
     await t.pumpAndSettle();
-    expect(find.textContaining('Will open filtered by: start=2026-11-03'), findsOneWidget);
+    expect(find.text('Transactions'), findsOneWidget);
+    expect(find.byType(InputChip), findsNothing); // a date range only, no extra filters
+    expect(find.textContaining('7 days'), findsOneWidget);
   });
 
   testWidgets('history loads when the chat opens; clear asks first', (t) async {

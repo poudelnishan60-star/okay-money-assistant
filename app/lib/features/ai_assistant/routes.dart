@@ -4,7 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import 'chat/chat_screen.dart';
 import 'config.dart';
-import 'screens/coming_soon_screen.dart';
+import 'data/models.dart';
+import 'data/providers.dart';
+import 'screens/bills_screen.dart';
+import 'screens/budgets_screen.dart';
+import 'screens/goals_screen.dart';
+import 'screens/insights_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/transactions_screen.dart';
 import 'screens/ui_kit_screen.dart';
 
 /// Paths of the assistant's screens. The host mounts [aiAssistantRoutes] in its router.
@@ -36,39 +43,37 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
       return null;
     },
     routes: [
-      GoRoute(path: 'chat', builder: (context, state) => const ChatScreen()),
-      GoRoute(
-        path: 'insights',
-        builder: (context, state) => const ComingSoonScreen(title: 'Money Insights', step: 7),
-      ),
+      GoRoute(path: 'chat', builder: (context, state) => const _Root(ChatScreen())),
+      GoRoute(path: 'insights', builder: (context, state) => const _Root(InsightsScreen())),
       GoRoute(
         path: 'transactions',
-        builder: (context, state) => ComingSoonScreen(
-          title: 'Transactions',
-          step: 7,
-          note: state.uri.queryParameters.isEmpty
-              ? null
-              : 'Will open filtered by: ${state.uri.queryParameters.entries.map((e) => '${e.key}=${e.value}').join(', ')}',
+        builder: (context, state) => _Root(
+          TransactionsScreen(
+            // Opened from a chat link or a dashboard tap: start with those filters.
+            initial: state.uri.queryParameters.isEmpty
+                ? const TxnQuery(period: '30d')
+                : TxnQuery.fromParams(state.uri.queryParameters),
+          ),
         ),
       ),
-      GoRoute(
-        path: 'budgets',
-        builder: (context, state) => const ComingSoonScreen(title: 'Budgets', step: 7),
-      ),
-      GoRoute(
-        path: 'goals',
-        builder: (context, state) => const ComingSoonScreen(title: 'Savings goals', step: 7),
-      ),
-      GoRoute(
-        path: 'bills',
-        builder: (context, state) =>
-            const ComingSoonScreen(title: 'Bills & subscriptions', step: 7),
-      ),
-      GoRoute(
-        path: 'settings',
-        builder: (context, state) => const ComingSoonScreen(title: 'Assistant settings', step: 7),
-      ),
+      GoRoute(path: 'budgets', builder: (context, state) => const _Root(BudgetsScreen())),
+      GoRoute(path: 'goals', builder: (context, state) => const _Root(GoalsScreen())),
+      GoRoute(path: 'bills', builder: (context, state) => const _Root(BillsScreen())),
+      GoRoute(path: 'settings', builder: (context, state) => const _Root(SettingsScreen())),
       GoRoute(path: 'ui-kit', builder: (context, state) => const UiKitScreen()),
     ],
   ),
 ];
+
+/// Wraps every assistant screen: keeps the user's saved settings (language, calendar) loaded,
+/// so all screens and the chat use them from the first frame they are available.
+class _Root extends ConsumerWidget {
+  const _Root(this.child);
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(settingsProvider);
+    return child;
+  }
+}

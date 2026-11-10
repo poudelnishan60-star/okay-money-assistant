@@ -28,6 +28,7 @@ from app.config import get_settings
 from app.db import Base, init_db, make_engine, make_session_factory
 from app.domain import Direction, TxnType
 from app.models import (
+    AssistantSettings,
     Budget,
     ChatMessage,
     FaqArticle,
@@ -498,6 +499,7 @@ def _id_prefix(user_id: str) -> str:
 
 def _clear(session: Session) -> None:
     for model in (
+        AssistantSettings,
         ChatMessage,
         ToolCallLog,
         TransactionRow,

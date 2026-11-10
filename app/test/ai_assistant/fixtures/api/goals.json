@@ -1,0 +1,28 @@
+[
+ {
+  "id": 1,
+  "name": "New laptop",
+  "target_paisa": 12000000,
+  "saved_paisa": 1800000,
+  "deadline": "2027-09-01",
+  "remaining_paisa": 10200000,
+  "percent": 15.0,
+  "days_left": 296,
+  "months_left": 10,
+  "required_monthly_paisa": 1020000,
+  "state": "active"
+ },
+ {
+  "id": 2,
+  "name": "Emergency fund",
+  "target_paisa": 5000000,
+  "saved_paisa": 850000,
+  "deadline": "2027-11-01",
+  "remaining_paisa": 4150000,
+  "percent": 17.0,
+  "days_left": 357,
+  "months_left": 12,
+  "required_monthly_paisa": 345900,
+  "state": "active"
+ }
+]

@@ -180,3 +180,15 @@ class ToolCallLog(Base):
     error: Mapped[str | None] = mapped_column(String(300))
     duration_ms: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt)
+
+
+class AssistantSettings(Base):
+    """Per-user assistant preferences (language, calendar, alerts). Missing row = defaults."""
+
+    __tablename__ = "assistant_settings"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    settings_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt, onupdate=now_npt)

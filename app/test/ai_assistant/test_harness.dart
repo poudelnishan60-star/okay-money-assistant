@@ -11,6 +11,10 @@ import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_repository.dart';
 
+import 'fake_api.dart';
+
+export 'fake_api.dart';
+
 const demoMe = Me(
   id: 'demo_user',
   name: 'Anjali Thapa',
@@ -107,14 +111,17 @@ List<ChatStreamEvent> answer(
   ),
 ];
 
-/// The whole demo host with no network: /me and /chat are faked, no visitor sessions.
-({Widget app, MockHostAppBridge bridge, FakeChatRepository chat}) demoApp({
+/// The whole demo host with no network: /me and /chat are faked, the REST API is a [FakeApi]
+/// answering from real backend fixtures, and there are no visitor sessions.
+({Widget app, MockHostAppBridge bridge, FakeChatRepository chat, FakeApi api}) demoApp({
   bool enabled = true,
   FakeChatRepository? chat,
+  FakeApi? api,
 }) {
   final key = GlobalKey<NavigatorState>();
   final bridge = MockHostAppBridge(key);
   final repo = chat ?? FakeChatRepository();
+  final fake = api ?? FakeApi();
   return (
     app: ProviderScope(
       overrides: [
@@ -123,6 +130,7 @@ List<ChatStreamEvent> answer(
         assistantConfigProvider.overrideWithValue(
           AssistantConfig(baseUrl: Uri.parse('http://test.invalid')),
         ),
+        httpClientProvider.overrideWithValue(fake.client),
         meProvider.overrideWith((ref) async => demoMe),
         chatRepositoryProvider.overrideWithValue(repo),
       ],
@@ -130,5 +138,6 @@ List<ChatStreamEvent> answer(
     ),
     bridge: bridge,
     chat: repo,
+    api: fake,
   );
 }
