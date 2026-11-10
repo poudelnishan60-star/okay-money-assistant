@@ -42,12 +42,14 @@ ENDPOINTS = {
     "goals": "/goals",
     "smart_deposits": "/smart-deposits",
     "bills": "/bills",
+    "notifications": "/notifications",  # after the others: reading it stores the alerts
 }
 
 
 def main() -> None:
-    app = create_app(Settings(_env_file=None, database_url="sqlite://", auto_seed=False,
-                              groq_api_key=None))
+    app = create_app(
+        Settings(_env_file=None, database_url="sqlite://", auto_seed=False, groq_api_key=None)
+    )
     app.dependency_overrides[get_today] = lambda: ANCHOR
     (OUT / "api").mkdir(parents=True, exist_ok=True)
     with TestClient(app) as client:
@@ -57,7 +59,8 @@ def main() -> None:
             r = client.get(url)
             r.raise_for_status()
             (OUT / "api" / f"{name}.json").write_text(
-                json.dumps(r.json(), ensure_ascii=False, indent=1), encoding="utf-8")
+                json.dumps(r.json(), ensure_ascii=False, indent=1), encoding="utf-8"
+            )
         with app.state.session_factory() as s:
             src = MockTransactionSource(s)
             ctx = ToolContext(s, src, MockBillSource(src), "demo_user", ANCHOR)
@@ -72,8 +75,9 @@ def main() -> None:
                 ("open_app_flow", {"flow": "bill_payment", "service": "electricity"}),
             ]:
                 cards += [c.model_dump(mode="json") for c in run_tool(ctx, tool, args).cards]
-    (OUT / "chat_cards.json").write_text(json.dumps(cards, ensure_ascii=False, indent=1),
-                                         encoding="utf-8")
+    (OUT / "chat_cards.json").write_text(
+        json.dumps(cards, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     print(f"wrote {len(ENDPOINTS)} API fixtures and {len(cards)} chat cards")  # noqa: T201
 
 

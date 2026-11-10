@@ -198,6 +198,10 @@ class SettingsController extends AsyncNotifier<AssistantSettings> {
       }
       rethrow;
     }
+    // Language, calendar, alert switches and the warning line change what these show.
+    ref
+      ..invalidate(alertsProvider)
+      ..invalidate(dashboardProvider);
   }
 
   /// The chat and cards read language/calendar from [assistantPrefsProvider].
@@ -211,4 +215,43 @@ class SettingsController extends AsyncNotifier<AssistantSettings> {
 final settingsProvider = AsyncNotifierProvider<SettingsController, AssistantSettings>(
   SettingsController.new,
   retry: noRetry,
+);
+
+// --- alerts ------------------------------------------------------------------------------
+
+class AlertsController extends AsyncNotifier<AlertInbox> {
+  @override
+  Future<AlertInbox> build() => ref.watch(alertsRepositoryProvider).inbox();
+
+  /// Marks one alert read (at once on screen; the server follows).
+  Future<void> markRead(int id) async {
+    final inbox = state.value;
+    if (inbox == null) return;
+    final target = inbox.items.where((n) => n.id == id && !n.read);
+    if (target.isEmpty) return;
+    state = AsyncData(
+      AlertInbox([for (final n in inbox.items) n.id == id ? n.markedRead() : n], inbox.unread - 1),
+    );
+    final unread = await ref.read(alertsRepositoryProvider).markRead([id]);
+    final now = state.value;
+    if (now != null) state = AsyncData(AlertInbox(now.items, unread));
+  }
+
+  Future<void> markAllRead() async {
+    final inbox = state.value;
+    if (inbox == null || inbox.unread == 0) return;
+    state = AsyncData(AlertInbox([for (final n in inbox.items) n.markedRead()], 0));
+    await ref.read(alertsRepositoryProvider).markRead();
+  }
+}
+
+final alertsProvider = AsyncNotifierProvider<AlertsController, AlertInbox>(
+  AlertsController.new,
+  retry: noRetry,
+);
+
+/// Unread alerts, for a badge (0 while loading or on error). The host app can show it on its
+/// own bell.
+final unreadAlertsProvider = Provider<int>(
+  (ref) => ref.watch(alertsProvider.select((a) => a.value?.unread ?? 0)),
 );

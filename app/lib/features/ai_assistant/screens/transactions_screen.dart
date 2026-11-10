@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/clock.dart';
 import '../core/dates.dart';
 import '../core/preferences.dart';
 import '../data/models.dart';
@@ -39,7 +40,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       setState(() => _query = _query.withRange(period: choice.apiValue));
       return;
     }
-    final now = toNepalTime(DateTime.now());
+    final now = nepalNow(ref);
     final today = DateTime(now.year, now.month, now.day);
     final range = await showDateRangePicker(
       context: context,
@@ -107,6 +108,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             child: AsyncBody(
               value: list,
               onRetry: () => ref.invalidate(transactionsProvider(_query)),
+              onRefresh: () => ref.refresh(transactionsProvider(_query).future),
               data: (state) => _TxnList(
                 state: state,
                 calendar: calendar,

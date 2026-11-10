@@ -49,8 +49,9 @@ def test_tool_round_then_answer(seeded: Session) -> None:
 
     # the second LLM call saw the tool result, delimited
     second_messages = llm.calls[1][0]
-    tool_msg = second_messages[-1]
+    tool_msg = second_messages[-2]  # last: the language reminder
     assert tool_msg["role"] == "tool"
+    assert second_messages[-1] == {"role": "system", "content": "Reply in Romanized Nepali."}
     assert tool_msg["content"].startswith('<tool_result name="get_spending_summary">')
     assert second_messages[0]["role"] == "system"
     assert "Romanized Nepali" in second_messages[0]["content"]
@@ -350,3 +351,50 @@ def test_only_one_correction_round(seeded: Session) -> None:
     assert [e.event for e in events].count("reset") == 1
     assert len(llm.calls) == 2
     assert events[-1].event == "done"
+
+
+def test_failed_forced_correction_is_retried_without_forcing(seeded: Session) -> None:
+    # Found by the eval: a model may refuse tool_choice="required". Then the correction is
+    # tried once more without forcing, instead of answering "O-Kay can't answer right now".
+    llm = FakeLLM(
+        say("You spent Rs. 9,999 on food."),
+        LLMUnavailableError("did not call a tool"),
+        call(("get_spending_summary", {"period": "this_month", "category": "Food & Dining"})),
+        say("You spent Rs. 1,270 on food."),
+    )
+    events = _run(seeded, llm, "food spending?")
+    assert [e.event for e in events].count("reset") == 2
+    assert llm.tool_choices == ["auto", "required", "auto", "auto"]
+    last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
+    assert _text(events[last_reset + 1 :]) == "You spent Rs. 1,270 on food."
+    assert events[-1].data["error"] is None
+
+
+def test_busy_during_correction_is_still_busy(seeded: Session) -> None:
+    llm = FakeLLM(say("You spent Rs. 9,999 on food."), LLMBusyError("429"))
+    events = _run(seeded, llm, "food spending?")
+    assert events[-1].data["error"] == "busy"
+    assert len(llm.calls) == 2  # no third try while rate limited
+
+
+def test_language_reminder_goes_with_the_question_only(seeded: Session) -> None:
+    llm = FakeLLM(say("Yo mahina Rs. 6,213.80 kharcha bhayo."), repeat_last=True)
+    _run(seeded, llm, "yo mahina kati kharcha bhayo?")
+    sent = llm.calls[0][0][-1]
+    assert sent["role"] == "user"
+    assert sent["content"].endswith("(Reply in Romanized Nepali.)")
+    stored = seeded.scalars(select(ChatMessage.content).where(ChatMessage.role == "user"))
+    assert list(stored) == ["yo mahina kati kharcha bhayo?"]
+    _run(seeded, llm, "How much did I spend?")
+    assert llm.calls[-1][0][-1]["content"] == "How much did I spend?"  # English: no note
+
+
+def test_language_rule_is_repeated_after_tool_results(seeded: Session) -> None:
+    llm = FakeLLM(
+        call(("upsert_budget", {"category": "Food & Dining", "limit_amount": 5000})),
+        say("Budget save garna Confirm thichnus."),
+    )
+    _run(seeded, llm, "khana ko lagi 5000 ko budget rakhdinus")
+    after_tools = llm.calls[1][0]
+    assert after_tools[-2]["role"] == "tool"
+    assert after_tools[-1] == {"role": "system", "content": "Reply in Romanized Nepali."}

@@ -624,6 +624,7 @@ class AssistantSettings {
     bool? unusualAlerts,
     bool? weeklySummary,
     String? weeklySummaryDay,
+    int? lowBalanceThresholdPaisa,
   }) => AssistantSettings(
     language: language ?? this.language,
     calendar: calendar ?? this.calendar,
@@ -632,6 +633,69 @@ class AssistantSettings {
     unusualAlerts: unusualAlerts ?? this.unusualAlerts,
     weeklySummary: weeklySummary ?? this.weeklySummary,
     weeklySummaryDay: weeklySummaryDay ?? this.weeklySummaryDay,
-    lowBalanceThresholdPaisa: lowBalanceThresholdPaisa,
+    lowBalanceThresholdPaisa: lowBalanceThresholdPaisa ?? this.lowBalanceThresholdPaisa,
   );
+}
+
+// --- notifications -----------------------------------------------------------------------
+
+/// Where an alert leads: one of the assistant's screens plus its query parameters.
+@immutable
+class AlertLink {
+  const AlertLink(this.screen, this.params);
+
+  factory AlertLink.fromJson(Map<String, Object?> j) => AlertLink(
+    j.str('screen'),
+    (j['params'] as Map<String, Object?>? ?? const {}).cast<String, String>(),
+  );
+
+  final String screen; // budgets | bills | transactions | insights
+  final Map<String, String> params;
+}
+
+/// One alert: budget at 80% / 100%, bill due in 3 days, unusual spending, weekly summary.
+/// Title and body come from the backend in the user's language, with the numbers it computed.
+@immutable
+class AlertItem {
+  const AlertItem({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.body,
+    required this.day,
+    required this.read,
+    required this.link,
+  });
+
+  factory AlertItem.fromJson(Map<String, Object?> j) => AlertItem(
+    id: j.integer('id'),
+    kind: j.str('kind'),
+    title: j.str('title'),
+    body: j.str('body'),
+    day: _date(j, 'day'),
+    read: j.boolean('read'),
+    link: AlertLink.fromJson(j.obj('link')),
+  );
+
+  final int id;
+  final String kind; // budget | bill | unusual | weekly_summary
+  final String title;
+  final String body;
+  final DateTime day;
+  final bool read;
+  final AlertLink link;
+
+  AlertItem markedRead() =>
+      AlertItem(id: id, kind: kind, title: title, body: body, day: day, read: true, link: link);
+}
+
+@immutable
+class AlertInbox {
+  const AlertInbox(this.items, this.unread);
+
+  factory AlertInbox.fromJson(Map<String, Object?> j) =>
+      AlertInbox([for (final n in j.objList('items')) AlertItem.fromJson(n)], j.integer('unread'));
+
+  final List<AlertItem> items; // newest first
+  final int unread;
 }

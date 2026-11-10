@@ -44,11 +44,16 @@ class HomeScreen extends ConsumerWidget {
                       style: OkayText.rowTitle,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => showHostOnlySnack(context, 'Notifications'),
-                    icon: const Icon(Icons.notifications_none_outlined),
-                    tooltip: 'Notifications',
-                  ),
+                  // The demo host has no notification centre of its own: its bell shows
+                  // O-Kay's alerts. Inside Khalti they arrive as push notifications.
+                  if (enabled)
+                    const AlertsBell()
+                  else
+                    IconButton(
+                      onPressed: () => showHostOnlySnack(context, 'Notifications'),
+                      icon: const Icon(Icons.notifications_none_outlined),
+                      tooltip: 'Notifications',
+                    ),
                 ],
               ),
               const SizedBox(height: OkaySpacing.lg),

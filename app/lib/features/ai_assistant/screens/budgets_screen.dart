@@ -28,6 +28,7 @@ class BudgetsScreen extends ConsumerWidget {
       body: AsyncBody(
         value: budgets,
         onRetry: () => ref.invalidate(budgetsProvider),
+        onRefresh: () => ref.refresh(budgetsProvider.future),
         data: (list) => list.isEmpty
             ? EmptyView(
                 icon: Icons.pie_chart_outline_rounded,

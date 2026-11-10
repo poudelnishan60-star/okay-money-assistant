@@ -10,10 +10,14 @@ import 'package:khalti_ai_assistant/demo_host/demo_host_app.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_repository.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/core/clock.dart';
 
 import 'fake_api.dart';
 
 export 'fake_api.dart';
+
+/// The fixtures' 'today': 9 Nov 2026, noon in Nepal (data runs to 8 Nov).
+final fixtureNow = DateTime.utc(2026, 11, 9, 6, 15);
 
 const demoMe = Me(
   id: 'demo_user',
@@ -133,6 +137,7 @@ List<ChatStreamEvent> answer(
         httpClientProvider.overrideWithValue(fake.client),
         meProvider.overrideWith((ref) async => demoMe),
         chatRepositoryProvider.overrideWithValue(repo),
+        clockProvider.overrideWithValue(() => fixtureNow),
       ],
       child: DemoHostApp(navigatorKey: key),
     ),

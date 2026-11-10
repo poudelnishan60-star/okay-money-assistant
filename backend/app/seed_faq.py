@@ -9,7 +9,7 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "How do I load money into my Khalti wallet?",
         "Open Load Money, pick your bank or linked account, enter the amount and confirm. "
         "The money shows in your wallet once the bank approves it.",
-        "load fund add money bank topup wallet",
+        "load fund add money bank topup wallet लोड पैसा हाल्ने बैंक halne",
     ),
     (
         "What is Scan & Pay?",
@@ -22,13 +22,13 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "How do I pay my electricity (NEA) bill?",
         "Go to Electricity, choose your NEA counter, enter your SC number and customer ID, "
         "check the due amount and pay. You can save the account to pay faster next month.",
-        "electricity nea bill bijuli",
+        "electricity nea bill bijuli बिजुली बिल",
     ),
     (
         "How do I pay my Khanepani bill?",
         "Open Khanepani, choose your water office (for example KUKL), enter your customer "
         "number, check the bill and pay.",
-        "khanepani water kukl bill pani",
+        "khanepani water kukl bill pani खानेपानी पानी",
     ),
     (
         "How do I buy a data pack or mobile topup?",
@@ -40,7 +40,7 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "What is Smart Deposit?",
         "Smart Deposit saves a fixed amount for you on a schedule, so your savings grow "
         "without you having to remember. You choose the amount and how often.",
-        "smart deposit saving save automatic goal",
+        "smart deposit saving save automatic goal बचत bachat",
     ),
     (
         "How do I set up Autopay for a bill?",
@@ -60,7 +60,7 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "Go to Settings, Security, Reset MPIN and verify with the OTP sent to your phone. "
         "Never share your MPIN or OTP with anyone, including people who say they are from "
         "Khalti.",
-        "mpin forgot reset pin password security",
+        "mpin forgot reset pin password security एमपिन बिर्सें birse",
     ),
     (
         "How do I complete KYC?",
@@ -72,13 +72,13 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "How do I send money to a friend?",
         "Open Send Money, enter your friend's Khalti ID or mobile number, the amount and an "
         "optional note, then confirm with your MPIN.",
-        "send money transfer friend wallet p2p",
+        "send money transfer friend wallet p2p पठाउने pathaune",
     ),
     (
         "Can I receive remittance in Khalti?",
         "Yes. Ask the sender to choose Khalti as the payout method with your registered mobile "
         "number. You will get a notification when it reaches your wallet.",
-        "remittance receive abroad foreign payout",
+        "remittance receive abroad foreign payout रेमिट्यान्स विदेश bidesh",
     ),
     (
         "How do I book bus or flight tickets?",

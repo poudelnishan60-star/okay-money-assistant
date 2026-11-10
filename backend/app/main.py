@@ -21,6 +21,7 @@ from app.api import (
     routes_chat,
     routes_insights,
     routes_meta,
+    routes_notifications,
     routes_session,
     routes_settings,
     routes_transactions,
@@ -29,6 +30,7 @@ from app.config import Settings, get_settings
 from app.db import init_db, make_engine, make_session_factory
 from app.models import User
 from app.ratelimit import RateLimiter
+from app.services.notifications import NoPush, PushSender
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -50,7 +52,11 @@ def _configure_logging() -> None:
             logger.propagate = False
 
 
-def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    llm: LLMClient | None = None,
+    push: PushSender | None = None,
+) -> FastAPI:
     settings = settings or get_settings()
     _configure_logging()
     engine = make_engine(settings.database_url)
@@ -84,6 +90,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     app.state.session_factory = session_factory
     app.state.llm = llm or build_llm_client(settings)
     app.state.rate_limiter = RateLimiter()
+    app.state.push = push or NoPush()  # Khalti's push service when merged into the app
 
     app.add_middleware(
         CORSMiddleware,
@@ -102,6 +109,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None) -
     app.include_router(routes_budgets_goals.goals)
     app.include_router(routes_budgets_goals.smart_deposits)
     app.include_router(routes_bills.router)
+    app.include_router(routes_notifications.router)
     return app
 
 

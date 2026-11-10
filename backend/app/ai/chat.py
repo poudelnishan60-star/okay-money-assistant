@@ -44,6 +44,10 @@ log = logging.getLogger(__name__)
 audit = logging.getLogger("okay.audit")
 
 MAX_CARDS = 4
+_REPLY_IN = {
+    Lang.NE: "Reply in Nepali, in Devanagari.",
+    Lang.ROM: "Reply in Romanized Nepali.",
+}
 
 _AMOUNT = re.compile(r"(?:Rs\.?|रु\.?)\s?[\d,०-९]+(?:\.[\d०-९]+)?")
 _BARE_NUMBER = re.compile(r"[\d०-९][\d,०-९]*(?:\.[\d०-९]+)?")
@@ -125,6 +129,7 @@ class ChatService:
         self.history_messages = history_messages
         self.max_tool_rounds = max_tool_rounds
         self.ctx = ToolContext(session, source, bills, user_id, today)
+        self._reply_note: str | None = None  # language reminder after tool results
 
     # -- history ------------------------------------------------------------------------
     def _history(self) -> list[Message]:
@@ -244,6 +249,10 @@ class ChatService:
                 if result is not None:
                     topics |= result.topics
                     cards.extend(card.model_dump(mode="json") for card in result.cards)
+            if self._reply_note:
+                # Tool results are English; live runs saw English replies to Romanized
+                # questions right after them. Repeat the language rule last.
+                messages.append({"role": "system", "content": self._reply_note})
             self.session.commit()
         return max_rounds
 
@@ -266,6 +275,11 @@ class ChatService:
             yield ChatEvent("token", {"text": prefix})
 
         user_turn = clean
+        self._reply_note = _REPLY_IN.get(lang)
+        if lang is not Lang.EN:
+            # The eval saw English replies to Romanized questions despite the system prompt;
+            # a reminder next to the question works better. Not stored in the history.
+            user_turn += f"\n\n({_REPLY_IN[lang]})"
         if had_secret:
             user_turn += (
                 "\n\n(System note: the user's message contained an MPIN/OTP/password; "
@@ -303,16 +317,24 @@ class ChatService:
                 attempt = []
                 # Both problems are fixed by looking something up or showing a card, so the
                 # first corrective round must call a tool.
-                yield from self._rounds(
-                    messages,
-                    tools,
-                    max(self.max_tool_rounds - used, 1),
-                    attempt,
-                    cards,
-                    topics,
-                    tool_texts,
-                    force_first_tool=True,
-                )
+                rounds = max(self.max_tool_rounds - used, 1)
+                try:
+                    yield from self._rounds(
+                        messages, tools, rounds, attempt, cards, topics, tool_texts, True
+                    )
+                except (LLMBusyError, LLMNotConfiguredError):
+                    raise
+                except LLMUnavailableError:
+                    # Some models refuse a forced tool call. One more go without forcing
+                    # beats "O-Kay can't answer right now" (the eval found this).
+                    log.warning("forced correction failed; retrying without forcing a tool")
+                    yield ChatEvent("reset", {})
+                    if prefix:
+                        yield ChatEvent("token", {"text": prefix})
+                    attempt = []
+                    yield from self._rounds(
+                        messages, tools, rounds, attempt, cards, topics, tool_texts
+                    )
                 if check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts)):
                     log.warning("answer still fails the grounding check after a correction")
         except LLMNotConfiguredError:

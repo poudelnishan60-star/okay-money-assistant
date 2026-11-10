@@ -66,6 +66,11 @@ class OkayScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // On the website this names the browser tab ("Budgets · O-Kay"); in the app it does nothing.
+    return Title(title: '$title · O-Kay', color: OkayColors.primary, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(

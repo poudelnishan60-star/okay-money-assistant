@@ -154,6 +154,17 @@
  "unusual": [],
  "highlights": [
   {
+   "kind": "budget_alert",
+   "severity": "warning",
+   "message": "You've used 85.7% of your Shopping budget (Rs. 1,200 of Rs. 1,400).",
+   "data": {
+    "budget_id": 4,
+    "category": "Shopping",
+    "percent_used": 85.7,
+    "level": "warning"
+   }
+  },
+  {
    "kind": "month_over_month",
    "severity": "positive",
    "message": "You've spent 64.7% less than the same days of Oct 2026 (Rs. 6,213.80 vs Rs. 17,602.45).",

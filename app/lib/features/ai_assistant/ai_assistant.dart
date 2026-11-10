@@ -5,6 +5,7 @@
 ///   2. mounts [aiAssistantRoutes] in its GoRouter,
 ///   3. shows entry points only when [aiAssistantEnabledProvider] is true,
 ///   4. keeps [amountPrivacyProvider] in sync with its "hide balance" toggle,
+///      and may show [unreadAlertsProvider] on its own bell (or use [AlertsBell]),
 ///   5. uses [buildOkayTheme] (or maps [OkayColors] etc. onto its own design system).
 library;
 
@@ -16,8 +17,10 @@ export 'core/preferences.dart';
 export 'core/privacy.dart';
 export 'core/visitor_session.dart' show MemorySessionStore, SessionStore, sessionStoreProvider;
 export 'data/me.dart' show Me, meProvider;
+export 'data/providers.dart' show unreadAlertsProvider;
 export 'host/host_app_bridge.dart';
 export 'host/mock_host_app_bridge.dart';
 export 'routes.dart';
+export 'screens/alerts_screen.dart' show AlertsBell;
 export 'theme/okay_theme.dart';
 export 'widgets/widgets.dart';

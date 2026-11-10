@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../chat/message_text.dart';
+import '../core/clock.dart';
 import '../core/dates.dart';
 import '../core/money.dart';
 import '../core/preferences.dart';
@@ -15,14 +16,12 @@ import '../data/providers.dart';
 import '../routes.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
+import 'alerts_screen.dart';
 
 /// Money Insights: month selector, total and change, insight cards, forecast, category donut
 /// with its list, daily bars, top merchants. Everything is computed by the backend.
 class InsightsScreen extends ConsumerStatefulWidget {
-  const InsightsScreen({super.key, this.today});
-
-  /// For tests; defaults to the real date (Nepal time).
-  final DateTime? today;
+  const InsightsScreen({super.key});
 
   @override
   ConsumerState<InsightsScreen> createState() => _InsightsScreenState();
@@ -34,7 +33,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   @override
   Widget build(BuildContext context) {
     final calendar = ref.watch(assistantPrefsProvider.select((p) => p.calendar));
-    final today = widget.today ?? toNepalTime(DateTime.now());
+    final today = toNepalTime(ref.watch(clockProvider)());
     final current = MonthRef.containing(today, calendar);
     var month = _month ?? current;
     if (month.calendar != calendar) month = current; // calendar switched in settings
@@ -45,6 +44,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return OkayScaffold(
       title: 'Money Insights',
       actions: [
+        const AlertsBell(),
         IconButton(
           tooltip: 'Assistant settings',
           onPressed: () => context.push(OkayRoutes.settings),
@@ -269,7 +269,8 @@ class _ForecastCard extends ConsumerWidget {
           AmountText(f.projectedEndPaisa, style: OkayText.bigNumber.copyWith(fontSize: 26)),
           const SizedBox(height: OkaySpacing.xs),
           if (warn)
-            Text(
+            // MessageText: the warning line is an amount too, masked with the balance hidden.
+            MessageText(
               'May drop below ${formatNpr(f.thresholdPaisa)} around '
               '${formatShortDate(f.firstBelowDate!, calendar)}.',
               style: OkayText.caption.copyWith(color: OkayColors.warning),

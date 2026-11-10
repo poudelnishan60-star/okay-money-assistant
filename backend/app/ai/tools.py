@@ -57,9 +57,10 @@ from app.periods import (
 )
 from app.services.bills import list_bills
 from app.services.budgets import BudgetLevel, budget_statuses, evaluate_budget, spent_in_period
-from app.services.forecast import balance_forecast, month_end_forecast
+from app.services.forecast import BalanceForecast, balance_forecast, month_end_forecast
 from app.services.goals import goal_progress
 from app.services.insights import BASELINE_DAYS, summarize, unusual_spending
+from app.services.user_settings import load_settings
 from app.sources.base import BillSource, TransactionFilter, TransactionSource
 
 
@@ -182,8 +183,42 @@ class SpendingSummaryArgs(PeriodArgs):
     category: Category | None = None
 
 
+def history_start(ctx: ToolContext) -> dt.date | None:
+    """The first day with any data for this user (None: no data at all)."""
+    first = ctx.source.list_transactions(ctx.user_id, TransactionFilter(end=ctx.today))
+    return min((t.occurred_at.date() for t in first), default=None)
+
+
+def _no_data(ctx: ToolContext, period: Period, topic: str) -> ToolResult | None:
+    """A period that ends before the history starts has no data, which is not the same as
+    spending Rs. 0 (the eval caught "In 2020 you spent Rs. 0")."""
+    start = history_start(ctx)
+    if start is not None and period.end >= start:
+        return None
+    return ToolResult(
+        {
+            "period": period.label,
+            "no_data": True,
+            "history_starts": start.isoformat() if start else None,
+            "note": "There is no data for this period. Tell the user you don't have that data "
+            "(say from when the history starts). Do not say they spent Rs. 0.",
+        },
+        [],
+        {topic},
+    )
+
+
+def _history_note(ctx: ToolContext, period: Period, data: dict[str, Any]) -> None:
+    start = history_start(ctx)
+    if start is not None and period.start < start:
+        data["history_starts"] = start.isoformat()
+        data["note_history"] = "Nothing is known before history_starts."
+
+
 def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolResult:
     current, previous = args.resolve(ctx.today)
+    if empty := _no_data(ctx, current, "spending"):
+        return empty
     start = min(previous.start, current.start - dt.timedelta(days=BASELINE_DAYS))
     txns = ctx.source.list_transactions(
         ctx.user_id, TransactionFilter(start=start, end=min(current.end, ctx.today))
@@ -255,6 +290,13 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
             "income_received": _rs(s.income_paisa),
         }
     )
+    biggest = next((c for c in s.by_category if c.spent_paisa > 0), None)
+    if biggest:  # "where did most go?" (the eval saw the unusual list taken for this)
+        data["biggest_category"] = {
+            "category": biggest.category.value,
+            "spent": _rs(biggest.spent_paisa),
+        }
+    _history_note(ctx, current, data)
     if args.group_by == "category":
         data["by_category"] = [
             {
@@ -292,6 +334,7 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
             }
             for u in unusual
         ]
+        data["unusual_note"] = "Unusual = high compared with usual, not the biggest category."
 
     link = _link(current, ctx.today, s.transaction_count, spending_only=True)
     cards: list[BaseModel] = [
@@ -344,6 +387,8 @@ def _txn_title(t: Transaction) -> str:
 
 def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
     current, _ = args.resolve(ctx.today)
+    if empty := _no_data(ctx, current, "transactions"):
+        return empty
     flt = TransactionFilter(
         start=current.start,
         end=min(current.end, ctx.today),
@@ -696,30 +741,40 @@ class ForecastArgs(BaseModel):
     days: int | None = Field(None, ge=1, le=90, description="omit for: until the month ends")
 
 
-def get_balance_forecast(ctx: ToolContext, args: ForecastArgs) -> ToolResult:
-    f = (
-        balance_forecast(ctx.source, ctx.user_id, ctx.today, args.days)
-        if args.days
-        else month_end_forecast(ctx.source, ctx.user_id, ctx.today)
-    )
-    data = {
-        "today": ctx.today.isoformat(),
+def _projection(f: BalanceForecast) -> dict[str, Any]:
+    return {
         "until": f.horizon_end.isoformat(),
-        "covers": f"today to {f.horizon_end:%d %b %Y} ({(f.horizon_end - ctx.today).days} days)"
-        + (
-            ", the end of this month"
-            if f.horizon_end == month_period(ctx.today).end
-            else ", NOT the end of this month"
-        ),
-        "balance_now": _rs(f.current_balance_paisa),
-        "projected_balance_at_end": _rs(f.projected_end_balance_paisa),
+        "projected_balance": _rs(f.projected_end_balance_paisa),
         "lowest_projected_balance": _rs(f.lowest_balance_paisa),
         "lowest_on": f.lowest_date.isoformat(),
         "low_balance_warning": f.below_threshold,
-        "warning_line": _rs(f.threshold_paisa),
         "first_day_below_warning_line": f.first_below_date.isoformat()
         if f.first_below_date
         else None,
+    }
+
+
+def get_balance_forecast(ctx: ToolContext, args: ForecastArgs) -> ToolResult:
+    """Always gives the month-end projection ("by_month_end"); with days=N, also that
+    horizon ("asked_period"). Live runs showed models asked "by month end" passing days=30
+    and reading the 30-day figure as the month end when it was the only one."""
+    line = load_settings(ctx.session, ctx.user_id).low_balance_threshold_paisa
+    month = month_end_forecast(ctx.source, ctx.user_id, ctx.today, threshold_paisa=line)
+    asked = (
+        balance_forecast(ctx.source, ctx.user_id, ctx.today, args.days, threshold_paisa=line)
+        if args.days
+        else None
+    )
+    f = asked or month
+    data: dict[str, Any] = {
+        "today": ctx.today.isoformat(),
+        "balance_now": _rs(f.current_balance_paisa),
+        "warning_line": _rs(f.threshold_paisa),
+        "by_month_end": _projection(month),
+    }
+    if asked is not None:
+        data["asked_period"] = {"days": args.days, **_projection(asked)}
+    data |= {
         "average_everyday_spending_per_day": _rs(f.avg_daily_spend_paisa),
         "expected_bills_and_income": [
             {
@@ -898,7 +953,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_transactions",
-            "Transactions for a period: count, totals, latest ten.",
+            "Transactions for a period: count, totals, latest ten. type remittance = money "
+            "from abroad; transfer = to/from people.",
             TransactionsArgs,
             get_transactions,
             _obj(
@@ -962,7 +1018,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_balance_forecast",
-            "Projected balance. Omit days for this month's end; days=N only if asked.",
+            "Projected balance: always to this month's end; days=N adds N days ahead.",
             ForecastArgs,
             get_balance_forecast,
             _obj({"days": {"type": "integer"}}),
@@ -972,7 +1028,10 @@ TOOLS: dict[str, Tool] = {
             "Khalti help articles (how-to questions).",
             HelpArgs,
             search_help_articles,
-            _obj({"query": {"type": "string"}}, ["query"]),
+            _obj(
+                {"query": {"type": "string", "description": "English keywords, e.g. load money"}},
+                ["query"],
+            ),
         ),
         Tool(
             "open_app_flow",

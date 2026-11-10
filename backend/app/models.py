@@ -11,6 +11,8 @@ Tables
 - faq_articles             mock help articles for search_help_articles
 - chat_messages            chat history per user (masked)
 - tool_call_log            audit log of the assistant's tool calls (no raw prompts)
+- assistant_settings       language, calendar, alerts, weekly-summary day per user
+- notifications            alerts (budget, bill due, unusual spending, weekly summary)
 """
 
 from __future__ import annotations
@@ -192,3 +194,21 @@ class AssistantSettings(Base):
     )
     settings_json: Mapped[str] = mapped_column(Text, default="{}")
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt, onupdate=now_npt)
+
+
+class Notification(Base):
+    """One alert, stored once per event: `key` is unique per user, so re-running the alert
+    check never duplicates. The text is written when it is read (in the user's language),
+    from `params_json`, which holds the numbers as they were when the alert fired."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_notification_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    key: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(20))  # budget | bill | unusual | weekly_summary
+    day: Mapped[dt.date] = mapped_column(Date)  # when it happened
+    params_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt)
+    read_at: Mapped[dt.datetime | None] = mapped_column(DateTime)

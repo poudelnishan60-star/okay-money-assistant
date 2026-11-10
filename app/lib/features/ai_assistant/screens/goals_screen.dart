@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
+import '../core/clock.dart';
 import '../core/dates.dart';
 import '../core/money.dart';
 import '../core/preferences.dart';
@@ -32,6 +33,10 @@ class GoalsScreen extends ConsumerWidget {
       body: AsyncBody(
         value: goals,
         onRetry: () => ref.invalidate(goalsProvider),
+        onRefresh: () {
+          ref.invalidate(smartDepositsProvider);
+          return ref.refresh(goalsProvider.future);
+        },
         data: (list) => ListView(
           padding: const EdgeInsets.fromLTRB(
             OkaySpacing.gutter,
@@ -220,7 +225,7 @@ class _GoalSheetState extends ConsumerState<_GoalSheet> {
   }
 
   Future<void> _pickDeadline() async {
-    final now = toNepalTime(DateTime.now());
+    final now = nepalNow(ref);
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final picked = await showDatePicker(
       context: context,

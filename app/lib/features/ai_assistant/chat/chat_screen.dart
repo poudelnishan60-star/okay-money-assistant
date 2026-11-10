@@ -81,74 +81,78 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatControllerProvider);
     final messages = state.messages;
-    return Scaffold(
-      backgroundColor: OkayColors.chatBackground,
-      appBar: AppBar(
+    return Title(
+      title: 'Chat · O-Kay',
+      color: OkayColors.primary,
+      child: Scaffold(
         backgroundColor: OkayColors.chatBackground,
-        titleSpacing: 0,
-        title: const Row(
-          children: [
-            MascotSlot(size: 36),
-            SizedBox(width: OkaySpacing.md),
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('O-Kay', style: OkayText.rowTitle, overflow: TextOverflow.ellipsis),
-                  Text(
-                    'Your money assistant',
-                    style: OkayText.caption,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+        appBar: AppBar(
+          backgroundColor: OkayColors.chatBackground,
+          titleSpacing: 0,
+          title: const Row(
+            children: [
+              MascotSlot(size: 36),
+              SizedBox(width: OkaySpacing.md),
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('O-Kay', style: OkayText.rowTitle, overflow: TextOverflow.ellipsis),
+                    Text(
+                      'Your money assistant',
+                      style: OkayText.caption,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
+          actions: [
+            if (messages.isNotEmpty)
+              IconButton(
+                tooltip: 'Clear chat',
+                onPressed: state.sending ? null : _confirmClear,
+                icon: const Icon(Icons.delete_outline),
+              ),
           ],
         ),
-        actions: [
-          if (messages.isNotEmpty)
-            IconButton(
-              tooltip: 'Clear chat',
-              onPressed: state.sending ? null : _confirmClear,
-              icon: const Icon(Icons.delete_outline),
-            ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: messages.isEmpty
-                  ? _EmptyState(onPick: _send, loading: !state.historyLoaded)
-                  : ListView.builder(
-                      reverse: true,
-                      padding: const EdgeInsets.fromLTRB(
-                        OkaySpacing.gutter,
-                        OkaySpacing.lg,
-                        OkaySpacing.gutter,
-                        OkaySpacing.sm,
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: messages.isEmpty
+                    ? _EmptyState(onPick: _send, loading: !state.historyLoaded)
+                    : ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.fromLTRB(
+                          OkaySpacing.gutter,
+                          OkaySpacing.lg,
+                          OkaySpacing.gutter,
+                          OkaySpacing.sm,
+                        ),
+                        itemCount: messages.length,
+                        itemBuilder: (context, i) {
+                          final index = messages.length - 1 - i;
+                          return _MessageView(
+                            message: messages[index],
+                            index: index,
+                            onRetry: () => ref.read(chatControllerProvider.notifier).retry(index),
+                          );
+                        },
                       ),
-                      itemCount: messages.length,
-                      itemBuilder: (context, i) {
-                        final index = messages.length - 1 - i;
-                        return _MessageView(
-                          message: messages[index],
-                          index: index,
-                          onRetry: () => ref.read(chatControllerProvider.notifier).retry(index),
-                        );
-                      },
-                    ),
-            ),
-            _ChipRow(chips: state.chips, enabled: !state.sending, onPick: _send),
-            _Composer(
-              controller: _input,
-              focusNode: _focus,
-              canSend: !state.sending && _input.text.trim().isNotEmpty,
-              onSend: _send,
-            ),
-          ],
+              ),
+              _ChipRow(chips: state.chips, enabled: !state.sending, onPick: _send),
+              _Composer(
+                controller: _input,
+                focusNode: _focus,
+                canSend: !state.sending && _input.text.trim().isNotEmpty,
+                onSend: _send,
+              ),
+            ],
+          ),
         ),
       ),
     );

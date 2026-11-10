@@ -88,6 +88,16 @@ void main() {
     expect((await repo.setStatus(first.id, 'detected')).status, 'detected');
   });
 
+  test('alerts: inbox, mark one read, mark all read', () async {
+    final repo = AlertsRepository(api);
+    final inbox = await repo.inbox();
+    expect(inbox.items, isNotEmpty); // at least the weekly summary
+    expect(inbox.items.map((n) => n.kind), contains('weekly_summary'));
+    expect(await repo.markRead([inbox.items.first.id]), inbox.unread - 1);
+    expect(await repo.markRead(), 0);
+    expect((await repo.inbox()).items.every((n) => n.read), isTrue);
+  });
+
   test('settings round-trip', () async {
     final repo = SettingsRepository(api);
     final saved = await repo.save((await repo.load()).copyWith(language: 'ne', calendar: 'BS'));

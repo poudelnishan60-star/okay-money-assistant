@@ -38,6 +38,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       body: AsyncBody(
         value: bills,
         onRetry: () => ref.invalidate(billsProvider),
+        onRefresh: () => ref.refresh(billsProvider.future),
         data: (all) {
           final active = all.where((b) => b.status != 'dismissed').toList();
           final dismissed = all.where((b) => b.status == 'dismissed').toList();

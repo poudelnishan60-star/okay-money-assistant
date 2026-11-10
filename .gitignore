@@ -40,3 +40,6 @@ app/coverage/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Eval run reports (model answers); summaries go in the README
+backend/evals/results/

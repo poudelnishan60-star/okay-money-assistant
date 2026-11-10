@@ -19,12 +19,25 @@ Future<FakeApi> open(WidgetTester t, String path, {FakeApi? api, FakeChatReposit
   return demo.api;
 }
 
+/// A finger pulling the list down slowly, as a person does to reload.
+Future<void> pullDown(WidgetTester t, Finder from) async {
+  final g = await t.startGesture(t.getCenter(from));
+  for (var i = 0; i < 20; i++) {
+    await g.moveBy(const Offset(0, 20));
+    await t.pump(const Duration(milliseconds: 16));
+  }
+  await g.up();
+  await t.pumpAndSettle();
+}
+
 Future<void> scrollTo(WidgetTester t, Finder f) async {
   await t.scrollUntilVisible(f, 300, scrollable: find.byType(Scrollable).last);
   await t.pumpAndSettle();
 }
 
 void main() {
+  alertsAndPrivacy();
+
   group('Insights dashboard', () {
     testWidgets('shows total, change, insights, forecast, categories, days, merchants', (t) async {
       await open(t, OkayRoutes.insights);
@@ -121,6 +134,15 @@ void main() {
       expect(find.text('Groceries'), findsOneWidget);
       expect(find.textContaining('On track'), findsWidgets);
       expect(find.textContaining('a day for'), findsWidgets);
+    });
+
+    testWidgets('pull down to reload', (t) async {
+      final api = await open(t, OkayRoutes.budgets);
+      int loads() => api.requests.where((r) => r == 'GET /budgets').length;
+      final before = loads();
+      await pullDown(t, find.text('Overall'));
+      await t.pumpAndSettle();
+      expect(loads(), before + 1);
     });
 
     testWidgets('create a food budget from the sheet', (t) async {
@@ -251,5 +273,131 @@ void main() {
       await t.pumpAndSettle();
       expect(chat.cleared, isTrue);
     });
+  });
+}
+
+void alertsAndPrivacy() {
+  group('Alerts', () {
+    testWidgets('bell badge, new and earlier, open one, mark all read', (t) async {
+      final api = await open(t, OkayRoutes.insights);
+      expect(find.byTooltip('Alerts, 3 unread'), findsOneWidget);
+      await t.tap(find.byTooltip('Alerts, 3 unread'));
+      await t.pumpAndSettle();
+      expect(find.text('New'), findsOneWidget);
+      expect(find.text('Earlier'), findsNothing);
+      expect(find.text('Your week: Rs. 5,872.80 spent'), findsOneWidget);
+      expect(find.text('Shopping budget at 80%'), findsOneWidget);
+
+      await t.tap(find.text('Ncell is due tomorrow'));
+      await t.pumpAndSettle();
+      expect(find.text('Bills & subscriptions'), findsOneWidget);
+      expect(api.bodies.last, {
+        'ids': [2],
+      });
+      GoRouter.of(t.element(find.text('Bills & subscriptions'))).pop();
+      await t.pumpAndSettle();
+      expect(find.text('Earlier'), findsOneWidget);
+
+      await t.tap(find.text('Mark all read'));
+      await t.pumpAndSettle();
+      expect(api.bodies.last, {'ids': null});
+      expect(find.text('New'), findsNothing);
+      expect(find.text('Mark all read'), findsNothing);
+    });
+
+    testWidgets('an unusual-spending alert opens the filtered transactions', (t) async {
+      final api = FakeApi();
+      api.alerts.insert(0, {
+        'id': 9,
+        'kind': 'unusual',
+        'title': 'Unusual spending on Shopping',
+        'body': 'Rs. 8,280 so far in Oct 2026: 6.9x your usual Rs. 1,200 for this many days.',
+        'day': '2026-10-31',
+        'read': false,
+        'link': {
+          'screen': 'transactions',
+          'params': {
+            'category': 'Shopping',
+            'start': '2026-10-01',
+            'end': '2026-10-31',
+            'spending_only': 'true',
+          },
+        },
+        'data': <String, Object?>{},
+      });
+      await open(t, OkayRoutes.alerts, api: api);
+      await t.tap(find.text('Unusual spending on Shopping'));
+      await t.pumpAndSettle();
+      expect(find.text('Transactions'), findsOneWidget);
+      final req = Uri.decodeFull(api.requests.lastWhere((r) => r.startsWith('GET /transactions')));
+      expect(req, contains('category=Shopping'));
+      expect(req, contains('start=2026-10-01'));
+      expect(find.byType(InputChip), findsOneWidget); // the filter, clearable
+    });
+
+    testWidgets('empty inbox explains what alerts there are', (t) async {
+      final api = FakeApi()..alerts.clear();
+      await open(t, OkayRoutes.alerts, api: api);
+      expect(find.text('No alerts yet'), findsOneWidget);
+      await t.tap(find.text('Alert settings'));
+      await t.pumpAndSettle();
+      expect(find.text('Assistant settings'), findsOneWidget);
+    });
+
+    testWidgets("the host's Home bell shows O-Kay's alerts", (t) async {
+      useSize(t, const Size(390, 1600));
+      await t.pumpWidget(demoApp().app);
+      await t.pumpAndSettle();
+      await t.tap(find.byTooltip('Alerts, 3 unread'));
+      await t.pumpAndSettle();
+      expect(find.text('Alerts'), findsOneWidget);
+    });
+
+    testWidgets('settings: low-balance warning line', (t) async {
+      final api = await open(t, OkayRoutes.settings);
+      await scrollTo(t, find.text('Low-balance warning'));
+      expect(find.text('Warn me if my balance may drop below Rs. 1,000'), findsOneWidget);
+      await t.tap(find.text('Low-balance warning'));
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField), '0');
+      await t.tap(find.text('Save'));
+      await t.pumpAndSettle();
+      expect(find.text('Enter an amount above 0.'), findsOneWidget);
+      await t.enterText(find.byType(TextField), '2,500');
+      await t.tap(find.text('Save'));
+      await t.pumpAndSettle();
+      expect(api.settings['low_balance_threshold_paisa'], 250000);
+      expect(find.text('Warn me if my balance may drop below Rs. 2,500'), findsOneWidget);
+    });
+  });
+
+  testWidgets('a hidden balance masks every amount on every screen', (t) async {
+    useSize(t, const Size(390, 4000));
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
+    final amount = RegExp(r'(?:Rs\.?|रु\.?)\s?[\d०-९]');
+    List<String> leaks() => [
+      for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText(),
+    ].where(amount.hasMatch).toList();
+    expect(leaks(), isNotEmpty, reason: 'the check must see amounts while they are shown');
+    await t.tap(find.byTooltip('Hide balance'));
+    await t.pumpAndSettle();
+    expect(leaks(), isEmpty, reason: 'home');
+    final router = GoRouter.of(t.element(find.text('Financial Services')));
+    for (final path in [
+      OkayRoutes.insights,
+      OkayRoutes.transactions,
+      OkayRoutes.budgets,
+      OkayRoutes.goals,
+      OkayRoutes.bills,
+      OkayRoutes.alerts,
+      OkayRoutes.settings,
+    ]) {
+      unawaited(router.push(path));
+      await t.pumpAndSettle();
+      expect(leaks(), isEmpty, reason: path);
+      router.pop();
+      await t.pumpAndSettle();
+    }
   });
 }

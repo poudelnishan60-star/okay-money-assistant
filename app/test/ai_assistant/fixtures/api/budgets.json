@@ -69,14 +69,16 @@
    "label": "Kartik 2083",
    "days": 30
   },
-  "limit_paisa": 400000,
+  "limit_paisa": 140000,
   "spent_paisa": 120000,
-  "remaining_paisa": 280000,
-  "percent_used": 30.0,
-  "level": "ok",
-  "alerts_reached": [],
+  "remaining_paisa": 20000,
+  "percent_used": 85.7,
+  "level": "warning",
+  "alerts_reached": [
+   80
+  ],
   "days_left": 8,
-  "daily_allowance_paisa": 35000,
+  "daily_allowance_paisa": 2500,
   "projected_spend_paisa": 156521
  }
 ]

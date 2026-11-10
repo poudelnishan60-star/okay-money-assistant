@@ -7,17 +7,29 @@ import '../core/dates.dart';
 import '../theme/okay_theme.dart';
 import 'scaffold_and_states.dart';
 
-/// Loading / error-with-retry / data for an AsyncValue.
+/// Loading / error-with-retry / data for an AsyncValue. With [onRefresh], the data can be
+/// pulled down to reload (its widget must be a scroll view).
 class AsyncBody<T> extends StatelessWidget {
-  const AsyncBody({super.key, required this.value, required this.data, required this.onRetry});
+  const AsyncBody({
+    super.key,
+    required this.value,
+    required this.data,
+    required this.onRetry,
+    this.onRefresh,
+  });
 
   final AsyncValue<T> value;
   final Widget Function(T data) data;
   final VoidCallback onRetry;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return switch (value) {
+      AsyncData(:final value) when onRefresh != null => RefreshIndicator(
+        onRefresh: onRefresh!,
+        child: data(value),
+      ),
       AsyncData(:final value) => data(value),
       AsyncError(:final error) => ErrorView(
         message: error is ApiException ? error.message : 'Something went wrong.',

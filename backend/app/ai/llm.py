@@ -120,6 +120,14 @@ class ThinkFilter:
         return 0
 
 
+# Mid-stream rejections where the next model in the chain usually does better.
+_RETRY_MID_STREAM = (
+    "tool call validation failed",  # a call that doesn't match the tool's schema
+    "did not call a tool",  # tool_choice=required, but the model answered in text
+    "failed to call a function",  # a garbled call
+)
+
+
 class GroqLLMClient:
     BACKOFF_SECONDS = (1.0, 2.0)  # waits before try 2 and try 3
 
@@ -133,6 +141,7 @@ class GroqLLMClient:
             raise LLMNotConfiguredError("GROQ_API_KEY is not set")
         self.settings = settings
         self._sleep = sleep
+        self.last_model: str | None = None
         self._client = client or OpenAI(
             api_key=settings.groq_api_key.get_secret_value(),  # type: ignore[union-attr]
             base_url=settings.llm_base_url,
@@ -176,9 +185,9 @@ class GroqLLMClient:
             if attempt > 0:
                 self._sleep(self.BACKOFF_SECONDS[attempt - 1])
             try:
-                return self._client.chat.completions.create(
-                    **self._params(model), **kwargs
-                ), attempt
+                response = self._client.chat.completions.create(**self._params(model), **kwargs)
+                self.last_model = model  # for diagnostics (the eval reports it)
+                return response, attempt
             except openai.RateLimitError as exc:
                 log.warning("LLM rate limited (try %d, model %s)", attempt + 1, model)
                 last_error, rate_limited = exc, True
@@ -251,7 +260,7 @@ class GroqLLMClient:
                 # Groq checks tool calls against the schema and may reject the reply mid-stream
                 # (e.g. a required argument missing). If nothing reached the user yet, try the
                 # next model in the chain, like a garbled tool call at the start.
-                bad_tool_call = "tool call validation failed" in str(exc)
+                bad_tool_call = any(m in str(exc).lower() for m in _RETRY_MID_STREAM)
                 if bad_tool_call and not sent_text and attempt + 1 < len(self._models()):
                     log.warning("LLM tool call rejected mid-stream (try %d); retrying", attempt + 1)
                     continue

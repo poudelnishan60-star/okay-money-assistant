@@ -189,7 +189,9 @@ class ChatController extends Notifier<ChatState> {
       _setConfirm(key, const ConfirmState(ConfirmStatus.saved));
       // The Budgets / Goals screens and the dashboard show the new numbers next time.
       ref.invalidate(card.action == 'upsert_goal' ? goalsProvider : budgetsProvider);
-      ref.invalidate(dashboardProvider);
+      ref
+        ..invalidate(dashboardProvider)
+        ..invalidate(alertsProvider); // a new budget may already be past 80%
     } on ApiException catch (e) {
       _setConfirm(key, ConfirmState(ConfirmStatus.failed, e.message));
     }

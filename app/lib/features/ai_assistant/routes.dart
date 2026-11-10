@@ -6,6 +6,7 @@ import 'chat/chat_screen.dart';
 import 'config.dart';
 import 'data/models.dart';
 import 'data/providers.dart';
+import 'screens/alerts_screen.dart';
 import 'screens/bills_screen.dart';
 import 'screens/budgets_screen.dart';
 import 'screens/goals_screen.dart';
@@ -27,6 +28,9 @@ abstract final class OkayRoutes {
   static const goals = '/assistant/goals';
   static const bills = '/assistant/bills';
   static const settings = '/assistant/settings';
+
+  /// Budget, bill, unusual-spending and weekly-summary alerts.
+  static const alerts = '/assistant/alerts';
   static const uiKit = '/assistant/ui-kit';
 }
 
@@ -60,6 +64,7 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
       GoRoute(path: 'goals', builder: (context, state) => const _Root(GoalsScreen())),
       GoRoute(path: 'bills', builder: (context, state) => const _Root(BillsScreen())),
       GoRoute(path: 'settings', builder: (context, state) => const _Root(SettingsScreen())),
+      GoRoute(path: 'alerts', builder: (context, state) => const _Root(AlertsScreen())),
       GoRoute(path: 'ui-kit', builder: (context, state) => const UiKitScreen()),
     ],
   ),

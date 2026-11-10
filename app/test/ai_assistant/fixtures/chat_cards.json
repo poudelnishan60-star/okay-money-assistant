@@ -117,10 +117,10 @@
     "budget_id": 4,
     "category": "Shopping",
     "period_label": "Kartik 2083",
-    "limit_paisa": 400000,
+    "limit_paisa": 140000,
     "spent_paisa": 120000,
-    "percent_used": 30.0,
-    "level": "ok"
+    "percent_used": 85.7,
+    "level": "warning"
    }
   ]
  },

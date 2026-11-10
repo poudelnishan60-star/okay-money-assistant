@@ -93,6 +93,12 @@ def test_untrusted_text_is_neutralized() -> None:
         ("How much did I spend on food this month?", Lang.EN),
         ("Show my budgets", Lang.EN),
         ("pani", Lang.EN),
+        # From the eval: these were taken for English.
+        ("Bikash lai 500 pathaidinus", Lang.ROM),
+        ("Smart Deposit bhaneko ke ho?", Lang.ROM),
+        ("Did I get a bonus this month?", Lang.EN),
+        ("How much did I pay Bikash last week?", Lang.EN),
+        ("Send money to Bikash", Lang.EN),
     ],
 )
 def test_detect_language(text: str, lang: Lang) -> None:
@@ -326,6 +332,26 @@ def test_tool_call_rejected_mid_stream_is_retried_on_the_next_model() -> None:
     assert isinstance(events[-1], ToolCallsReady)
     assert events[-1].calls[0].id == "c2"
     assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Tool choice is required, but model did not call a tool",
+        "Failed to call a function. Please adjust your prompt.",
+    ],
+)
+def test_other_mid_stream_tool_rejections_are_retried(message: str) -> None:
+    llm, comp, _ = _client(
+        [
+            _FailingStream([], openai.APIError(message, request=REQ, body=None)),
+            [_chunk(tool_calls=[_tc(0, "c2", "get_budgets", "{}")])],
+        ]
+    )
+    events = list(llm.stream_chat([], [{"type": "function"}], "required"))
+    assert isinstance(events[-1], ToolCallsReady)
+    assert [r["model"] for r in comp.requests] == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+    assert llm.last_model == "openai/gpt-oss-120b"  # reported by the eval
 
 
 def test_mid_stream_failure_after_text_is_not_retried() -> None:

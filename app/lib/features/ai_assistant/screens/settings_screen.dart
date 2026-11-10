@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../chat/chat_controller.dart';
 import '../core/api_client.dart';
+import '../core/money.dart';
+import '../core/privacy.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
+import '../routes.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
 
-/// Assistant settings: reply language, calendar, alerts, how data is used, clear chat history.
+/// Assistant settings: reply language, calendar, alerts, the low-balance warning line, how
+/// data is used, clear chat history.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -25,6 +30,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final masked = ref.watch(amountPrivacyProvider.select((p) => p.masked));
     Future<void> save(AssistantSettings next) async {
       try {
         await ref.read(settingsProvider.notifier).save(next);
@@ -112,6 +118,21 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            MenuRow(
+              icon: Icons.notifications_none_outlined,
+              title: 'See your alerts',
+              subtitle: 'Budget, bill, unusual-spending and weekly alerts',
+              onTap: () => context.push(OkayRoutes.alerts),
+            ),
+            const _Heading('Forecast'),
+            MenuRow(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'Low-balance warning',
+              subtitle:
+                  'Warn me if my balance may drop below '
+                  '${masked ? maskedNpr() : formatNpr(s.lowBalanceThresholdPaisa)}',
+              onTap: () => _editWarningLine(context, s, save),
+            ),
             const _Heading('Your data'),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: OkaySpacing.gutter),
@@ -128,6 +149,19 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editWarningLine(
+    BuildContext context,
+    AssistantSettings s,
+    Future<void> Function(AssistantSettings) save,
+  ) async {
+    final paisa = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _WarningLineSheet(s.lowBalanceThresholdPaisa),
+    );
+    if (paisa != null) await save(s.copyWith(lowBalanceThresholdPaisa: paisa));
   }
 
   Future<void> _clearChat(BuildContext context, WidgetRef ref) async {
@@ -173,6 +207,76 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
+  }
+}
+
+class _WarningLineSheet extends StatefulWidget {
+  const _WarningLineSheet(this.current);
+  final int current;
+
+  @override
+  State<_WarningLineSheet> createState() => _WarningLineSheetState();
+}
+
+class _WarningLineSheetState extends State<_WarningLineSheet> {
+  late final _amount = TextEditingController(text: rupeesInput(widget.current));
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final paisa = parseRupees(_amount.text);
+    if (paisa == null) {
+      setState(() => _error = 'Enter an amount above 0.');
+      return;
+    }
+    Navigator.of(context).pop(paisa);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          OkaySpacing.xl,
+          0,
+          OkaySpacing.xl,
+          OkaySpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Low-balance warning', style: OkayText.sectionTitle),
+            const SizedBox(height: OkaySpacing.xs),
+            const Text(
+              'The forecast on Money Insights, and O-Kay in the chat, warn you when your balance '
+              'may drop below this before the month ends.',
+              style: OkayText.subtitle,
+            ),
+            const SizedBox(height: OkaySpacing.lg),
+            TextField(
+              controller: _amount,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(prefixText: 'Rs. ', hintText: 'e.g. 1,000'),
+              style: OkayText.body,
+              onSubmitted: (_) => _save(),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: OkaySpacing.md),
+                child: Text(_error!, style: OkayText.caption.copyWith(color: OkayColors.warning)),
+              ),
+            const SizedBox(height: OkaySpacing.xl),
+            FilledButton(onPressed: _save, child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
   }
 }
 

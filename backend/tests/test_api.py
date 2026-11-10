@@ -352,3 +352,15 @@ def test_settings_defaults_update_and_isolation(client: TestClient) -> None:
     assert client.get("/me/settings", headers={"X-User-Id": visitor}).json() == defaults
     assert client.put("/me/settings", json={**changed, "language": "fr"}).status_code == 422
     assert client.put("/me/settings", json={**changed, "calendar": "XX"}).status_code == 422
+
+
+def test_low_balance_line_comes_from_settings(client: TestClient) -> None:
+    default = client.get("/insights/dashboard").json()["forecast"]
+    assert default["threshold_paisa"] == 1_000_00
+    settings = client.get("/me/settings").json()
+    client.put("/me/settings", json={**settings, "low_balance_threshold_paisa": 50_000_00})
+    mine = client.get("/insights/dashboard").json()["forecast"]
+    assert mine["threshold_paisa"] == 50_000_00 and mine["below_threshold"] is True
+    assert client.get("/insights/forecast").json()["threshold_paisa"] == 50_000_00
+    explicit = client.get("/insights/forecast", params={"threshold_paisa": 0}).json()
+    assert explicit["threshold_paisa"] == 0

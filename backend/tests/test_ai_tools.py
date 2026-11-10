@@ -174,7 +174,9 @@ def test_bills_forecast_and_goals(ctx: ToolContext) -> None:
 
     f = run_tool(ctx, "get_balance_forecast", {})
     expected = month_end_forecast(ctx.source, USER, ANCHOR)
-    assert f.data["projected_balance_at_end"] == format_npr(expected.projected_end_balance_paisa)
+    month_end = f.data["by_month_end"]
+    assert month_end["projected_balance"] == format_npr(expected.projected_end_balance_paisa)
+    assert month_end["until"] == "2026-11-30" and "asked_period" not in f.data
     assert f.cards == []
 
     goals = run_tool(ctx, "get_goals", {})
@@ -222,3 +224,48 @@ def test_budget_category_must_be_explicit(ctx: ToolContext) -> None:
     assert overall.cards[0].title == "Change Overall budget"
     spec = next(s for s in openai_tool_specs() if s["function"]["name"] == "upsert_budget")
     assert spec["function"]["parameters"]["required"] == ["category", "limit_amount"]
+
+
+def test_forecast_tool_uses_the_users_warning_line(ctx: ToolContext) -> None:
+    from app.services.user_settings import UserSettings, save_settings
+
+    save_settings(ctx.session, USER, UserSettings(low_balance_threshold_paisa=50_000_00))
+    data = run_tool(ctx, "get_balance_forecast", {}).data
+    assert data["warning_line"] == "Rs. 50,000"
+    assert data["by_month_end"]["low_balance_warning"] is True
+
+
+# --- found by the eval ----------------------------------------------------------------------
+
+
+def test_a_period_before_the_history_is_no_data_not_zero(ctx: ToolContext) -> None:
+    for tool in ("get_spending_summary", "get_transactions"):
+        r = run_tool(ctx, tool, {"period": "custom", "start": "2020-01-01", "end": "2020-12-31"})
+        assert r.data["no_data"] is True and r.cards == []
+        assert r.data["history_starts"] == "2026-08-11"
+        assert "Rs. 0" in r.data["note"]  # ...as what NOT to say
+    # Partly before the history: the numbers come, with a note.
+    r = run_tool(ctx, "get_spending_summary", {"period": "month", "month": "2026-08"})
+    assert r.data["history_starts"] == "2026-08-11" and "total_spent" in r.data
+
+
+def test_summary_names_the_biggest_category(ctx: ToolContext) -> None:
+    data = run_tool(ctx, "get_spending_summary", {"period": "last_month"}).data
+    assert data["biggest_category"] == {"category": "Food & Dining", "spent": "Rs. 9,710"}
+    assert data["unusual_spending"][0]["category"] == "Shopping"
+    assert "not the biggest" in data["unusual_note"]
+
+
+def test_forecast_with_days_also_gives_the_month_end(ctx: ToolContext) -> None:
+    data = run_tool(ctx, "get_balance_forecast", {"days": 30}).data
+    assert data["by_month_end"]["until"] == "2026-11-30"
+    assert data["by_month_end"]["projected_balance"] == "Rs. 8,286"
+    assert data["asked_period"]["days"] == 30 and data["asked_period"]["until"] == "2026-12-09"
+    assert list(data)[:4] == ["today", "balance_now", "warning_line", "by_month_end"]
+
+
+def test_help_search_understands_nepali(ctx: ToolContext) -> None:
+    hits = run_tool(ctx, "search_help_articles", {"query": "पैसा कसरी लोड गर्ने"}).data
+    assert hits["articles"][0]["question"].startswith("How do I load money")
+    hits = run_tool(ctx, "search_help_articles", {"query": "mpin birse"}).data
+    assert "MPIN" in hits["articles"][0]["question"]

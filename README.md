@@ -40,6 +40,8 @@ app/ai/              LLM client, tools, cards, prompt, safety (masking), chat lo
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
 app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
+evals/               the 50-question evaluation (questions.json + runner.py)
+scripts/             fixtures/calendar exports, live checks, eval, alert job
 ```
 
 - Health check: http://127.0.0.1:8000/health
@@ -72,6 +74,8 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET | `/bills` | detected bills & subscriptions, soonest due first |
 | PUT | `/bills/{id}/status` | `confirmed` / `dismissed` / `detected` (undo) |
 | GET / PUT | `/me/settings` | assistant settings: language, calendar, alerts, weekly-summary day, low-balance threshold |
+| GET | `/notifications` | alerts inbox, newest first, with the unread count (checks for new alerts first) |
+| POST | `/notifications/read` | `{"ids": [...]}` marks those read; `{}` marks all read |
 | POST | `/sessions` | public site: a private copy of the demo data for this visitor |
 | POST | `/chat` | ask O-Kay; streams server-sent events (see below) |
 | GET / DELETE | `/chat/history` | the conversation / clear it |
@@ -119,6 +123,64 @@ uses about 3,000 tokens, so expect roughly 2-3 questions a minute per model. Fin
 a busy public site needs a paid Groq tier (or lower limits in `.env`).
 
 Live check against Groq (mock data only): `python scripts/live_chat_check.py`.
+
+### Alerts
+
+The spec's notifications: a budget at 80% and at 100%, a bill due within 3 days, unusual
+spending (a category at 2x its usual level) and a weekly summary on the day the user picks.
+`app/services/notifications.py` works them out in code from the same services as the screens
+and stores each event once (a unique key per user, e.g. budget 4, Kartik 2083, 80%), so running
+the check again never duplicates. The numbers are kept as they were when the alert fired; the
+words are written when it is read, in English or Nepali (the user's language setting). The
+switches in Settings stop new alerts of that kind.
+
+On the website the alerts live in an in-app inbox (the bell): reading `GET /notifications`
+runs the check for that visitor, so no scheduler is needed. Inside Khalti, a daily job would
+run `python scripts/send_alerts.py` and a `PushSender` (Khalti's push service; a no-op here)
+would deliver each new alert as a push notification.
+
+The low-balance warning line (Settings → Forecast) is used by the dashboard's forecast and by
+the chat's `get_balance_forecast` tool.
+
+### Evaluation (50 questions)
+
+`evals/questions.json` holds 50 questions: 20 English, 15 Nepali (Devanagari), 15 Romanized
+Nepali, across spending, transactions, budgets, goals, bills, forecast, help, actions and
+safety. Each one goes through the real chat pipeline against demo data seeded at a fixed date.
+It checks:
+- the expected tool calls, with the key arguments (category, period, merchant, amount);
+- the numbers in the answer. Expected values are not written in the file: the runner gets them
+  by running the tool itself, so they follow the data;
+- cards (Confirm, Pay, bills...), the reply language, and words that must or must not appear;
+- always: every "Rs." amount is grounded in a tool result, nothing in the database changed (no
+  saving without Confirm, no money moved), and an MPIN/OTP typed in never reaches the model.
+
+```bash
+python scripts/eval_chat.py                   # all 50, about 25 minutes on Groq's free tier
+python scripts/eval_chat.py --only en01,ne07  # or --lang rom, --topic budgets
+```
+
+A rate limit or outage counts as an error, not a wrong answer. The full report (answers, tool
+calls, problems) goes to `evals/results/` (gitignored). `tests/test_evals.py` checks the
+question file and the scorer with a scripted LLM, so `pytest` needs no network.
+
+**Results, 10 Nov 2026 (Groq free tier).** Last full run: 45 of 50 passed (90%): English
+20/20, Nepali 14/15, Romanized Nepali 11/15. Most answers came from the fallback models
+(gpt-oss-120b, then gpt-oss-20b) because Qwen was rate-limited. The runs found real problems,
+now fixed:
+- Romanized questions detected as English ("Bikash lai 500 pathaidinus", "... bhaneko ke ho?");
+- after a rejected answer, a model refusing the forced tool call gave "O-Kay can't answer right
+  now" (now retried, then tried once more without forcing);
+- "In 2020 you spent Rs. 0" (now: no data before the history starts);
+- a 30-day forecast read as the month-end balance (the month end is now always given, apart);
+- a Nepali help question finding no article; "money from abroad" counted as all money in;
+- English replies to Romanized questions, e.g. "Tap Confirm to save it." copied from the prompt
+  (now the language rule is repeated after tool results).
+
+After those fixes, the 33 affected questions (all Nepali and Romanized, plus three English
+ones) were run again: 32 passed. Still failing: "Bikash lai 500 pathaidinus" opens the right
+send-money button but replies in English. Results vary between runs (39 to 45 of 50 before
+the fixes) as the answering model changes, so run it more than once before comparing changes.
 
 Unknown merchants (rules couldn't place them) are categorized by the LLM once per merchant and
 cached: `python -m app.ai.classifier`.
@@ -225,8 +287,16 @@ Reached from Home → Financial Services → "Money Insights" and from the chat'
   Deposit" (opens the host's Smart Deposit through `HostAppBridge`).
 - **Bills**: detected recurring payments with next due date and usual amount, Pay now, Set up
   Autopay, confirm or dismiss (with undo).
-- **Settings**: language (English / नेपाली / Auto), AD/BS, alerts, weekly-summary day, how the
-  data is used, clear chat history. Language and calendar apply to the chat and every screen.
+- **Alerts**: the bell on Money Insights (and on the demo host's Home) shows the unread count;
+  the inbox lists budget, bill, unusual-spending and weekly-summary alerts. Tapping one marks
+  it read and opens the screen it is about (an unusual-spending alert opens that category's
+  transactions).
+- **Settings**: language (English / नेपाली / Auto), AD/BS, alerts, weekly-summary day,
+  low-balance warning line, how the data is used, clear chat history. Language and calendar
+  apply to the chat and every screen.
+
+With the balance hidden, every amount on these screens is masked until tapped (a test visits
+each screen and fails if any amount shows). Lists can be pulled down to reload.
 
 Widget tests answer from JSON fixtures exported from the real API, so they track the backend.
 Regenerate them after changing the seed or the API:
@@ -234,6 +304,20 @@ Regenerate them after changing the seed or the API:
 ```bash
 cd backend && python scripts/export_app_fixtures.py
 ```
+
+**Golden tests.** `test/goldens/` renders 14 key screens (home, chat empty, a chat answer, a
+Nepali chat with Confirm and Pay cards, insights, transactions, budgets, goals, bills, alerts,
+settings, two sheets, insights with the balance hidden) with the bundled fonts and compares
+them with the PNGs in `test/goldens/images/`. They run with `flutter test`. After an intended
+visual change:
+
+```bash
+flutter test test/goldens --update-goldens   # then look at the changed PNGs before committing
+```
+
+The images were made on Windows; other systems rasterize text a little differently, so up to
+0.5% of pixels may differ. Dates are pinned (`clockProvider`), so the images don't change with
+the calendar.
 
 Live check of every screen's reads and writes against a running backend (no Groq key needed):
 
@@ -268,7 +352,7 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 5 | Backend AI: Groq LLMClient, tools, /chat SSE, masking, 429 handling, per-visitor sessions, rate limits | done |
 | 6 | App chat: fonts, website layout, O-Kay chat screen | done |
 | 7 | App screens: insights, transactions, budgets, goals, bills, settings | done |
-| 8 | Notifications, polish, golden tests, 50-question eval | |
+| 8 | Notifications, polish, golden tests, 50-question eval | done |
 | 9 | Deploy the website and backend | |
 
 For now the assistant ships as a **public website** (the Flutter web build) and merges into the

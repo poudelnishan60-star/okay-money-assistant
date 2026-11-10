@@ -143,6 +143,19 @@ class SettingsRepository {
       AssistantSettings.fromJson(_obj(await _api.putJson('/me/settings', s.toJson())));
 }
 
+class AlertsRepository {
+  const AlertsRepository(this._api);
+  final ApiClient _api;
+
+  /// The inbox, newest first. The backend checks for new alerts first.
+  Future<AlertInbox> inbox() async =>
+      AlertInbox.fromJson(_obj(await _api.getJson('/notifications')));
+
+  /// Marks these alerts (or, with null, all of them) read; returns the unread count left.
+  Future<int> markRead([List<int>? ids]) async =>
+      _obj(await _api.postJson('/notifications/read', {'ids': ids})).integer('unread');
+}
+
 final insightsRepositoryProvider = Provider(
   (ref) => InsightsRepository(ref.watch(apiClientProvider)),
 );
@@ -157,3 +170,4 @@ final billsRepositoryProvider = Provider((ref) => BillsRepository(ref.watch(apiC
 final settingsRepositoryProvider = Provider(
   (ref) => SettingsRepository(ref.watch(apiClientProvider)),
 );
+final alertsRepositoryProvider = Provider((ref) => AlertsRepository(ref.watch(apiClientProvider)));

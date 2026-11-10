@@ -35,6 +35,7 @@ from app.models import (
     Goal,
     MerchantCategoryCache,
     MerchantOverride,
+    Notification,
     RecurringFeedback,
     ToolCallLog,
     TransactionRow,
@@ -499,6 +500,7 @@ def _id_prefix(user_id: str) -> str:
 
 def _clear(session: Session) -> None:
     for model in (
+        Notification,
         AssistantSettings,
         ChatMessage,
         ToolCallLog,
@@ -569,7 +571,7 @@ def seed_user(
             Budget(user_id=user_id, category=None, limit_paisa=30_000_00, calendar="AD"),
             Budget(user_id=user_id, category="Groceries", limit_paisa=9_000_00, calendar="AD"),
             Budget(user_id=user_id, category="Entertainment", limit_paisa=1_500_00, calendar="AD"),
-            Budget(user_id=user_id, category="Shopping", limit_paisa=4_000_00, calendar="BS"),
+            Budget(user_id=user_id, category="Shopping", limit_paisa=1_400_00, calendar="BS"),
         ]
     )
     laptop_deadline = dt.date(

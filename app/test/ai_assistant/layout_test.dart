@@ -76,6 +76,7 @@ void main() {
         OkayRoutes.budgets,
         OkayRoutes.goals,
         OkayRoutes.bills,
+        OkayRoutes.alerts,
         OkayRoutes.settings,
       ]) {
         unawaited(router.push(path));

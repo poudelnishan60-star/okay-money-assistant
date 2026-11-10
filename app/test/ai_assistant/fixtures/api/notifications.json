@@ -1,0 +1,67 @@
+{
+ "items": [
+  {
+   "id": 3,
+   "kind": "weekly_summary",
+   "title": "Your week: Rs. 5,872.80 spent",
+   "body": "4.8% less than the week before. Most went to Education (Rs. 3,500).",
+   "day": "2026-11-08",
+   "read": false,
+   "link": {
+    "screen": "insights",
+    "params": {}
+   },
+   "data": {
+    "start": "2026-11-01",
+    "end": "2026-11-07",
+    "spent_paisa": 587280,
+    "previous_paisa": 616963,
+    "change_percent": -4.8,
+    "payments": 7,
+    "top_category": "Education",
+    "top_category_paisa": 350000
+   }
+  },
+  {
+   "id": 2,
+   "kind": "bill",
+   "title": "Ncell is due tomorrow",
+   "body": "Usually Rs. 499. Pay now or set up Autopay so you don't miss it.",
+   "day": "2026-11-07",
+   "read": false,
+   "link": {
+    "screen": "bills",
+    "params": {}
+   },
+   "data": {
+    "bill_id": "cfbbcab0d939",
+    "merchant": "Ncell",
+    "service": "data_pack",
+    "category": "Topup & Data",
+    "due_date": "2026-11-10",
+    "usual_amount_paisa": 49900
+   }
+  },
+  {
+   "id": 1,
+   "kind": "budget",
+   "title": "Shopping budget at 80%",
+   "body": "Rs. 1,200 of Rs. 1,400 spent in Kartik 2083.",
+   "day": "2026-10-27",
+   "read": false,
+   "link": {
+    "screen": "budgets",
+    "params": {}
+   },
+   "data": {
+    "budget_id": 4,
+    "category": "Shopping",
+    "threshold": 80,
+    "limit_paisa": 140000,
+    "spent_paisa": 120000,
+    "period_label": "Kartik 2083"
+   }
+  }
+ ],
+ "unread": 3
+}

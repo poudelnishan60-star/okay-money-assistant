@@ -4,6 +4,7 @@ import datetime as dt
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy.orm import Session
 
 from app.api.deps import SessionDep, TodayDep, TxSourceDep, UserDep
 from app.api.schemas import (
@@ -23,12 +24,9 @@ from app.periods import (
     previous_period,
 )
 from app.services.budgets import budget_statuses
-from app.services.forecast import (
-    LOW_BALANCE_THRESHOLD_PAISA,
-    balance_forecast,
-    month_end_forecast,
-)
+from app.services.forecast import balance_forecast, month_end_forecast
 from app.services.insights import BASELINE_DAYS, build_highlights, summarize, unusual_spending
+from app.services.user_settings import load_settings
 from app.sources.base import TransactionFilter, TransactionSource
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -75,6 +73,12 @@ def _history(
     return source.list_transactions(user_id, TransactionFilter(start=start, end=end))
 
 
+def _warning_line(session: Session, user_id: str, threshold_paisa: int | None) -> int:
+    if threshold_paisa is not None:
+        return threshold_paisa
+    return load_settings(session, user_id).low_balance_threshold_paisa
+
+
 @router.get("/summary", response_model=SpendingSummaryOut)
 def get_spending_summary(
     user_id: UserDep,
@@ -93,17 +97,21 @@ def get_spending_summary(
 
 @router.get("/forecast", response_model=ForecastOut)
 def get_forecast(
+    session: SessionDep,
     user_id: UserDep,
     source: TxSourceDep,
     today: TodayDep,
     days: Annotated[int | None, Query(ge=1, le=90, description="default: to month end")] = None,
     calendar: CalendarSystem = CalendarSystem.AD,
-    threshold_paisa: Annotated[int, Query(ge=0)] = LOW_BALANCE_THRESHOLD_PAISA,
+    threshold_paisa: Annotated[
+        int | None, Query(ge=0, description="default: the user's low-balance setting")
+    ] = None,
 ) -> ForecastOut:
+    line = _warning_line(session, user_id, threshold_paisa)
     if days is not None:
-        f = balance_forecast(source, user_id, today, days, threshold_paisa=threshold_paisa)
+        f = balance_forecast(source, user_id, today, days, threshold_paisa=line)
     else:
-        f = month_end_forecast(source, user_id, today, calendar, threshold_paisa=threshold_paisa)
+        f = month_end_forecast(source, user_id, today, calendar, threshold_paisa=line)
     return ForecastOut.of(f)
 
 
@@ -115,7 +123,9 @@ def get_dashboard(
     today: TodayDep,
     month: MonthKey = None,
     calendar: CalendarSystem = CalendarSystem.AD,
-    threshold_paisa: Annotated[int, Query(ge=0)] = LOW_BALANCE_THRESHOLD_PAISA,
+    threshold_paisa: Annotated[
+        int | None, Query(ge=0, description="default: the user's low-balance setting")
+    ] = None,
 ) -> DashboardOut:
     """Everything the Insights screen needs in one round trip (slow mobile data)."""
     current, previous = resolve_periods("month", month, calendar, None, None, today)
@@ -127,7 +137,11 @@ def get_dashboard(
     budgets = []
     if summary.in_progress:
         forecast = month_end_forecast(
-            source, user_id, today, calendar, threshold_paisa=threshold_paisa
+            source,
+            user_id,
+            today,
+            calendar,
+            threshold_paisa=_warning_line(session, user_id, threshold_paisa),
         )
         budgets = budget_statuses(session, source, user_id, today)
     highlights = build_highlights(summary, unusual, budgets, forecast)

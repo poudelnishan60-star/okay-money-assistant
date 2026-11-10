@@ -13,6 +13,10 @@ class FakeApi {
     goals = (_load('goals') as List<Object?>).cast<Map<String, Object?>>().map(Map.of).toList();
     bills = (_load('bills') as List<Object?>).cast<Map<String, Object?>>().map(Map.of).toList();
     settings = Map.of(_load('settings')! as Map<String, Object?>);
+    alerts = ((_load('notifications')! as Map<String, Object?>)['items']! as List<Object?>)
+        .cast<Map<String, Object?>>()
+        .map(Map.of)
+        .toList();
   }
 
   static Object? _load(String name) =>
@@ -22,6 +26,7 @@ class FakeApi {
   late List<Map<String, Object?>> goals;
   late List<Map<String, Object?>> bills;
   late Map<String, Object?> settings;
+  late List<Map<String, Object?>> alerts;
 
   /// "METHOD /path?query" for every call, and the decoded bodies of writes.
   final requests = <String>[];
@@ -80,6 +85,18 @@ class FakeApi {
         return _json(_load('smart_deposits'));
       case ('GET', '/bills'):
         return _json(bills);
+      case ('GET', '/notifications'):
+        return _json({'items': alerts, 'unread': _unread});
+      case ('POST', '/notifications/read'):
+        final ids = (body!['ids'] as List<Object?>?)?.cast<int>();
+        var updated = 0;
+        for (final n in alerts) {
+          if (n['read'] != true && (ids == null || ids.contains(n['id']))) {
+            n['read'] = true;
+            updated++;
+          }
+        }
+        return _json({'updated': updated, 'unread': _unread});
       case ('DELETE', '/chat/history'):
         return http.Response('', 204);
     }
@@ -126,6 +143,8 @@ class FakeApi {
     }
     return _json({'detail': 'not found'}, 404);
   }
+
+  int get _unread => alerts.where((n) => n['read'] != true).length;
 
   Map<String, Object?> _transactions(Map<String, String> q) {
     if (q['period'] == '7d') return _load('transactions_7d')! as Map<String, Object?>;
