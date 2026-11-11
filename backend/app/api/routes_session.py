@@ -36,6 +36,19 @@ def cleanup_expired_sessions(session: Session, ttl_days: int) -> int:
     return result.rowcount or 0  # type: ignore[attr-defined]
 
 
+def evict_oldest_sessions(session: Session, keep: int) -> int:
+    """Keep at most `keep` visitor copies, dropping the oldest. A public demo should never
+    turn new visitors away; a dropped visitor just gets a fresh copy (the app renews its
+    session when the server no longer knows it)."""
+    visitors = select(User.id).where(User.id != DEMO_USER_ID)
+    extra = (session.scalar(select(func.count()).select_from(visitors.subquery())) or 0) - keep
+    if extra <= 0:
+        return 0
+    oldest = list(session.scalars(visitors.order_by(User.created_at, User.id).limit(extra)))
+    session.execute(delete(User).where(User.id.in_(oldest)))
+    return len(oldest)
+
+
 @router.post("/sessions", response_model=SessionOut, status_code=201)
 def create_session(request: Request, session: SessionDep, today: TodayDep) -> SessionOut:
     """Start a visitor session with a fresh copy of the demo data. Send the returned
@@ -53,8 +66,7 @@ def create_session(request: Request, session: SessionDep, today: TodayDep) -> Se
         )
 
     cleanup_expired_sessions(session, settings.session_ttl_days)
-    if session.scalar(select(func.count()).select_from(User)) >= settings.max_sessions:
-        raise HTTPException(status_code=503, detail="The demo is full right now. Try later.")
+    evict_oldest_sessions(session, settings.max_sessions - 1)
 
     user_id = "v_" + secrets.token_urlsafe(18)
     ensure_faq(session)

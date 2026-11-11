@@ -1,0 +1,68 @@
+# Builds the Flutter web app and publishes it on GitHub Pages
+# (https://<owner>.github.io/<repo>/). Runs on every push to main that changes app/.
+#
+# The backend's address comes from the repository variable OKAY_API_BASE_URL
+# (Settings > Secrets and variables > Actions > Variables): https://okay-money-assistant-api.onrender.com
+# It is not a secret: the browser calls it. The Groq key never leaves the backend.
+name: Website (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the backend address is set
+        env:
+          API: ${{ vars.OKAY_API_BASE_URL }}
+        run: |
+          if [ -z "$API" ]; then
+            echo "::error::Set the repository variable OKAY_API_BASE_URL to the backend's URL."
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9 # the version the app is developed and tested on
+          cache: true
+
+      - name: Build
+        working-directory: app
+        env:
+          API: ${{ vars.OKAY_API_BASE_URL }}
+          BASE: /${{ github.event.repository.name }}/
+        run: |
+          flutter pub get
+          flutter build web --release --base-href "$BASE" --dart-define=OKAY_API_BASE_URL="$API"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,37 @@
+# Render Blueprint for the O-Kay backend (free plan).
+#
+# In Render: New > Blueprint, pick this repository. Render asks for GROQ_API_KEY: paste it there
+# (it is stored by Render, never in this repository). Every push that changes backend/ redeploys.
+#
+# Free plan: the service sleeps after 15 minutes without requests and the next request wakes
+# it (about a minute). The disk is not kept between restarts; that is fine here: the demo data
+# is seeded on start-up and each visitor gets a fresh copy (POST /sessions).
+services:
+  - type: web
+    name: okay-money-assistant-api # becomes https://okay-money-assistant-api.onrender.com
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.15
+      # Render's proxy passes the visitor's IP in X-Forwarded-For; uvicorn uses it only from
+      # trusted proxies. The per-IP session limit needs the real IP (otherwise every visitor
+      # would share the proxy's address).
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      - key: GROQ_API_KEY
+        sync: false # asked for when the Blueprint is created; kept secret by Render
+      - key: PUBLIC_MODE
+        value: "true"
+      - key: CORS_ORIGINS
+        value: https://poudelnishan60-star.github.io
+      - key: CORS_ORIGIN_REGEX # no localhost origins in production
+        value: ""

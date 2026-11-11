@@ -257,6 +257,26 @@ def test_public_mode_requires_a_session(make_client) -> None:
     assert c.get("/me", headers={"X-User-Id": "v_guess"}).status_code == 404
 
 
+def test_a_full_demo_drops_the_oldest_visitor_not_the_newest(make_client) -> None:
+    import datetime as dt
+
+    from app.models import User
+
+    c = make_client(max_sessions=3)
+    ids = [c.post("/sessions").json()["session_id"] for _ in range(3)]
+    factory = c.app.state.session_factory
+    with factory() as s:  # make the order unambiguous
+        for age, sid in enumerate(reversed(ids)):
+            s.get(User, sid).created_at -= dt.timedelta(minutes=age)
+        s.commit()
+    newest = c.post("/sessions")
+    assert newest.status_code == 201
+    assert c.get("/me", headers={"X-User-Id": ids[0]}).json() == {"detail": "unknown user"}
+    for sid in [*ids[1:], newest.json()["session_id"]]:
+        assert c.get("/me", headers={"X-User-Id": sid}).status_code == 200
+    assert c.get("/me").status_code == 200  # the shared demo user is never dropped
+
+
 def test_expired_sessions_are_cleaned_up(make_client) -> None:
     import datetime as dt
 
