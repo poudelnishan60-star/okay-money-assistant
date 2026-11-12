@@ -126,10 +126,13 @@ For now the assistant ships as a separate public website; merging into the Khalt
 - Each visitor gets their own copy of the demo data (budgets, goals, chat history), not one shared user.
 - Rate-limit /chat per visitor and overall so the free Groq quota can't be drained.
 - Bundle DM Sans and Noto Sans Devanagari (OFL) instead of relying on system fonts.
-- Hosting for the website and the backend is decided at the deploy step; the Groq key stays on the server.
+- Hosting (decided 11 Nov 2026): the website on GitHub Pages (public repo
+  poudelnishan60-star/okay-money-assistant, built by GitHub Actions), the backend on Render's
+  free plan (render.yaml; deployed by hand). The Groq key lives only in Render's environment.
+  No "Khalti" in public names.
 
 ## Build order
-Steps 1-4 are done. The order after that was changed to chat first.
+All nine steps are done (the site went live on 12 Nov 2026). The order after step 4 was changed to chat first.
 1. Repo setup: folders, README, .env.example, .gitignore, lint config
 2. Backend data: SQLite schema, mock-data seed, categorizer, recurring-payment detector, budget math, forecast, with unit tests
 3. Backend REST API: transactions, insights, budgets, goals, bills

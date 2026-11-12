@@ -4,9 +4,14 @@ A self-contained prototype that upgrades Khalti's chat assistant, O-Kay, so it u
 user's own money: spending, budgets, goals, bills and forecasts. It runs on **mock data only**;
 no real customer data is ever sent to the LLM provider. The full spec is in [CLAUDE.md](CLAUDE.md).
 
+**Live demo:** https://poudelnishan60-star.github.io/okay-money-assistant/ (unofficial, not
+affiliated with Khalti). The backend runs on a free server that sleeps when idle, so the first
+load after a quiet spell can take about a minute.
+
 ```
 /app       Flutter (Dart 3) feature module + demo host shell
 /backend   FastAPI + SQLAlchemy + SQLite, Groq LLM calls (backend only)
+render.yaml, .github/workflows/pages.yml   deployment (see "Deployment")
 ```
 
 ## Backend
@@ -341,6 +346,40 @@ cd backend && python scripts/export_bs_calendar.py
 Kartik 24; the published calendar says Kartik 23) and its 2084 table differs from the
 published calendar (Jestha 2084 has 31 days, not 32).
 
+## Deployment
+
+| Part | Where | How it updates |
+|---|---|---|
+| Website (Flutter web) | GitHub Pages: https://poudelnishan60-star.github.io/okay-money-assistant/ | Automatically, on every push to `main` that changes `app/` (`.github/workflows/pages.yml`) |
+| Backend (FastAPI) | Render, free plan: https://okay-money-assistant-api.onrender.com | **Manually**: in Render, open the service and press Manual Deploy > Deploy latest commit |
+
+**Website.** The workflow builds with `--base-href /<repo>/` and takes the backend's address
+from the repository variable `OKAY_API_BASE_URL` (Settings > Secrets and variables > Actions >
+Variables). It is not a secret: the browser calls it.
+
+**Backend.** `render.yaml` is a Render Blueprint: Python 3.13, `pip install .`, uvicorn, health
+check on `/health`, and these settings: `PUBLIC_MODE=true` (every visitor gets a private copy of
+the demo data), `CORS_ORIGINS` (only the Pages site may call the API; no localhost),
+`FORWARDED_ALLOW_IPS=*` (so the per-visitor limits see the visitor's address behind Render's
+proxy). `GROQ_API_KEY` is **not** in the file: it is typed into Render (service > Environment)
+and lives only there. The service was created from the public repository URL, without giving
+Render access to the GitHub account, which is why backend changes are deployed by hand.
+
+What the free plan means:
+- The server sleeps after 15 minutes without requests; the next visitor waits up to about a
+  minute while it wakes. The website itself loads at once.
+- Nothing on disk survives a restart or a deploy. That is fine for this demo: the mock data is
+  seeded again on start, and a visitor whose copy is gone gets a fresh one automatically. Their
+  budgets, goals and chat history from before are lost.
+- Groq's free tier is about 2-3 questions a minute per model. `/chat` is rate-limited per
+  visitor and overall, and answers "O-Kay is busy" when the limit is reached.
+- When the cap on visitor copies is reached, the oldest copy is dropped (never the new visitor).
+
+To set it up again from scratch: push the repository to GitHub, enable Pages with "GitHub
+Actions" as the source, set `OKAY_API_BASE_URL`, then in Render choose New > Blueprint, give the
+repository URL, enter `GROQ_API_KEY` and deploy. If the Render address differs from the one in
+`CORS_ORIGINS` / `OKAY_API_BASE_URL`, update both.
+
 ## Build steps
 
 | # | Step | Status |
@@ -353,8 +392,8 @@ published calendar (Jestha 2084 has 31 days, not 32).
 | 6 | App chat: fonts, website layout, O-Kay chat screen | done |
 | 7 | App screens: insights, transactions, budgets, goals, bills, settings | done |
 | 8 | Notifications, polish, golden tests, 50-question eval | done |
-| 9 | Deploy the website and backend | |
+| 9 | Deploy the website and backend | done |
 
-For now the assistant ships as a **public website** (the Flutter web build) and merges into the
+The assistant ships as a **public website** (the Flutter web build) and merges into the
 Khalti app later; see "Public website first" in [CLAUDE.md](CLAUDE.md). It is an unofficial
 prototype, not affiliated with Khalti, and uses mock data only.

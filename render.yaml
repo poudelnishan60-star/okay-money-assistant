@@ -1,7 +1,12 @@
 # Render Blueprint for the O-Kay backend (free plan).
 #
-# In Render: New > Blueprint, pick this repository. Render asks for GROQ_API_KEY: paste it there
-# (it is stored by Render, never in this repository). Every push that changes backend/ redeploys.
+# In Render: New > Blueprint, give this repository. Render asks for GROQ_API_KEY: paste it there
+# (it is stored by Render, never in this repository). If the value is left empty the variable is
+# not created: add it under the service's Environment tab.
+#
+# Deploys: automatic on pushes that change backend/ only when Render is connected to the GitHub
+# account. The live service was created from the public repository URL instead, so it is
+# deployed by hand (service > Manual Deploy > Deploy latest commit).
 #
 # Free plan: the service sleeps after 15 minutes without requests and the next request wakes
 # it (about a minute). The disk is not kept between restarts; that is fine here: the demo data
