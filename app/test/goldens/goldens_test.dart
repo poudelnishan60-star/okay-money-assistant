@@ -9,29 +9,14 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 
 import '../ai_assistant/test_harness.dart';
-
-/// Every font the app bundles (DM Sans, Noto Sans Devanagari, Material icons), from the same
-/// manifest the app uses. Without this, tests draw text as boxes.
-Future<void> loadAppFonts() async {
-  final manifest = jsonDecode(await rootBundle.loadString('FontManifest.json')) as List<Object?>;
-  for (final entry in manifest.cast<Map<String, Object?>>()) {
-    final loader = FontLoader(entry['family']! as String);
-    for (final font in (entry['fonts']! as List<Object?>).cast<Map<String, Object?>>()) {
-      loader.addFont(rootBundle.load(font['asset']! as String));
-    }
-    await loader.load();
-  }
-}
 
 class _TolerantComparator extends LocalFileComparator {
   _TolerantComparator(super.testFile);
@@ -68,7 +53,7 @@ Future<FakeApi> _pumpHost(WidgetTester t, {FakeChatRepository? chat, FakeApi? ap
 }
 
 Future<void> _open(WidgetTester t, String path) async {
-  unawaited(GoRouter.of(t.element(find.text('Financial Services'))).push(path));
+  unawaited(routerOf(t).push(path));
   await t.pumpAndSettle();
 }
 
@@ -82,15 +67,8 @@ void main() {
     goldenFileComparator = _TolerantComparator(base.basedir.resolve('goldens_test.dart'));
   });
 
-  testWidgets('home', (t) async {
-    await _pumpHost(t);
-    await _matches('home');
-  });
-
   testWidgets('chat empty state', (t) async {
     await _pumpHost(t);
-    await t.tap(find.text('Ask me'));
-    await t.pumpAndSettle();
     await _matches('chat_empty');
   });
 
@@ -104,8 +82,6 @@ void main() {
       ),
     ]);
     await _pumpHost(t, chat: chat);
-    await t.tap(find.text('Ask me'));
-    await t.pumpAndSettle();
     await t.tap(find.text('My spending'));
     await t.pumpAndSettle();
     await _matches('chat_spending');
@@ -121,8 +97,6 @@ void main() {
       ),
     ]);
     await _pumpHost(t, chat: chat);
-    await t.tap(find.text('Ask me'));
-    await t.pumpAndSettle();
     await t.enterText(find.byType(TextField), 'खानाको बजेट ६००० राख र बिजुलीको बिल तिर');
     await t.pump();
     await t.tap(find.bySemanticsLabel('Send'));
@@ -164,8 +138,7 @@ void main() {
 
   testWidgets('insights with the balance hidden', (t) async {
     await _pumpHost(t);
-    await t.tap(find.byTooltip('Hide balance'));
-    await t.pumpAndSettle();
+    await hideAmounts(t);
     await _open(t, OkayRoutes.insights);
     await _matches('insights_hidden');
   });

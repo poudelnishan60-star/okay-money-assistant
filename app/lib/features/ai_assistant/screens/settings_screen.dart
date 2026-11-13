@@ -12,8 +12,8 @@ import '../routes.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
 
-/// Assistant settings: reply language, calendar, alerts, the low-balance warning line, how
-/// data is used, clear chat history.
+/// Assistant settings: reply language, calendar, alerts, the low-balance warning line, hiding
+/// amounts, how data is used, clear chat history.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -31,6 +31,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final masked = ref.watch(amountPrivacyProvider.select((p) => p.masked));
+    final hideAmounts = ref.watch(amountPrivacyProvider.select((p) => p.hiddenByUser));
     Future<void> save(AssistantSettings next) async {
       try {
         await ref.read(settingsProvider.notifier).save(next);
@@ -132,6 +133,14 @@ class SettingsScreen extends ConsumerWidget {
                   'Warn me if my balance may drop below '
                   '${masked ? maskedNpr() : formatNpr(s.lowBalanceThresholdPaisa)}',
               onTap: () => _editWarningLine(context, s, save),
+            ),
+            const _Heading('Privacy'),
+            // In the Khalti app this follows the Home screen's hide-balance eye (same state).
+            _Toggle(
+              title: 'Hide amounts',
+              subtitle: 'Mask every amount until you tap one',
+              value: hideAmounts,
+              onChanged: (v) => ref.read(amountPrivacyProvider.notifier).setHiddenByUser(v),
             ),
             const _Heading('Your data'),
             const Padding(

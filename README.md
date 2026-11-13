@@ -9,7 +9,7 @@ affiliated with Khalti). The backend runs on a free server that sleeps when idle
 load after a quiet spell can take about a minute.
 
 ```
-/app       Flutter (Dart 3) feature module + demo host shell
+/app       Flutter (Dart 3) feature module + the website shell around it
 /backend   FastAPI + SQLAlchemy + SQLite, Groq LLM calls (backend only)
 render.yaml, .github/workflows/pages.yml   deployment (see "Deployment")
 ```
@@ -221,14 +221,15 @@ The app finds the backend at `http://10.0.2.2:8000` on the Android emulator and
 
 ```bash
 flutter run --dart-define=OKAY_API_BASE_URL=http://192.168.1.10:8000   # phone on Wi-Fi
-flutter run --dart-define=OKAY_AI_ENABLED=false                         # feature flag off
+flutter run --dart-define=OKAY_AI_ENABLED=false                         # feature flag off: "O-Kay is switched off"
 ```
 
 App layout:
 
 ```
-lib/main.dart                     runs the demo host
-lib/demo_host/                    stand-in for the Khalti app (Home, bottom nav, Menu)
+lib/main.dart                     runs the website
+lib/demo_host/                    the website's shell: opens straight into the O-Kay chat, mounts
+                                  the assistant's routes, mock bridge, phone-width frame and label
 lib/features/ai_assistant/        THE FEATURE: drops into the Khalti app as one folder
   ai_assistant.dart               public API for the host
   config.dart                     base URL, feature flag
@@ -236,7 +237,7 @@ lib/features/ai_assistant/        THE FEATURE: drops into the Khalti app as one 
   core/api_client.dart            the one HTTP client (JSON, errors, SSE stream for chat)
   core/money.dart, dates.dart     "Rs. 1,25,000.50", AD/BS dates in Nepal time
   core/bs_date.dart (+ _data)     BS calendar, generated from the backend's table
-  core/privacy.dart               hide-balance masking
+  core/privacy.dart               hidden-amounts masking
   host/                           HostAppBridge interface + mock ("would open X" sheets)
   widgets/                        shared components
   routes.dart                     /assistant/... routes behind the feature flag
@@ -267,7 +268,12 @@ Fonts (DM Sans, Noto Sans Devanagari; SIL OFL, `app/assets/fonts/`) are bundled.
 Streamed answers, cards (spending, where-it-went bars, budgets, bills with Pay/Autopay, goals
 with Smart Deposit, transactions, confirm, open-in-Khalti), follow-up chips, thumbs, retry, clear
 chat. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
-flow via `HostAppBridge`. With the balance hidden, amounts in the answer text are masked too.
+flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
+
+The website opens straight into this chat: there is no stand-in Khalti home screen around it.
+The chat's header leads to everything else: Money Insights, the alerts bell (with the unread
+count) and a menu with Assistant settings and Clear chat. While the free server wakes up, the
+chat says so ("Waking O-Kay up…") instead of showing a bare spinner.
 
 Live end-to-end check against a running backend with a Groq key (not part of `flutter test`):
 
@@ -277,7 +283,8 @@ flutter test test_live/live_chat_test.dart
 
 ### Money screens
 
-Reached from Home → Financial Services → "Money Insights" and from the chat's cards.
+Reached from the chat's header (Money Insights, the bell, the menu) and from the chat's cards.
+Money Insights links on to Transactions, Budgets, Goals and Bills.
 
 - **Insights**: month selector (AD or BS months), total spent and change against the same days
   of last month, insight cards (unusual spending, biggest category), month-end forecast with
@@ -292,16 +299,17 @@ Reached from Home → Financial Services → "Money Insights" and from the chat'
   Deposit" (opens the host's Smart Deposit through `HostAppBridge`).
 - **Bills**: detected recurring payments with next due date and usual amount, Pay now, Set up
   Autopay, confirm or dismiss (with undo).
-- **Alerts**: the bell on Money Insights (and on the demo host's Home) shows the unread count;
+- **Alerts**: the bell in the chat's header and on Money Insights shows the unread count;
   the inbox lists budget, bill, unusual-spending and weekly-summary alerts. Tapping one marks
   it read and opens the screen it is about (an unusual-spending alert opens that category's
   transactions).
 - **Settings**: language (English / नेपाली / Auto), AD/BS, alerts, weekly-summary day,
-  low-balance warning line, how the data is used, clear chat history. Language and calendar
-  apply to the chat and every screen.
+  low-balance warning line, Hide amounts, how the data is used, clear chat history. Language
+  and calendar apply to the chat and every screen.
 
-With the balance hidden, every amount on these screens is masked until tapped (a test visits
-each screen and fails if any amount shows). Lists can be pulled down to reload.
+With Hide amounts on (in the Khalti app: the Home screen's hide-balance eye, which shares the
+same state), every amount in the chat and on these screens is masked until one is tapped (a
+test opens each of them and fails if any amount shows). Lists can be pulled down to reload.
 
 Widget tests answer from JSON fixtures exported from the real API, so they track the backend.
 Regenerate them after changing the seed or the API:
@@ -310,9 +318,9 @@ Regenerate them after changing the seed or the API:
 cd backend && python scripts/export_app_fixtures.py
 ```
 
-**Golden tests.** `test/goldens/` renders 14 key screens (home, chat empty, a chat answer, a
+**Golden tests.** `test/goldens/` renders 13 key screens (chat empty, a chat answer, a
 Nepali chat with Confirm and Pay cards, insights, transactions, budgets, goals, bills, alerts,
-settings, two sheets, insights with the balance hidden) with the bundled fonts and compares
+settings, two sheets, insights with amounts hidden) with the bundled fonts and compares
 them with the PNGs in `test/goldens/images/`. They run with `flutter test`. After an intended
 visual change:
 
@@ -332,8 +340,9 @@ flutter test test_live/live_screens_test.dart
 
 The feature folder imports nothing from the rest of `lib/`; a test enforces it. The host
 overrides `hostAppBridgeProvider`, mounts `aiAssistantRoutes()`, and keeps
-`amountPrivacyProvider` in sync with its hide-balance toggle. Menu → "Assistant UI kit"
-shows every token and component.
+`amountPrivacyProvider` in sync with its hide-balance toggle. For its Home it can use the
+exported `AskMeButton` (the floating "Ask me" button that opens the chat) and `AlertsBell`.
+`#/assistant/ui-kit` shows every token and component.
 
 **BS dates.** The app's BS calendar table is generated from the backend's `nepali-datetime`,
 so both sides always agree:

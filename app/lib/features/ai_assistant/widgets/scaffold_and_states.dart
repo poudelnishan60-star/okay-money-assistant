@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/okay_theme.dart';
 
@@ -66,8 +67,7 @@ class OkayScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // On the website this names the browser tab ("Budgets · O-Kay"); in the app it does nothing.
-    return Title(title: '$title · O-Kay', color: OkayColors.primary, child: _scaffold(context));
+    return TabTitle(title: title, child: _scaffold(context));
   }
 
   Widget _scaffold(BuildContext context) {
@@ -87,6 +87,29 @@ class OkayScaffold extends StatelessWidget {
       body: SafeArea(top: false, child: body),
       floatingActionButton: floatingActionButton,
     );
+  }
+}
+
+/// Names the browser tab after the screen on top ("Budgets · O-Kay"); in the app it does
+/// nothing. Only the current route sets it: Flutter's own [Title] is also rebuilt by a screen
+/// that is on its way out, which left the old name behind after going back.
+class TabTitle extends StatelessWidget {
+  const TabTitle({super.key, required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (ModalRoute.isCurrentOf(context) ?? true) {
+      SystemChrome.setApplicationSwitcherDescription(
+        ApplicationSwitcherDescription(
+          label: '$title · O-Kay',
+          primaryColor: OkayColors.primary.toARGB32(),
+        ),
+      );
+    }
+    return child;
   }
 }
 

@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 
 import 'test_harness.dart';
@@ -52,9 +51,6 @@ void main() {
       ]);
       await t.pumpWidget(demoApp(chat: chat).app);
       await t.pumpAndSettle();
-      expect(t.takeException(), isNull, reason: 'home');
-      await t.tap(find.text('Ask me'));
-      await t.pumpAndSettle();
       expect(t.takeException(), isNull, reason: 'empty chat');
       await t.tap(find.text('Budgets'));
       await t.pumpAndSettle();
@@ -69,7 +65,7 @@ void main() {
       addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
       await t.pumpWidget(demoApp().app);
       await t.pumpAndSettle();
-      final router = GoRouter.of(t.element(find.text('Financial Services')));
+      final router = routerOf(t);
       for (final path in [
         OkayRoutes.insights,
         OkayRoutes.transactions,

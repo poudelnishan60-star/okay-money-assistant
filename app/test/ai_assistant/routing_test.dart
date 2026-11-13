@@ -1,107 +1,122 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 
 import 'test_harness.dart';
 
 void main() {
-  testWidgets('Home shows the entry points when the flag is on', (tester) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp().app);
-    await tester.pumpAndSettle();
-    expect(find.text('Hi, Anjali'), findsOneWidget);
-    expect(find.text('Rs. 23,944.86'), findsOneWidget);
-    expect(find.text('Money Insights'), findsOneWidget);
-    expect(find.text('Ask me'), findsOneWidget);
+  testWidgets('the site opens straight into the O-Kay chat, with no host screens', (t) async {
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
+    expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing); // the chat is the front page
+    for (final gone in ['Khalti Balance', 'Financial Services', 'Cards', 'Menu', 'Ask me']) {
+      expect(find.text(gone), findsNothing);
+    }
   });
 
-  testWidgets('Money Insights tile and Ask me button open the assistant', (tester) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp().app);
-    await tester.pumpAndSettle();
+  testWidgets('the chat header leads to the dashboard, alerts and settings', (t) async {
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
 
-    await tester.tap(find.text('Money Insights'));
-    await tester.pumpAndSettle();
+    await t.tap(find.byTooltip('Money Insights'));
+    await t.pumpAndSettle();
     expect(find.text('Spent so far'), findsOneWidget);
-    expect(find.byType(BackButton), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+    expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
 
-    await tester.tap(find.text('Ask me'));
-    await tester.pumpAndSettle();
+    await t.tap(find.byTooltip('Alerts, 3 unread'));
+    await t.pumpAndSettle();
+    expect(find.text('Ncell is due tomorrow'), findsOneWidget);
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+
+    await t.tap(find.byTooltip('More'));
+    await t.pumpAndSettle();
+    // Nothing to clear yet.
+    expect(find.byWidgetPredicate((w) => w is PopupMenuItem && !w.enabled), findsOneWidget);
+    await t.tap(find.text('Assistant settings'));
+    await t.pumpAndSettle();
+    expect(find.text('Language'), findsOneWidget);
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
     expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
   });
 
-  testWidgets('flag off: no entry points and the routes bounce to Home', (tester) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp(enabled: false).app);
-    await tester.pumpAndSettle();
-    expect(find.text('Money Insights'), findsNothing);
-    expect(find.text('Ask me'), findsNothing);
-
-    GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.chat);
-    await tester.pumpAndSettle();
+  testWidgets('flag off: nothing opens and the routes bounce to the switched-off page', (t) async {
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp(enabled: false).app);
+    await t.pumpAndSettle();
+    expect(find.text('O-Kay is switched off'), findsOneWidget);
     expect(find.text('Start Chatting with O-Kay'), findsNothing);
-    expect(find.text('Financial Services'), findsOneWidget);
+
+    for (final path in [OkayRoutes.chat, OkayRoutes.insights, OkayRoutes.settings]) {
+      routerOf(t).go(path);
+      await t.pumpAndSettle();
+      expect(find.text('O-Kay is switched off'), findsOneWidget, reason: path);
+    }
   });
 
-  testWidgets('/assistant redirects to insights', (tester) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp().app);
-    await tester.pumpAndSettle();
-    GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.root);
-    await tester.pumpAndSettle();
+  testWidgets('the browser tab is named after the screen on top, also after going back', (t) async {
+    final titles = <String>[];
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+      call,
+    ) async {
+      if (call.method == 'SystemChrome.setApplicationSwitcherDescription') {
+        titles.add((call.arguments as Map<Object?, Object?>)['label']! as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () =>
+          t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
+    expect(titles.last, 'Chat · O-Kay');
+    await t.tap(find.byTooltip('Money Insights'));
+    await t.pumpAndSettle();
+    expect(titles.last, 'Money Insights · O-Kay');
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+    expect(titles.last, 'Chat · O-Kay');
+  });
+
+  testWidgets('/assistant redirects to insights', (t) async {
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
+    routerOf(t).go(OkayRoutes.root);
+    await t.pumpAndSettle();
     expect(find.text('Spent so far'), findsOneWidget);
   });
 
-  testWidgets('bottom nav: tabs switch, active tab is pink, Scan & Pay is host-only', (
-    tester,
-  ) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp().app);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Menu'));
-    await tester.pumpAndSettle();
+  testWidgets('UI kit renders every component; the Ask me entry point opens the chat', (t) async {
+    usePhoneSize(t);
+    await t.pumpWidget(demoApp().app);
+    await t.pumpAndSettle();
+    routerOf(t).go(OkayRoutes.uiKit);
+    await t.pumpAndSettle();
     expect(find.text('Assistant UI kit'), findsOneWidget);
-    final menuLabel = tester.widget<Text>(find.text('Menu').last);
-    expect(menuLabel.style?.color, OkayColors.accentPink);
-
-    await tester.tap(find.bySemanticsLabel('Scan and Pay'));
-    await tester.pump();
-    expect(find.textContaining('Scan & Pay is part of the Khalti app'), findsOneWidget);
-  });
-
-  testWidgets('Home quick action uses the bridge; balance eye masks amounts', (tester) async {
-    usePhoneSize(tester);
-    final demo = demoApp();
-    await tester.pumpWidget(demo.app);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip('Hide balance'));
-    await tester.pump();
-    expect(find.text('Rs. ••••'), findsOneWidget);
-
-    await tester.tap(find.text('Electricity'));
-    await tester.pumpAndSettle();
-    expect(find.text('Would open Bill Payment (electricity)'), findsOneWidget);
-    expect(demo.bridge.calls, ['openBillPayment:electricity']);
-  });
-
-  testWidgets('UI kit screen renders every component without overflow', (tester) async {
-    usePhoneSize(tester);
-    await tester.pumpWidget(demoApp().app);
-    await tester.pumpAndSettle();
-    GoRouter.of(tester.element(find.text('Financial Services'))).go(OkayRoutes.uiKit);
-    await tester.pumpAndSettle();
-    expect(find.text('Assistant UI kit'), findsOneWidget);
-    await tester.dragUntilVisible(
+    await t.dragUntilVisible(
       find.text('States'),
       find.byType(Scrollable).first,
       const Offset(0, -400),
     );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+
+    // For the Khalti app's Home: the floating button that opens the chat.
+    await t.ensureVisible(find.text('Ask me'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Ask me'));
+    await t.pumpAndSettle();
+    expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
+    expect(find.byType(BackButton), findsOneWidget);
   });
 }

@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/demo_host/demo_host_app.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
@@ -35,6 +37,30 @@ Map<String, Object?> fixtureCard(String type) =>
     fixtureCards().firstWhere((c) => c['type'] == type);
 
 /// Phone-sized test surface (390 x 844 logical pixels).
+/// Every font the app bundles (DM Sans, Noto Sans Devanagari, Material icons), from the same
+/// manifest the app uses. Without this, tests draw text as wide boxes.
+Future<void> loadAppFonts() async {
+  final manifest = jsonDecode(await rootBundle.loadString('FontManifest.json')) as List<Object?>;
+  for (final entry in manifest.cast<Map<String, Object?>>()) {
+    final loader = FontLoader(entry['family']! as String);
+    for (final font in (entry['fonts']! as List<Object?>).cast<Map<String, Object?>>()) {
+      loader.addFont(rootBundle.load(font['asset']! as String));
+    }
+    await loader.load();
+  }
+}
+
+/// The app's router, from whichever screen is showing.
+GoRouter routerOf(WidgetTester t) => GoRouter.of(t.element(find.byType(Navigator).first));
+
+/// What the Khalti app's hide-balance eye (or Settings > Hide amounts) does.
+Future<void> hideAmounts(WidgetTester t) async {
+  ProviderScope.containerOf(t.element(find.byType(Navigator).first))
+      .read(amountPrivacyProvider.notifier)
+      .setHiddenByUser(true);
+  await t.pumpAndSettle();
+}
+
 void usePhoneSize(WidgetTester tester) => useSize(tester, const Size(390, 844));
 
 void useSize(WidgetTester tester, Size size) {
@@ -115,7 +141,7 @@ List<ChatStreamEvent> answer(
   ),
 ];
 
-/// The whole demo host with no network: /me and /chat are faked, the REST API is a [FakeApi]
+/// The whole website (it opens on the O-Kay chat) with no network: /me and /chat are faked, the REST API is a [FakeApi]
 /// answering from real backend fixtures, and there are no visitor sessions.
 ({Widget app, MockHostAppBridge bridge, FakeChatRepository chat, FakeApi api}) demoApp({
   bool enabled = true,

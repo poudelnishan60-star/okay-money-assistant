@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/demo_host/web_frame.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
@@ -13,9 +12,7 @@ import 'test_harness.dart';
 Future<void> openChat(WidgetTester tester, Widget app) async {
   usePhoneSize(tester);
   await tester.pumpWidget(app);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('Ask me'));
-  await tester.pumpAndSettle();
+  await tester.pumpAndSettle(); // the site opens straight into the chat
 }
 
 void main() {
@@ -224,9 +221,11 @@ void main() {
       ];
     await openChat(t, demoApp(chat: chat).app);
     expect(find.text('old answer'), findsOneWidget);
-    await t.tap(find.byTooltip('Clear chat'));
+    await t.tap(find.byTooltip('More'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Clear chat').last);
+    await t.tap(find.text('Clear chat')); // the menu item
+    await t.pumpAndSettle();
+    await t.tap(find.text('Clear chat').last); // the confirmation
     await t.pumpAndSettle();
     expect(chat.cleared, isTrue);
     expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
@@ -249,7 +248,7 @@ void main() {
       await t.pumpWidget(demo.app);
       await t.pumpAndSettle();
       expect(t.getRect(find.byType(Navigator).first).width, 390);
-      GoRouter.of(t.element(find.text('Financial Services'))).go(OkayRoutes.chat);
+      routerOf(t).go(OkayRoutes.insights);
       await t.pumpAndSettle();
       expect(find.text(WebFrame.unofficialLabel), findsOneWidget);
     });

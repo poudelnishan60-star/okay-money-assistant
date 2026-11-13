@@ -1,5 +1,7 @@
-// Demo host: a stand-in for the Khalti app so the assistant can be run and reviewed on its
-// own. Nothing under lib/features/ai_assistant/ imports from here; this file only uses the
+// The public website's shell: it opens straight into the O-Kay chat, with no stand-in Khalti
+// home screen around it. It plays the host app's part in the smallest way: it mounts the
+// assistant's routes, supplies the mock bridge ("would open X" sheets) and draws the website
+// frame. Nothing under lib/features/ai_assistant/ imports from here; this file only uses the
 // feature's public API (ai_assistant.dart), exactly like the real app will.
 
 import 'package:flutter/material.dart';
@@ -7,44 +9,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/ai_assistant/ai_assistant.dart';
-import 'home_screen.dart';
-import 'host_shell.dart';
 import 'web_frame.dart';
 
 GoRouter buildDemoRouter(GlobalKey<NavigatorState> rootNavigatorKey) => GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, shell) => HostShell(shell: shell),
-      branches: [
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/', builder: (context, state) => const HomeScreen())],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/cards',
-              builder: (context, state) => const HostPlaceholderTab(title: 'Cards'),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/transaction',
-              builder: (context, state) => const HostPlaceholderTab(
-                title: 'Transaction',
-                linkLabel: 'Open the assistant’s transaction view',
-                linkPath: OkayRoutes.transactions,
-              ),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [GoRoute(path: '/menu', builder: (context, state) => const MenuTab())],
-        ),
-      ],
+    GoRoute(
+      path: '/',
+      // The chat is the front page. With the feature flag off there is nothing to open.
+      redirect: (context, state) =>
+          ProviderScope.containerOf(context).read(aiAssistantEnabledProvider)
+          ? OkayRoutes.chat
+          : null,
+      builder: (context, state) => const _SwitchedOff(),
     ),
     ...aiAssistantRoutes(parentNavigatorKey: rootNavigatorKey),
   ],
@@ -78,6 +56,20 @@ class _DemoHostAppState extends ConsumerState<DemoHostApp> {
       builder: (context, child) => WebFrame(child: child ?? const SizedBox.shrink()),
     );
   }
+}
+
+/// Shown only when the feature flag is off (OKAY_AI_ENABLED=false).
+class _SwitchedOff extends StatelessWidget {
+  const _SwitchedOff();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: EmptyView(
+      icon: Icons.power_settings_new_rounded,
+      title: 'O-Kay is switched off',
+      message: 'The assistant is turned off in this build.',
+    ),
+  );
 }
 
 /// Wires the demo: the mock bridge stands in for the Khalti app's flows.

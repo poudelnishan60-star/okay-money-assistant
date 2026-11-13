@@ -126,6 +126,9 @@ For now the assistant ships as a separate public website; merging into the Khalt
 - Each visitor gets their own copy of the demo data (budgets, goals, chat history), not one shared user.
 - Rate-limit /chat per visitor and overall so the free Groq quota can't be drained.
 - Bundle DM Sans and Noto Sans Devanagari (OFL) instead of relying on system fonts.
+- The website opens straight into the O-Kay chat (decided 13 Nov 2026): no stand-in Khalti home
+  screen or bottom nav. The chat's header leads to Money Insights, alerts and settings. The
+  entry points under "Screens" 1 (Ask me button, Money Insights tile) are for the Khalti app.
 - Hosting (decided 11 Nov 2026): the website on GitHub Pages (public repo
   poudelnishan60-star/okay-money-assistant, built by GitHub Actions), the backend on Render's
   free plan (render.yaml; deployed by hand). The Groq key lives only in Render's environment.

@@ -14,7 +14,7 @@ Future<FakeApi> open(WidgetTester t, String path, {FakeApi? api, FakeChatReposit
   final demo = demoApp(api: api, chat: chat);
   await t.pumpWidget(demo.app);
   await t.pumpAndSettle();
-  unawaited(GoRouter.of(t.element(find.text('Financial Services'))).push(path));
+  unawaited(routerOf(t).push(path));
   await t.pumpAndSettle();
   return demo.api;
 }
@@ -259,6 +259,20 @@ void main() {
       expect(chat.sent.single.$2, 'ne');
     });
 
+    testWidgets('Hide amounts masks them until one is tapped', (t) async {
+      await open(t, OkayRoutes.settings);
+      await scrollTo(t, find.text('Hide amounts'));
+      await t.tap(find.text('Hide amounts'));
+      await t.pumpAndSettle();
+      expect(find.text('Warn me if my balance may drop below Rs. ••••'), findsOneWidget);
+      unawaited(routerOf(t).push(OkayRoutes.budgets));
+      await t.pumpAndSettle();
+      expect(find.text('Rs. 30,000'), findsNothing);
+      await t.tap(find.text('Rs. ••••').first);
+      await t.pumpAndSettle();
+      expect(find.text('Rs. 30,000'), findsOneWidget); // one tap shows them all again
+    });
+
     testWidgets('alerts toggles, data explainer, clear chat', (t) async {
       final chat = FakeChatRepository();
       final api = await open(t, OkayRoutes.settings, chat: chat);
@@ -344,7 +358,7 @@ void alertsAndPrivacy() {
       expect(find.text('Assistant settings'), findsOneWidget);
     });
 
-    testWidgets("the host's Home bell shows O-Kay's alerts", (t) async {
+    testWidgets("the chat's bell shows the alerts", (t) async {
       useSize(t, const Size(390, 1600));
       await t.pumpWidget(demoApp().app);
       await t.pumpAndSettle();
@@ -369,35 +383,5 @@ void alertsAndPrivacy() {
       expect(api.settings['low_balance_threshold_paisa'], 250000);
       expect(find.text('Warn me if my balance may drop below Rs. 2,500'), findsOneWidget);
     });
-  });
-
-  testWidgets('a hidden balance masks every amount on every screen', (t) async {
-    useSize(t, const Size(390, 4000));
-    await t.pumpWidget(demoApp().app);
-    await t.pumpAndSettle();
-    final amount = RegExp(r'(?:Rs\.?|रु\.?)\s?[\d०-९]');
-    List<String> leaks() => [
-      for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText(),
-    ].where(amount.hasMatch).toList();
-    expect(leaks(), isNotEmpty, reason: 'the check must see amounts while they are shown');
-    await t.tap(find.byTooltip('Hide balance'));
-    await t.pumpAndSettle();
-    expect(leaks(), isEmpty, reason: 'home');
-    final router = GoRouter.of(t.element(find.text('Financial Services')));
-    for (final path in [
-      OkayRoutes.insights,
-      OkayRoutes.transactions,
-      OkayRoutes.budgets,
-      OkayRoutes.goals,
-      OkayRoutes.bills,
-      OkayRoutes.alerts,
-      OkayRoutes.settings,
-    ]) {
-      unawaited(router.push(path));
-      await t.pumpAndSettle();
-      expect(leaks(), isEmpty, reason: path);
-      router.pop();
-      await t.pumpAndSettle();
-    }
   });
 }

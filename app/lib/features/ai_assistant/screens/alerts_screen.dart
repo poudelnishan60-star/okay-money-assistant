@@ -183,13 +183,17 @@ class _AlertRow extends ConsumerWidget {
 /// A bell with the unread count; opens [AlertsScreen]. Used on the Insights screen; the host
 /// app can put it (or [unreadAlertsProvider] on its own bell) wherever it likes.
 class AlertsBell extends ConsumerWidget {
-  const AlertsBell({super.key});
+  const AlertsBell({super.key, this.compact = false});
+
+  /// A smaller tap area, for headers with several actions.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unread = ref.watch(unreadAlertsProvider);
     return IconButton(
       tooltip: unread == 0 ? 'Alerts' : 'Alerts, $unread unread',
+      visualDensity: compact ? VisualDensity.compact : null,
       onPressed: () => context.push(OkayRoutes.alerts),
       icon: Badge(
         isLabelVisible: unread > 0,

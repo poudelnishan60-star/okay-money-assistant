@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../host/host_app_bridge.dart';
+import '../routes.dart';
+import '../screens/alerts_screen.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
 import 'cards/card_views.dart';
@@ -81,14 +86,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatControllerProvider);
     final messages = state.messages;
-    return Title(
-      title: 'Chat · O-Kay',
-      color: OkayColors.primary,
+    return TabTitle(
+      title: 'Chat',
       child: Scaffold(
         backgroundColor: OkayColors.chatBackground,
         appBar: AppBar(
           backgroundColor: OkayColors.chatBackground,
-          titleSpacing: 0,
+          // On the website the chat is the front page: no back arrow, so keep the gutter.
+          titleSpacing: (ModalRoute.of(context)?.canPop ?? false) ? 0 : OkaySpacing.gutter,
           title: const Row(
             children: [
               MascotSlot(size: 36),
@@ -109,13 +114,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ],
           ),
+          // The chat is the way in to everything else: the dashboard, alerts, settings.
           actions: [
-            if (messages.isNotEmpty)
-              IconButton(
-                tooltip: 'Clear chat',
-                onPressed: state.sending ? null : _confirmClear,
-                icon: const Icon(Icons.delete_outline),
-              ),
+            IconButton(
+              tooltip: 'Money Insights',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => context.push(OkayRoutes.insights),
+              icon: const Icon(Icons.insights_outlined),
+            ),
+            const AlertsBell(compact: true),
+            PopupMenuButton<_Menu>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (choice) => switch (choice) {
+                _Menu.settings => context.push(OkayRoutes.settings),
+                _Menu.clear => _confirmClear(),
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: _Menu.settings, child: Text('Assistant settings')),
+                PopupMenuItem(
+                  value: _Menu.clear,
+                  enabled: messages.isNotEmpty && !state.sending,
+                  child: const Text('Clear chat'),
+                ),
+              ],
+            ),
           ],
         ),
         body: SafeArea(
@@ -161,6 +184,60 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 // --- empty state ------------------------------------------------------------------------
 
+enum _Menu { settings, clear }
+
+/// Shown while the chat history loads. The demo's free server sleeps when nobody is using
+/// it and takes up to a minute to wake, so after a few seconds this says what is going on.
+class _Connecting extends StatefulWidget {
+  const _Connecting();
+
+  @override
+  State<_Connecting> createState() => _ConnectingState();
+}
+
+class _ConnectingState extends State<_Connecting> {
+  static const _patience = Duration(seconds: 4);
+  Timer? _timer;
+  bool _slow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_patience, () => setState(() => _slow = true));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(OkaySpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            if (_slow) ...[
+              const SizedBox(height: OkaySpacing.lg),
+              const Text('Waking O-Kay up…', style: OkayText.rowTitle),
+              const SizedBox(height: OkaySpacing.xs),
+              const Text(
+                'The demo server sleeps when nobody is using it. This can take up to a minute.',
+                style: OkayText.subtitle,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onPick, required this.loading});
 
@@ -176,7 +253,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const LoadingView();
+    if (loading) return const _Connecting();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(OkaySpacing.gutter),
       child: Column(

@@ -220,6 +220,8 @@ class _UiKitScreenState extends ConsumerState<UiKitScreen> {
               ],
             ),
           ),
+          // The host app's entry point to the chat (the website opens in the chat instead).
+          _pad(const Align(alignment: Alignment.centerLeft, child: AskMeButton())),
           _pad(const SectionHeader('States')),
           const SizedBox(height: 120, child: EmptyView(title: 'No bills found')),
           SizedBox(
