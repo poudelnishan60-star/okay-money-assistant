@@ -368,9 +368,82 @@ def test_made_up_number_is_taken_back(seeded: Session) -> None:
 def test_only_one_correction_round(seeded: Session) -> None:
     llm = FakeLLM(say("Rs. 1 extra."), say("Rs. 2 still made up."))
     events = _run(seeded, llm, "?")
-    assert [e.event for e in events].count("reset") == 1
     assert len(llm.calls) == 2
+    # The redo is made up too, and nothing else is in it: all of it is taken out.
+    assert [e.event for e in events].count("reset") == 2
+    last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
+    assert _text(events[last_reset + 1 :]) == MESSAGES["no_data"][Lang.EN]
     assert events[-1].event == "done"
+
+
+def test_drop_ungrounded_takes_out_only_the_made_up_sentences() -> None:
+    from app.ai.chat import drop_ungrounded
+
+    grounded = "<attachment>Rs. 11,275.50 Rs. 9,000 2,075</attachment>"
+    text = (
+        "Here is your report.\n\n"
+        "**Top payees:**\n"
+        "- Chiya Chautari: Rs. 11,275.50 (15 payments)\n"
+        "- Ratna Mart: Rs. 2,075.\n\n"
+        "**Highlights:**\n"
+        "- Food (Chiya Chautari + Ratna Mart) totals **Rs. 13,350.50**\n"
+        "- Transfers plus withdrawals together account for **Rs. 13,730.50** out.\n\n"
+        "Balance started at Rs. 9,000. It ended Rs. 4,000 lower, at **Rs. 5,000**."
+    )
+    assert drop_ungrounded(text, [], grounded) == (
+        "Here is your report.\n\n"
+        "**Top payees:**\n"
+        "- Chiya Chautari: Rs. 11,275.50 (15 payments)\n"
+        "- Ratna Mart: Rs. 2,075.\n\n"
+        "Balance started at Rs. 9,000.",
+        3,  # the two highlights (and their heading) and the last sentence
+    )
+    # The bold run stays whole when its sentence stays; a list keeps its markers.
+    assert drop_ungrounded(
+        "You spent **Rs. 2,075** on food. With bills that is **Rs. 5,432.10**.", [], grounded
+    ) == ("You spent **Rs. 2,075** on food.", 1)
+    assert drop_ungrounded("1. Food: Rs. 9,999\n2. Mart: Rs. 2,075", [], grounded) == (
+        "2. Mart: Rs. 2,075",
+        1,
+    )
+    # Devanagari amounts and the । full stop.
+    assert drop_ungrounded("तपाईंले रु. ९,९९९ खर्च गर्नुभयो। मार्टमा रु. २,०७५ गयो।", [], grounded) == (
+        "मार्टमा रु. २,०७५ गयो।",
+        1,
+    )
+    # A promised card that isn't there.
+    assert drop_ungrounded("It is ready. Tap **Confirm** to save it.", [], "") == (
+        "It is ready.",
+        1,
+    )
+    assert drop_ungrounded("Tap Confirm to save it.", [{"type": "confirm_action"}], "") == (
+        "Tap Confirm to save it.",
+        0,
+    )
+    assert drop_ungrounded("Rs. 2 made up.", [], "") == ("", 1)
+
+
+def test_made_up_sentences_are_taken_out_when_the_correction_fails(seeded: Session) -> None:
+    # Seen live: the redo kept a sum the model added up itself. Only that sentence goes.
+    food = {"period": "this_month", "category": "Food & Dining"}
+    redo = (
+        "You spent **Rs. 1,270** on food. With groceries that is **Rs. 5,432.10**.\n"
+        "- Food is your biggest category."
+    )
+    llm = FakeLLM(
+        say("You spent Rs. 9,999 on food."), call(("get_spending_summary", food)), say(redo)
+    )
+    service = _service(seeded, llm)
+    events = list(service.respond("food spending?"))
+    assert [e.event for e in events].count("reset") == 2
+    last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
+    kept = "You spent **Rs. 1,270** on food.\n- Food is your biggest category."
+    assert _text(events[last_reset + 1 :]) == kept
+    assert service.dropped_sentences == 1
+    assert events[-1].data["error"] is None
+    assert events[-1].data["cards"][0]["type"] == "spending_summary"
+    stored = seeded.scalars(select(ChatMessage.content).where(ChatMessage.role == "assistant"))
+    assert list(stored) == [kept]
 
 
 def test_failed_forced_correction_is_retried_without_forcing(seeded: Session) -> None:
@@ -398,7 +471,7 @@ def test_busy_during_correction_is_still_busy(seeded: Session) -> None:
 
 
 def test_language_reminder_goes_with_the_question_only(seeded: Session) -> None:
-    llm = FakeLLM(say("Yo mahina Rs. 6,213.80 kharcha bhayo."), repeat_last=True)
+    llm = FakeLLM(say("Yo mahina dherai kharcha bhayo."), repeat_last=True)
     _run(seeded, llm, "yo mahina kati kharcha bhayo?")
     sent = llm.calls[0][0][-1]
     assert sent["role"] == "user"

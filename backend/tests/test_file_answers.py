@@ -298,6 +298,27 @@ def test_a_made_up_figure_about_a_file_is_corrected_from_the_file(seeded: Sessio
     assert events[-1].data["cards"] == []
 
 
+def test_sums_the_model_adds_up_itself_are_taken_out_of_a_report(seeded: Session) -> None:
+    # Seen live: a detailed report kept "food places total Rs. 26,706.50" after the
+    # correction. The file's own figures stay; the self-made sum goes, with its heading.
+    report = (
+        "**From the file:**\n"
+        "- Money out: Rs. 4,794.31\n"
+        "- Money in: Rs. 5,025\n\n"
+        "**Highlights:**\n"
+        "- Ratna Mart and Himalayan Java together: **Rs. 3,141.59**"
+    )
+    llm = FakeLLM(say(report), say(report))
+    service = _service(seeded, llm)
+    events = list(service.respond("detailed report", "auto", [STATEMENT]))
+    kept = "**From the file:**\n- Money out: Rs. 4,794.31\n- Money in: Rs. 5,025"
+    last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
+    assert _text(events[last_reset + 1 :]) == kept
+    assert service.dropped_sentences == 1
+    stored = seeded.scalars(select(ChatMessage.content).where(ChatMessage.role == "assistant"))
+    assert list(stored) == [kept]
+
+
 def test_the_turn_says_tools_read_the_account_not_the_file(seeded: Session) -> None:
     llm = FakeLLM(say("ok"))
     list(_service(seeded, llm).respond("yo file ma kati kharcha bhayo?", "auto", [STATEMENT]))

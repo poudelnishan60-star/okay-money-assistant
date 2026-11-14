@@ -4,7 +4,9 @@ Events produced (sent as server-sent events by routes_chat):
   status  {"tool": "..."}                         a tool is running (optional for clients)
   token   {"text": "..."}                         streamed answer text
   reset   {}                                      drop the text so far: the answer failed
-                                                  the grounding check and is redone
+                                                  the grounding check and is redone (or,
+                                                  if the redo fails too, sent again
+                                                  without the sentences that fail it)
   done    {"message_id", "cards", "suggestions", "language", "error"}   always last
 """
 
@@ -88,7 +90,7 @@ def check_answer(
     `files`: the turn is about a file. Then the fix is to use the figures worked out from the
     file, not to call a tool: the tools read the Khalti account, a different set of numbers.
     """
-    allowed = {_norm(a) for a in _BARE_NUMBER.findall(grounded)}
+    allowed = _allowed(grounded)
     bad = sorted({a for a in _AMOUNT.findall(text) if _norm(a) not in allowed})
     if bad and files:
         return (
@@ -115,6 +117,78 @@ def check_answer(
             "shown. Call open_app_flow, or don't mention it."
         )
     return None
+
+
+def _allowed(grounded: str) -> set[str]:
+    return {_norm(a) for a in _BARE_NUMBER.findall(grounded)}
+
+
+# A sentence ends at . ! ? or । followed by a space, but not at the dot of "Rs." / "रु.".
+_SENTENCE_END = re.compile(r"(?<=[.!?।])(?<!Rs\.)(?<!रु\.)\s+")
+_LIST_MARKER = re.compile(r"\s*(?:[-*•]|\d{1,2}[.)])\s+")
+
+
+def drop_ungrounded(text: str, cards: list[dict[str, Any]], grounded: str) -> tuple[str, int]:
+    """Last resort when the corrected answer still fails check_answer: take out the sentences
+    that state an amount no tool result or file gave (a sum the model added up itself, say),
+    or that promise a card that isn't shown. The rest of the answer stays.
+
+    Returns the cleaned text ("" if nothing is left) and how many sentences were taken out.
+    A list's intro line ("Highlights:") goes too when every line under it was taken out.
+    """
+    allowed = _allowed(grounded)
+    shown = {c.get("type") for c in cards}
+
+    def fails(sentence: str) -> bool:
+        return (
+            any(_norm(a) not in allowed for a in _AMOUNT.findall(sentence))
+            or bool(_CONFIRM_CLAIM.search(sentence) and "confirm_action" not in shown)
+            or bool(_BUTTON_CLAIM.search(sentence) and "open_app_flow" not in shown)
+        )
+
+    dropped = 0
+    lines: list[str | None] = []  # None: the whole line was taken out
+    for line in text.split("\n"):
+        if not fails(line):
+            lines.append(line)
+            continue
+        marker = _LIST_MARKER.match(line)
+        head = marker.group(0) if marker else ""
+        parts = _SENTENCE_END.split(line[len(head) :])
+        kept = [p for p in parts if not fails(p)]
+        if len(kept) == len(parts):  # the claim spans sentences: nothing to take out
+            lines.append(line)
+            continue
+        dropped += len(parts) - len(kept)
+        rest = " ".join(kept).strip()
+        if rest.count("**") % 2:  # a bold run lost its other half
+            rest = rest.replace("**", "")
+        lines.append(head + rest if rest else None)
+
+    def is_intro(line: str | None) -> bool:
+        return line is not None and line.strip().strip("*").strip().endswith(":")
+
+    for i, line in enumerate(lines):
+        if not is_intro(line):
+            continue
+        under = []  # the lines under the intro: up to the next blank line or intro
+        for after in lines[i + 1 :]:
+            if is_intro(after):
+                break
+            if after is not None and not after.strip():
+                if under:
+                    break
+                continue
+            under.append(after)
+        if under and all(u is None for u in under):
+            lines[i] = None
+
+    out: list[str] = []
+    for line in lines:
+        if line is None or (not line.strip() and (not out or not out[-1].strip())):
+            continue
+        out.append(line)
+    return "\n".join(out).strip(), dropped
 
 
 class _NothingToAsk(Exception):
@@ -176,6 +250,9 @@ class ChatService:
         self.ctx = ToolContext(session, source, bills, user_id, today)
         self._reply_note: str | None = None  # language reminder after tool results
         self._max_tokens: int | None = None  # longer answers about files
+        # Sentences taken out of the last answer because they still failed the grounding
+        # check after the correction (the eval reports it as a grounding problem).
+        self.dropped_sentences = 0
 
     # -- history ------------------------------------------------------------------------
     def _history(self) -> list[Message]:
@@ -344,6 +421,7 @@ class ChatService:
         self._store("user", clean, lang, attachments=_describe(attachments))
 
         prefix = ""  # fixed text that always stays (the secret warning)
+        self.dropped_sentences = 0
         cards: list[dict[str, Any]] = []
         topics: set[str] = set()
         tool_texts: list[str] = []
@@ -466,7 +544,22 @@ class ChatService:
                     )
                 grounded = known + " " + " ".join(tool_texts)
                 if check_answer("".join(attempt), cards, grounded, files=about_files):
-                    log.warning("answer still fails the grounding check after a correction")
+                    # Still made up after the correction (seen live: sums of the file's
+                    # payees the model added up itself). Take back only those sentences.
+                    kept, dropped = drop_ungrounded("".join(attempt), cards, grounded)
+                    log.warning(
+                        "answer still fails the grounding check after a correction: "
+                        "%d sentence(s) taken out",
+                        dropped,
+                    )
+                    if dropped:
+                        self.dropped_sentences = dropped
+                        yield ChatEvent("reset", {})
+                        if prefix:
+                            yield ChatEvent("token", {"text": prefix})
+                        attempt = [kept] if kept else []
+                        if kept:
+                            yield ChatEvent("token", {"text": kept})
         except _NothingToAsk:
             pass
         except LLMNotConfiguredError:

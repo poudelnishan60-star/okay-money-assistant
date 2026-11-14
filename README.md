@@ -121,7 +121,10 @@ How it stays safe and correct:
 - A code check backs the "never invents numbers or actions" rule: every "Rs." amount in an
   answer must appear in a tool result (this turn or earlier in the chat), and "tap Confirm" /
   "the button below" need that card. If not, the server sends a `reset` event (the app drops the
-  text) and the model gets one corrective round that must call a tool.
+  text) and the model gets one corrective round that must call a tool. If the redo still
+  fails, the sentences that fail it (a sum the model added up itself, say) are taken out and
+  the rest is sent again after another `reset`; if nothing is left, the answer is "I don't
+  have that data". The eval counts this as a grounding problem.
 - The last 20 messages are sent as context; at most 5 tool rounds per message.
 
 **Groq free tier:** 8,000 tokens/minute and 1,000 requests/day *per model*; one question

@@ -318,6 +318,11 @@ def run_question(
     tool_text = " ".join(s for s in rec.seen if s.startswith("<tool_result"))
     if grounding := check_answer(answer, [{"type": c} for c in cards], q["q"] + " " + tool_text):
         problems.append("grounding: " + grounding.split(".")[0])
+    elif service.dropped_sentences:  # the pipeline took made-up sentences out of the answer
+        problems.append(
+            f"grounding: {service.dropped_sentences} made-up sentence(s) taken out after "
+            "the correction"
+        )
     if _state(session, user_id) != before:
         problems.append("budgets, goals or transactions changed")
     if problems:

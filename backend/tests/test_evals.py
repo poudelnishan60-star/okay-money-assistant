@@ -99,17 +99,19 @@ def test_a_good_answer_passes(seeded: Session) -> None:
 
 def test_wrong_number_wrong_tool_wrong_language(seeded: Session) -> None:
     # A made-up amount: the pipeline's own grounding check asks for a correction, which
-    # repeats the mistake; the eval reports both problems.
+    # repeats the mistake, so the pipeline takes that sentence out; the eval still reports it.
     llm = FakeLLM(
         call(("get_spending_summary", FOOD)),
-        say("You spent Rs. 1,300 on food."),
+        say("You spent Rs. 1,300 on food. Food is your top category."),
         call(("get_spending_summary", FOOD)),
-        say("You spent Rs. 1,300 on food."),
+        say("You spent Rs. 1,300 on food. Food is your top category."),
     )
     r = run_question(seeded, llm, BY_ID["ne02"], ANCHOR)
     assert r.status == "fail"
+    assert r.answer == "Food is your top category."
     kinds = {problem_kind(p) for p in r.problems}
     assert {"numbers", "language", "grounding"} <= kinds
+    assert "grounding: 1 made-up sentence(s) taken out after the correction" in r.problems
 
     llm = FakeLLM(say("You spent some money."))
     r = run_question(seeded, llm, BY_ID["en02"], ANCHOR)
