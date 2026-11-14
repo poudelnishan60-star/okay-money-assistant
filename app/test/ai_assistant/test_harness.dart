@@ -53,6 +53,28 @@ Future<void> loadAppFonts() async {
 /// The app's router, from whichever screen is showing.
 GoRouter routerOf(WidgetTester t) => GoRouter.of(t.element(find.byType(Navigator).first));
 
+/// Opens the menu behind the mascot in the chat's header and, optionally, taps one item.
+Future<void> openChatMenu(WidgetTester t, [String? item]) async {
+  await t.tap(find.byWidgetPredicate((w) => w is PopupMenuButton));
+  await t.pumpAndSettle();
+  if (item != null) {
+    await t.tap(find.text(item));
+    await t.pumpAndSettle();
+  }
+}
+
+/// Loads the mascot images for real (widget tests do not decode images on their own), so
+/// golden images show them.
+Future<void> loadMascot(WidgetTester t) async {
+  final context = t.element(find.byType(Navigator).first);
+  await t.runAsync(() async {
+    for (final asset in [OkayAssets.mascot, OkayAssets.mascotAvatar]) {
+      await precacheImage(AssetImage(asset), context);
+    }
+  });
+  await t.pumpAndSettle();
+}
+
 /// What the Khalti app's hide-balance eye (or Settings > Hide amounts) does.
 Future<void> hideAmounts(WidgetTester t) async {
   ProviderScope.containerOf(t.element(find.byType(Navigator).first))

@@ -17,26 +17,25 @@ void main() {
     }
   });
 
-  testWidgets('the chat header leads to the dashboard, alerts and settings', (t) async {
+  testWidgets('the mascot menu leads to the dashboard, alerts and settings', (t) async {
     usePhoneSize(t);
     await t.pumpWidget(demoApp().app);
     await t.pumpAndSettle();
 
-    await t.tap(find.byTooltip('Money Insights'));
-    await t.pumpAndSettle();
+    // The mascot is the menu; its name says how many alerts are waiting.
+    expect(find.byTooltip('Menu, 3 unread alerts'), findsOneWidget);
+    await openChatMenu(t, 'Money Insights');
     expect(find.text('Spent so far'), findsOneWidget);
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
     expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
 
-    await t.tap(find.byTooltip('Alerts, 3 unread'));
-    await t.pumpAndSettle();
+    await openChatMenu(t, 'Alerts');
     expect(find.text('Ncell is due tomorrow'), findsOneWidget);
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
 
-    await t.tap(find.byTooltip('More'));
-    await t.pumpAndSettle();
+    await openChatMenu(t);
     // Nothing to clear yet.
     expect(find.byWidgetPredicate((w) => w is PopupMenuItem && !w.enabled), findsOneWidget);
     await t.tap(find.text('Assistant settings'));
@@ -79,8 +78,7 @@ void main() {
     await t.pumpWidget(demoApp().app);
     await t.pumpAndSettle();
     expect(titles.last, 'Chat · O-Kay');
-    await t.tap(find.byTooltip('Money Insights'));
-    await t.pumpAndSettle();
+    await openChatMenu(t, 'Money Insights');
     expect(titles.last, 'Money Insights · O-Kay');
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();

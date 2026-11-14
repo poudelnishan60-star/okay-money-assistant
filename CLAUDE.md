@@ -88,6 +88,14 @@ Build an AI financial assistant for Khalti, a Nepali digital wallet (currency: N
   - Chat screen: header with back arrow, assistant name and mascot avatar. Empty state shows a large mascot with a gold glow, "Start Chatting with O-Kay", and a 2x2 grid of quick-start cards. Above the pill-shaped "Ask O-Kay" input with a round send button sits a horizontal row of suggestion chips. Feature chips (like "Smart Deposit") appear under answers.
   - Balance privacy: if the user has hidden their balance, mask every amount on the assistant screens until it is tapped.
 - Do not draw the mascot or logos. Leave placeholder image slots for the real assets.
+- Chat screen design (13 Nov 2026): follow the Khalti app's O-Kay screen. Reference screenshots
+  are in `chatbot design/` (kept out of git). Header: name left, mascot right (the mascot opens
+  the menu). Start screen: glowing mascot, title, centred 2x2 grid. Chips with icon tiles; one
+  input pill with the send arrow inside. Measured colours are in `OkayChatColors`. The mascot
+  image in `app/assets/okay/` was cut from the screenshot; it is Khalti's artwork.
+- UI work follows the checks of the ui-ux-pro-max skill (github.com/nextlevelbuilder/
+  ui-ux-pro-max-skill): 48 px tap areas, named icon controls, 4.5:1 text contrast, layouts that
+  hold with large text, reduced motion respected.
 
 ## Screens
 1. Entry points: the floating "Ask me" mascot button on Home opens chat. Add a "Money Insights" tile under Financial Services.

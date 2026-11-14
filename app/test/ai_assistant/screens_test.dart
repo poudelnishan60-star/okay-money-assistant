@@ -358,12 +358,11 @@ void alertsAndPrivacy() {
       expect(find.text('Assistant settings'), findsOneWidget);
     });
 
-    testWidgets("the chat's bell shows the alerts", (t) async {
+    testWidgets("the chat's menu opens the alerts", (t) async {
       useSize(t, const Size(390, 1600));
       await t.pumpWidget(demoApp().app);
       await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Alerts, 3 unread'));
-      await t.pumpAndSettle();
+      await openChatMenu(t, 'Alerts');
       expect(find.text('Alerts'), findsOneWidget);
     });
 

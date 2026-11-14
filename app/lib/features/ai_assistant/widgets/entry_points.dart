@@ -32,7 +32,7 @@ class AskMeButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  MascotSlot(size: 40, glow: true),
+                  MascotSlot(size: 40, decorative: true),
                   SizedBox(width: OkaySpacing.sm),
                   Text('Ask me', style: OkayText.body),
                 ],

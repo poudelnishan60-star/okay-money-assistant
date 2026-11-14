@@ -49,6 +49,7 @@ Future<FakeApi> _pumpHost(WidgetTester t, {FakeChatRepository? chat, FakeApi? ap
   final demo = demoApp(chat: chat, api: api);
   await t.pumpWidget(demo.app);
   await t.pumpAndSettle();
+  await loadMascot(t);
   return demo.api;
 }
 
@@ -70,6 +71,12 @@ void main() {
   testWidgets('chat empty state', (t) async {
     await _pumpHost(t);
     await _matches('chat_empty');
+  });
+
+  testWidgets('chat menu (behind the mascot)', (t) async {
+    await _pumpHost(t);
+    await openChatMenu(t);
+    await _matches('chat_menu');
   });
 
   testWidgets('chat answer with spending cards', (t) async {

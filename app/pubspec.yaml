@@ -23,6 +23,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # The O-Kay mascot, cut from a screenshot of the Khalti app (tool/make_mascot.py).
+  assets:
+    - assets/okay/
+
   # Bundled so the site looks the same everywhere (SIL Open Font License; see assets/fonts/OFL-*.txt).
   fonts:
     - family: DM Sans

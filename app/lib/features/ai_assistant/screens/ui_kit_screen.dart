@@ -207,7 +207,7 @@ class _UiKitScreenState extends ConsumerState<UiKitScreen> {
               children: [
                 const MascotSlot(size: 32),
                 const SizedBox(width: OkaySpacing.lg),
-                const MascotSlot(size: 72, glow: true),
+                const MascotSlot(size: 72),
                 const Spacer(),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,

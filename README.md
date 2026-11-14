@@ -271,9 +271,31 @@ chat. Budgets/goals are saved only when the user taps Confirm; payments open the
 flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
 
 The website opens straight into this chat: there is no stand-in Khalti home screen around it.
-The chat's header leads to everything else: Money Insights, the alerts bell (with the unread
-count) and a menu with Assistant settings and Clear chat. While the free server wakes up, the
-chat says so ("Waking O-Kay up…") instead of showing a bare spinner.
+While the free server wakes up, the chat says so ("Waking O-Kay up…") instead of showing a
+bare spinner.
+
+**Design.** The chat follows the Khalti app's own O-Kay screen (reference screenshots are kept
+locally in `chatbot design/`, outside git). Sizes and colours were measured from that
+screenshot and live in `OkayChatColors` (`theme/okay_theme.dart`):
+- header with only the name and the mascot; a thin back chevron on pushed screens;
+- start screen: the mascot with its gold glow, "Start Chatting with O-Kay", and a centred 2x2
+  grid of quick-start cards (icon tile above a label);
+- suggestion chips with a small light icon tile; one input pill with the send arrow inside it.
+
+The mascot in the header is also the menu: Money Insights, Alerts (with the unread count, which
+also shows as a badge on the mascot), Assistant settings and, set apart in red, Clear chat.
+
+Checks taken from the `ui-ux-pro-max` skill (github.com/nextlevelbuilder/ui-ux-pro-max-skill),
+most of them covered by tests: tap areas of at least 48 px (the chips' pills are 40 px tall
+with a 48 px tap area), every icon control has a name for screen readers, decorative images
+are skipped by them, text contrast of at least 4.5:1 (the input's hint is lighter than in the
+Khalti app for this reason), menu items have an icon and a label, layouts hold at 320 px and
+with 130% text, and the one small animation is skipped when the system asks for reduced motion.
+
+**Mascot.** `assets/okay/mascot.webp` (20 KB) and `mascot_avatar.webp` (5 KB) were cut from the
+screenshot by `tool/make_mascot.py` (needs Pillow); the artwork is not altered. It is Khalti's
+artwork: replace these with Khalti's own asset files when merging, and do not publish them
+without Khalti's permission. If the files are missing, `MascotSlot` shows a plain robot icon.
 
 Live end-to-end check against a running backend with a Groq key (not part of `flutter test`):
 
@@ -318,8 +340,8 @@ Regenerate them after changing the seed or the API:
 cd backend && python scripts/export_app_fixtures.py
 ```
 
-**Golden tests.** `test/goldens/` renders 13 key screens (chat empty, a chat answer, a
-Nepali chat with Confirm and Pay cards, insights, transactions, budgets, goals, bills, alerts,
+**Golden tests.** `test/goldens/` renders 14 key screens (chat empty, the chat menu, a chat
+answer, a Nepali chat with Confirm and Pay cards, insights, transactions, budgets, goals, bills, alerts,
 settings, two sheets, insights with amounts hidden) with the bundled fonts and compares
 them with the PNGs in `test/goldens/images/`. They run with `flutter test`. After an intended
 visual change:

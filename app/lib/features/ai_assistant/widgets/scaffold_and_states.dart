@@ -3,50 +3,38 @@ import 'package:flutter/services.dart';
 
 import '../theme/okay_theme.dart';
 
-/// Placeholder slot for the O-Kay mascot. The real artwork is not drawn here: bundle it at
-/// [OkayAssets.mascot] and set [MascotSlot.assetAvailable] to true.
+/// The O-Kay mascot: a round image with its gold glow on black ([OkayAssets]). It is drawn
+/// for black backgrounds (the chat); elsewhere it reads as a round black badge.
 class MascotSlot extends StatelessWidget {
-  const MascotSlot({super.key, this.size = 40, this.glow = false});
-
-  /// Flip to true once assets/okay/mascot.png is bundled.
-  static const bool assetAvailable = false;
+  const MascotSlot({super.key, this.size = 40, this.decorative = false});
 
   final double size;
-  final bool glow;
+
+  /// True where the mascot only decorates something that already has a name (beside the
+  /// "O-Kay" title, inside a labelled button): then screen readers skip it.
+  final bool decorative;
 
   @override
   Widget build(BuildContext context) {
-    final Widget inner = assetAvailable
-        ? Image.asset(OkayAssets.mascot, width: size, height: size)
-        : Icon(Icons.smart_toy_outlined, size: size * 0.5, color: OkayColors.textSecondary);
-    return Semantics(
-      label: 'O-Kay',
-      image: true,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: OkayColors.surfaceElevated,
-          border: Border.all(color: OkayColors.chipBorder),
-          boxShadow: glow
-              ? [
-                  BoxShadow(
-                    color: OkayColors.gold.withValues(alpha: 0.45),
-                    blurRadius: size * 0.6,
-                    spreadRadius: size * 0.08,
-                  ),
-                ]
-              : null,
-        ),
-        child: inner,
-      ),
+    final image = Image.asset(
+      // The small file is enough up to 56 dp at 3x; the start screen uses the large one.
+      size <= 56 ? OkayAssets.mascotAvatar : OkayAssets.mascot,
+      width: size,
+      height: size,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
+      // Keeps the box (no layout jump) if the image is slow or missing.
+      errorBuilder: (context, error, stack) =>
+          Icon(Icons.smart_toy_outlined, size: size * 0.5, color: OkayColors.textSecondary),
     );
+    final box = SizedBox.square(
+      dimension: size,
+      child: Center(child: image),
+    );
+    return decorative ? box : Semantics(label: 'O-Kay', image: true, child: box);
   }
 }
 
-/// Assistant screen frame: back arrow, title (optionally with the mascot avatar), body.
 class OkayScaffold extends StatelessWidget {
   const OkayScaffold({
     super.key,

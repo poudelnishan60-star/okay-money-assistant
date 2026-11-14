@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/providers.dart';
 import '../host/host_app_bridge.dart';
 import '../routes.dart';
-import '../screens/alerts_screen.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
 import 'cards/card_views.dart';
@@ -90,55 +90,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       title: 'Chat',
       child: Scaffold(
         backgroundColor: OkayColors.chatBackground,
+        // Minimal chrome, as in the Khalti app: back, the name, and the mascot.
         appBar: AppBar(
           backgroundColor: OkayColors.chatBackground,
           // On the website the chat is the front page: no back arrow, so keep the gutter.
           titleSpacing: (ModalRoute.of(context)?.canPop ?? false) ? 0 : OkaySpacing.gutter,
-          title: const Row(
-            children: [
-              MascotSlot(size: 36),
-              SizedBox(width: OkaySpacing.md),
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('O-Kay', style: OkayText.rowTitle, overflow: TextOverflow.ellipsis),
-                    Text(
-                      'Your money assistant',
-                      style: OkayText.caption,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // The chat is the way in to everything else: the dashboard, alerts, settings.
+          title: Text('O-Kay', style: OkayText.rowTitle.copyWith(fontWeight: FontWeight.w600)),
+          shape: const Border(bottom: BorderSide(color: OkayChatColors.headerDivider)),
           actions: [
-            IconButton(
-              tooltip: 'Money Insights',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => context.push(OkayRoutes.insights),
-              icon: const Icon(Icons.insights_outlined),
-            ),
-            const AlertsBell(compact: true),
-            PopupMenuButton<_Menu>(
-              tooltip: 'More',
-              icon: const Icon(Icons.more_vert_rounded),
-              onSelected: (choice) => switch (choice) {
-                _Menu.settings => context.push(OkayRoutes.settings),
-                _Menu.clear => _confirmClear(),
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: _Menu.settings, child: Text('Assistant settings')),
-                PopupMenuItem(
-                  value: _Menu.clear,
-                  enabled: messages.isNotEmpty && !state.sending,
-                  child: const Text('Clear chat'),
-                ),
-              ],
-            ),
+            _MascotMenu(canClear: messages.isNotEmpty && !state.sending, onClear: _confirmClear),
+            const SizedBox(width: OkaySpacing.sm),
           ],
         ),
         body: SafeArea(
@@ -184,7 +145,108 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
 // --- empty state ------------------------------------------------------------------------
 
-enum _Menu { settings, clear }
+enum _Menu { insights, alerts, settings, clear }
+
+/// The mascot in the header is the one control there: it opens the way to the assistant's
+/// other screens. Every item has an icon and a label; the badge and the Alerts row show how
+/// many alerts are unread; clearing the chat sits apart, in red.
+class _MascotMenu extends ConsumerWidget {
+  const _MascotMenu({required this.canClear, required this.onClear});
+
+  final bool canClear;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadAlertsProvider);
+    return PopupMenuButton<_Menu>(
+      tooltip: unread == 0 ? 'Menu' : 'Menu, $unread unread alerts',
+      position: PopupMenuPosition.under,
+      color: OkayColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+      onSelected: (choice) {
+        switch (choice) {
+          case _Menu.insights:
+            context.push(OkayRoutes.insights);
+          case _Menu.alerts:
+            context.push(OkayRoutes.alerts);
+          case _Menu.settings:
+            context.push(OkayRoutes.settings);
+          case _Menu.clear:
+            onClear();
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _Menu.insights,
+          child: _MenuRow(Icons.insights_outlined, 'Money Insights'),
+        ),
+        PopupMenuItem(
+          value: _Menu.alerts,
+          child: _MenuRow(Icons.notifications_none_outlined, 'Alerts', count: unread),
+        ),
+        const PopupMenuItem(
+          value: _Menu.settings,
+          child: _MenuRow(Icons.tune_rounded, 'Assistant settings'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _Menu.clear,
+          enabled: canClear,
+          child: _MenuRow(
+            Icons.delete_outline_rounded,
+            'Clear chat',
+            color: canClear ? OkayChatColors.dangerText : Theme.of(context).disabledColor,
+          ),
+        ),
+      ],
+      child: SizedBox.square(
+        dimension: OkaySizes.minTouchTarget,
+        child: Center(
+          child: Badge(
+            isLabelVisible: unread > 0,
+            label: Text('$unread'),
+            backgroundColor: OkayColors.primary,
+            textColor: OkayColors.text,
+            child: const MascotSlot(size: 36, decorative: true),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow(this.icon, this.label, {this.count = 0, this.color = OkayColors.text});
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 22, color: color),
+        const SizedBox(width: OkaySpacing.md),
+        // Wraps instead of overflowing at very large text sizes.
+        Flexible(
+          child: Text(label, style: OkayText.body.copyWith(color: color)),
+        ),
+        if (count > 0) ...[
+          const SizedBox(width: OkaySpacing.md),
+          Badge(
+            label: Text('$count'),
+            backgroundColor: OkayColors.primary,
+            textColor: OkayColors.text,
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 /// Shown while the chat history loads. The demo's free server sleeps when nobody is using
 /// it and takes up to a minute to wake, so after a few seconds this says what is going on.
@@ -251,50 +313,75 @@ class _EmptyState extends StatelessWidget {
     (Icons.flag_outlined, 'Savings goals', 'How are my savings goals?'),
   ];
 
+  /// The Khalti app's 2x2 grid: two 124 pt cards, centred (its 15 pt gap rounded to 16).
+  static const _gridWidth = 264.0;
+  static const _gap = OkaySpacing.lg;
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const _Connecting();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(OkaySpacing.gutter),
-      child: Column(
-        children: [
-          const SizedBox(height: OkaySpacing.xl),
-          const MascotSlot(size: 112, glow: true),
-          const SizedBox(height: OkaySpacing.xl),
-          const Text('Start Chatting with O-Kay', style: OkayText.sectionTitle),
-          const SizedBox(height: OkaySpacing.xs),
-          const Text(
-            'Ask about your spending, budgets, bills and goals,\nin English, नेपाली or Romanized Nepali.',
-            style: OkayText.subtitle,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: OkaySpacing.xl),
-          // Two rows of two cards. Each card is as tall as its content (large system text
-          // sizes would overflow a fixed grid cell); IntrinsicHeight keeps a row even.
-          for (var row = 0; row < 2; row++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: OkaySpacing.md),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Larger system text gets a wider grid (up to the screen), so labels wrap less.
+    final gridWidth = MediaQuery.textScalerOf(context).scale(_gridWidth).clamp(_gridWidth, 360.0);
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: OkaySpacing.gutter,
+          vertical: OkaySpacing.lg,
+        ),
+        // Centred in the space above the chips when it fits; scrolls when it does not.
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 2 * OkaySpacing.lg),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // The title below names it, so the picture itself is not announced.
+              const MascotSlot(size: 168, decorative: true),
+              const SizedBox(height: OkaySpacing.xl),
+              Semantics(
+                header: true,
+                child: Text(
+                  'Start Chatting with O-Kay',
+                  style: OkayText.sectionTitle.copyWith(fontSize: 22, fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: OkaySpacing.xxl),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: gridWidth),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _QuickCard(item: _quick[row * 2], onPick: onPick),
-                    ),
-                    const SizedBox(width: OkaySpacing.md),
-                    Expanded(
-                      child: _QuickCard(item: _quick[row * 2 + 1], onPick: onPick),
-                    ),
+                    // Each card is as tall as its content (large text wraps); a row stays even.
+                    for (var row = 0; row < 2; row++) ...[
+                      if (row > 0) const SizedBox(height: _gap),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: _QuickCard(item: _quick[row * 2], onPick: onPick),
+                            ),
+                            const SizedBox(width: _gap),
+                            Expanded(
+                              child: _QuickCard(item: _quick[row * 2 + 1], onPick: onPick),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-        ],
+              // The block sits a little above centre, as in the Khalti app.
+              const SizedBox(height: OkaySpacing.xl),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// A quick-start card: icon tile above a centred label.
 class _QuickCard extends StatelessWidget {
   const _QuickCard({required this.item, required this.onPick});
 
@@ -304,25 +391,42 @@ class _QuickCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, label, prompt) = item;
-    return OkayCard(
-      padding: const EdgeInsets.all(OkaySpacing.lg),
-      onTap: () => onPick(prompt),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: OkayColors.iconTileBackground,
-              borderRadius: BorderRadius.circular(12),
+    return Material(
+      color: OkayChatColors.quickCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: OkayChatColors.quickCardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => onPick(prompt),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 92),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(OkaySpacing.sm, 12, OkaySpacing.sm, 14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: OkayChatColors.quickIconTile,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: OkayChatColors.quickIconTileBorder),
+                  ),
+                  child: Icon(icon, color: OkayChatColors.quickIcon, size: 20),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  style: OkayText.subtitle.copyWith(color: OkayColors.text),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            child: Icon(icon, color: OkayColors.iconTileForeground, size: 22),
           ),
-          const SizedBox(height: OkaySpacing.lg),
-          Text(label, style: OkayText.body.copyWith(fontWeight: FontWeight.w600)),
-        ],
+        ),
       ),
     );
   }
@@ -387,7 +491,10 @@ class _MessageView extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(padding: EdgeInsets.only(top: 2), child: MascotSlot(size: 28)),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: MascotSlot(size: 28, decorative: true),
+          ),
           const SizedBox(width: OkaySpacing.sm),
           Expanded(
             child: Column(
@@ -556,14 +663,14 @@ class _ChipRow extends StatelessWidget {
     // A handful of chips: a plain scrolling row builds them all (no lazy off-screen items).
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: OkaySpacing.gutter, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: OkaySpacing.gutter, vertical: 2),
       child: Row(
         children: [
           for (final (i, chip) in chips.indexed) ...[
             if (i > 0) const SizedBox(width: OkaySpacing.sm),
             Opacity(
               opacity: enabled ? 1 : 0.5,
-              child: PillChip(label: chip.text, onTap: enabled ? () => onPick(chip.text) : null),
+              child: _SuggestionChip(chip: chip, onTap: enabled ? () => onPick(chip.text) : null),
             ),
           ],
         ],
@@ -572,6 +679,79 @@ class _ChipRow extends StatelessWidget {
   }
 }
 
+const _starterChipIcons = {
+  'This month vs last': Icons.compare_arrows_rounded,
+  'Where did my money go?': Icons.pie_chart_outline_rounded,
+  'Set a food budget': Icons.restaurant_outlined,
+};
+
+IconData _chipIcon(Suggestion chip) => switch (chip.feature) {
+  'smart_deposit' => Icons.savings_outlined,
+  'autopay' => Icons.autorenew_rounded,
+  _ => _starterChipIcons[chip.text] ?? Icons.auto_awesome_outlined,
+};
+
+/// A suggestion above the input: a pill with a small light icon tile, as in the Khalti app.
+class _SuggestionChip extends StatelessWidget {
+  const _SuggestionChip({required this.chip, required this.onTap});
+
+  final Suggestion chip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // The pill is 40 px tall; the 4 px above and below it also take the tap (48 px in all).
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: OkaySpacing.xs),
+        child: _pill(),
+      ),
+    );
+  }
+
+  Widget _pill() {
+    return Material(
+      color: OkayColors.chatBackground,
+      shape: const StadiumBorder(side: BorderSide(color: OkayChatColors.chipBorder)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 40),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: OkayChatColors.chipIconTile,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(_chipIcon(chip), size: 14, color: OkayChatColors.chipIcon),
+                ),
+                const SizedBox(width: OkaySpacing.sm),
+                Text(
+                  chip.text,
+                  style: OkayText.subtitle.copyWith(
+                    color: OkayColors.text,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The input: one pill holding the text field and, inside it on the right, the send button.
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -594,41 +774,87 @@ class _Composer extends StatelessWidget {
         OkaySpacing.gutter,
         OkaySpacing.md,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              minLines: 1,
-              maxLines: 4,
-              maxLength: 1000,
-              maxLengthEnforcement: MaxLengthEnforcement.enforced,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => canSend ? onSend() : null,
-              style: OkayText.body,
-              decoration: const InputDecoration(hintText: 'Ask O-Kay', counterText: ''),
-            ),
-          ),
-          const SizedBox(width: OkaySpacing.sm),
-          Semantics(
-            button: true,
-            label: 'Send',
-            excludeSemantics: true,
-            child: Material(
-              color: canSend ? OkayColors.primary : OkayColors.surfaceElevated,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: canSend ? onSend : null,
-                child: const SizedBox.square(
-                  dimension: 48,
-                  child: Icon(Icons.arrow_upward_rounded, color: OkayColors.text),
-                ),
+      // The border brightens while the field has focus (there is no other focus ring).
+      child: ListenableBuilder(
+        listenable: focusNode,
+        builder: (context, child) => DecoratedBox(
+          decoration: ShapeDecoration(
+            color: OkayChatColors.inputFill,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(28)),
+              side: BorderSide(
+                color: focusNode.hasFocus ? OkayColors.textSecondary : OkayChatColors.inputBorder,
               ),
             ),
           ),
-        ],
+          child: child,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Semantics(
+                label: 'Message to O-Kay',
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: 1000,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => canSend ? onSend() : null,
+                  style: OkayText.body,
+                  decoration: const InputDecoration(
+                    hintText: 'Ask O-Kay',
+                    hintStyle: TextStyle(color: OkayColors.textSecondary, fontSize: 16),
+                    counterText: '',
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.fromLTRB(20, 15, 4, 15),
+                  ),
+                ),
+              ),
+            ),
+            // A 40 px circle with a 48 px tap area.
+            Padding(
+              padding: const EdgeInsets.all(2),
+              child: Semantics(
+                button: true,
+                enabled: canSend,
+                label: 'Send',
+                excludeSemantics: true,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: canSend ? onSend : null,
+                  child: SizedBox.square(
+                    dimension: OkaySizes.minTouchTarget,
+                    child: Center(
+                      child: AnimatedContainer(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 150),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: canSend ? OkayColors.primary : OkayChatColors.sendIdle,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 22,
+                          color: OkayColors.text.withValues(alpha: canSend ? 1 : 0.45),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

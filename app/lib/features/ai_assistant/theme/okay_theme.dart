@@ -158,10 +158,35 @@ abstract final class OkayText {
   );
 }
 
-/// Placeholder slots for brand assets. Real files go in app/assets/okay/ (not drawn here).
+/// Brand assets in app/assets/okay/. The mascot (with its gold glow, on black) was cut from a
+/// screenshot of the Khalti app by tool/make_mascot.py; swap in Khalti's own files when merging.
 abstract final class OkayAssets {
-  static const mascot = 'assets/okay/mascot.png';
-  static const mascotAvatar = 'assets/okay/mascot_avatar.png';
+  /// 528 px: the large mascot on the chat's start screen.
+  static const mascot = 'assets/okay/mascot.webp';
+
+  /// 168 px: header, message avatars, the Ask me button.
+  static const mascotAvatar = 'assets/okay/mascot_avatar.webp';
+}
+
+/// The O-Kay chat screen's own colours, measured from the Khalti app's chat screen
+/// (screenshot, Nov 2026). The hint text is the one deliberate difference: the app's #5B5B5B
+/// on #141414 is about 2.7:1, so the hint uses [OkayColors.textSecondary] (over 4.5:1).
+abstract final class OkayChatColors {
+  static const headerDivider = Color(0xFF0F0F0F);
+  static const quickCard = Color(0xFF1C1C1C);
+  static const quickCardBorder = Color(0xFF292929);
+  static const quickIconTile = Color(0xFF2A171A);
+  static const quickIconTileBorder = Color(0xFF512C32);
+  static const quickIcon = Color(0xFFE8BDC3);
+  static const chipBorder = Color(0xFF2E2E2E);
+  static const chipIconTile = Color(0xFFF4DFE2);
+  static const chipIcon = Color(0xFF460813);
+  static const inputFill = Color(0xFF141414);
+  static const inputBorder = Color(0xFF292929);
+  static const sendIdle = Color(0xFF2A2A2A);
+
+  /// Red text on the dark menu surface (#EF4444 is only about 4:1 there).
+  static const dangerText = Color(0xFFF87171);
 }
 
 ThemeData buildOkayTheme() {
@@ -189,6 +214,10 @@ ThemeData buildOkayTheme() {
   const pill = StadiumBorder();
   return base.copyWith(
     textTheme: base.textTheme.apply(bodyColor: OkayColors.text, displayColor: OkayColors.text),
+    // The Khalti app's back control is a thin chevron, on every screen.
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (context) => const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: OkayColors.background,
       foregroundColor: OkayColors.text,

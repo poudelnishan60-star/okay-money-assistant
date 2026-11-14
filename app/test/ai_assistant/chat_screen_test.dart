@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:khalti_ai_assistant/demo_host/web_frame.dart';
@@ -221,14 +222,75 @@ void main() {
       ];
     await openChat(t, demoApp(chat: chat).app);
     expect(find.text('old answer'), findsOneWidget);
-    await t.tap(find.byTooltip('More'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Clear chat')); // the menu item
-    await t.pumpAndSettle();
+    await openChatMenu(t, 'Clear chat');
     await t.tap(find.text('Clear chat').last); // the confirmation
     await t.pumpAndSettle();
     expect(chat.cleared, isTrue);
     expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
+  });
+
+  group('design (the Khalti chat screen, with the UI/UX skill\'s checks)', () {
+    testWidgets('the mascot images are bundled', (t) async {
+      for (final asset in [OkayAssets.mascot, OkayAssets.mascotAvatar]) {
+        final bytes = await rootBundle.load(asset);
+        expect(bytes.lengthInBytes, greaterThan(1000), reason: asset);
+      }
+    });
+
+    testWidgets('minimal header: the name and the mascot menu, nothing else', (t) async {
+      await openChat(t, demoApp().app);
+      expect(find.text('O-Kay'), findsOneWidget);
+      expect(find.text('Your money assistant'), findsNothing);
+      final header = find.byType(AppBar);
+      expect(find.descendant(of: header, matching: find.byType(IconButton)), findsNothing);
+      expect(find.descendant(of: header, matching: find.byType(MascotSlot)), findsOneWidget);
+    });
+
+    testWidgets('touch targets are at least 48 px', (t) async {
+      await openChat(t, demoApp().app);
+      final menu = t.getSize(find.byWidgetPredicate((w) => w is PopupMenuButton));
+      expect(menu.shortestSide, greaterThanOrEqualTo(48));
+      final send = t.getSize(find.bySemanticsLabel('Send'));
+      expect(send.shortestSide, greaterThanOrEqualTo(48));
+      expect(t.getSize(find.byType(TextField)).height, greaterThanOrEqualTo(48));
+      for (final card in ['My spending', 'Budgets', 'Upcoming bills', 'Savings goals']) {
+        final size = t.getSize(find.ancestor(of: find.text(card), matching: find.byType(InkWell)));
+        expect(size.shortestSide, greaterThanOrEqualTo(48), reason: card);
+      }
+    });
+
+    testWidgets('a chip also takes a tap just above its pill (48 px tap area)', (t) async {
+      final chat = FakeChatRepository([answer('ok')]);
+      await openChat(t, demoApp(chat: chat).app);
+      final pill = t.getRect(
+        find.ancestor(of: find.text('This month vs last'), matching: find.byType(InkWell)),
+      );
+      expect(pill.height, 40);
+      await t.tapAt(Offset(pill.center.dx, pill.top - 3));
+      await t.pumpAndSettle();
+      expect(chat.sent.single.$1, 'This month vs last');
+    });
+
+    testWidgets('send is off until there is text, and says so to screen readers', (t) async {
+      final chat = FakeChatRepository([answer('ok')]);
+      await openChat(t, demoApp(chat: chat).app);
+      final handle = t.ensureSemantics();
+      expect(
+        t.getSemantics(find.bySemanticsLabel('Send')),
+        isSemantics(isButton: true, hasEnabledState: true, isEnabled: false),
+      );
+      await t.tap(find.bySemanticsLabel('Send'));
+      await t.pump();
+      expect(chat.sent, isEmpty);
+      await t.enterText(find.byType(TextField), 'hello');
+      await t.pump();
+      expect(
+        t.getSemantics(find.bySemanticsLabel('Send')),
+        isSemantics(isButton: true, hasEnabledState: true, isEnabled: true),
+      );
+      expect(find.bySemanticsLabel(RegExp('Message to O-Kay')), findsOneWidget);
+      handle.dispose();
+    });
   });
 
   group('website frame', () {
