@@ -213,6 +213,11 @@ MESSAGES: dict[str, dict[Lang, str]] = {
             "yo chat bata hatae. Aru kasaile thaha payo jasto lagchha bhane Settings ma badalnus."
         ),
     },
+    "attachment_question": {
+        Lang.EN: "What is in this file?",
+        Lang.NE: "यो फाइलमा के छ?",
+        Lang.ROM: "Yo file ma ke chha?",
+    },
     "no_data": {
         Lang.EN: "I don't have that data.",
         Lang.NE: "मसँग त्यो डाटा छैन।",

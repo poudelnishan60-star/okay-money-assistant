@@ -56,6 +56,30 @@ void main() {
       await t.pumpAndSettle();
       expect(t.takeException(), isNull, reason: 'answer with every card');
     });
+
+    testWidgets('files fit at $width px with text x$scale', (t) async {
+      useSize(t, Size(width, 1600));
+      t.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+      final files = FakeFileSource()
+        ..documents.add([
+          PickedFile('a-very-long-statement-name-from-the-bank.xlsx', samplePhoto),
+          PickedFile('receipt.png', samplePhoto),
+          PickedFile('nea-bill-november.pdf', samplePhoto),
+        ]);
+      final chat = FakeChatRepository([answer('Read them.')]);
+      await t.pumpWidget(demoApp(chat: chat, files: files).app);
+      await t.pumpAndSettle();
+      await t.tap(find.byTooltip('Add files and photos'));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: 'add sheet');
+      await t.tap(find.text('Document'));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: 'three files waiting');
+      await t.tap(find.bySemanticsLabel('Send'));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: 'sent files in the bubble');
+    });
   }
 
   for (final (width, scale) in [(320.0, 1.0), (360.0, 1.3), (390.0, 1.3)]) {

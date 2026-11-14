@@ -10,6 +10,7 @@ import '../host/host_app_bridge.dart';
 import '../routes.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
+import 'attachments.dart';
 import 'cards/card_views.dart';
 import 'chat_controller.dart';
 import 'chat_models.dart';
@@ -43,9 +44,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _send([String? text]) {
     final value = (text ?? _input.text).trim();
-    if (value.isEmpty) return;
+    if (value.isEmpty && ref.read(chatControllerProvider).pending.isEmpty) return;
     _input.clear();
     ref.read(chatControllerProvider.notifier).send(value);
+  }
+
+  Future<void> _addFiles() async {
+    final choice = await showModalBottomSheet<_FileChoice>(
+      context: context,
+      isScrollControlled: true, // as tall as it needs (large text), scrolls if taller
+      builder: (context) => const _AddFilesSheet(),
+    );
+    if (choice == null || !mounted) return;
+    final source = ref.read(fileSourceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    List<PickedFile> files;
+    try {
+      files = choice == _FileChoice.photo
+          ? await source.pickPhotos()
+          : await source.pickDocuments();
+    } on Exception {
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't open your files.")));
+      return;
+    }
+    if (files.isEmpty || !mounted) return;
+    final problems = ref.read(chatControllerProvider.notifier).addFiles(files);
+    if (problems.isNotEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text(problems.join('\n'))));
+    }
   }
 
   Future<void> _confirmClear() async {
@@ -132,8 +158,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               _Composer(
                 controller: _input,
                 focusNode: _focus,
-                canSend: !state.sending && _input.text.trim().isNotEmpty,
+                canSend:
+                    !state.sending && (_input.text.trim().isNotEmpty || state.pending.isNotEmpty),
                 onSend: _send,
+                pending: state.pending,
+                onAdd: state.sending ? null : _addFiles,
+                onRemove: ref.read(chatControllerProvider.notifier).removePending,
               ),
             ],
           ),
@@ -445,6 +475,7 @@ const _toolWords = {
   'get_balance_forecast': 'Forecasting your balance…',
   'search_help_articles': 'Searching help articles…',
   'open_app_flow': 'Getting that ready…',
+  'read_attachment': 'Reading your file…',
 };
 
 class _MessageView extends ConsumerWidget {
@@ -475,7 +506,19 @@ class _MessageView extends ConsumerWidget {
                   bottomRight: Radius.circular(6),
                 ),
               ),
-              child: Text(message.text, style: OkayText.body),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final (i, a) in message.attachments.indexed) ...[
+                    if (i > 0) const SizedBox(height: OkaySpacing.sm),
+                    _SentFile(a),
+                  ],
+                  if (message.attachments.isNotEmpty && message.text.isNotEmpty)
+                    const SizedBox(height: OkaySpacing.sm),
+                  if (message.text.isNotEmpty) Text(message.text, style: OkayText.body),
+                ],
+              ),
             ),
           ),
         ),
@@ -758,12 +801,18 @@ class _Composer extends StatelessWidget {
     required this.focusNode,
     required this.canSend,
     required this.onSend,
+    required this.pending,
+    required this.onAdd,
+    required this.onRemove,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool canSend;
   final VoidCallback onSend;
+  final List<ChatAttachment> pending;
+  final VoidCallback? onAdd;
+  final ValueChanged<int> onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -789,73 +838,320 @@ class _Composer extends StatelessWidget {
           ),
           child: child,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Semantics(
-                label: 'Message to O-Kay',
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  minLines: 1,
-                  maxLines: 4,
-                  maxLength: 1000,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => canSend ? onSend() : null,
-                  style: OkayText.body,
-                  decoration: const InputDecoration(
-                    hintText: 'Ask O-Kay',
-                    hintStyle: TextStyle(color: OkayColors.textSecondary, fontSize: 16),
-                    counterText: '',
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.fromLTRB(20, 15, 4, 15),
+            // Wraps onto a second line (at most 3 files) so every remove button stays in view.
+            if (pending.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  OkaySpacing.md,
+                  OkaySpacing.md,
+                  OkaySpacing.md,
+                  0,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: OkaySpacing.sm,
+                    runSpacing: OkaySpacing.sm,
+                    children: [
+                      for (final (i, a) in pending.indexed)
+                        _PendingFile(a, onRemove: () => onRemove(i)),
+                    ],
                   ),
                 ),
               ),
-            ),
-            // A 40 px circle with a 48 px tap area.
-            Padding(
-              padding: const EdgeInsets.all(2),
-              child: Semantics(
-                button: true,
-                enabled: canSend,
-                label: 'Send',
-                excludeSemantics: true,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: canSend ? onSend : null,
-                  child: SizedBox.square(
-                    dimension: OkaySizes.minTouchTarget,
-                    child: Center(
-                      child: AnimatedContainer(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 150),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: canSend ? OkayColors.primary : OkayChatColors.sendIdle,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 22,
-                          color: OkayColors.text.withValues(alpha: canSend ? 1 : 0.45),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 2, bottom: 2, top: 2),
+                  child: IconButton(
+                    tooltip: 'Add files and photos',
+                    onPressed: onAdd,
+                    constraints: const BoxConstraints.tightFor(
+                      width: OkaySizes.minTouchTarget,
+                      height: OkaySizes.minTouchTarget,
+                    ),
+                    icon: const Icon(Icons.add_rounded, color: OkayColors.textSecondary, size: 26),
+                  ),
+                ),
+                Expanded(
+                  child: Semantics(
+                    label: 'Message to O-Kay',
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      minLines: 1,
+                      maxLines: 4,
+                      maxLength: 1000,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => canSend ? onSend() : null,
+                      style: OkayText.body,
+                      decoration: const InputDecoration(
+                        hintText: 'Ask O-Kay',
+                        hintStyle: TextStyle(color: OkayColors.textSecondary, fontSize: 16),
+                        counterText: '',
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.fromLTRB(4, 15, 4, 15),
+                      ),
+                    ),
+                  ),
+                ),
+                // A 40 px circle with a 48 px tap area.
+                Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Semantics(
+                    button: true,
+                    enabled: canSend,
+                    label: 'Send',
+                    excludeSemantics: true,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: canSend ? onSend : null,
+                      child: SizedBox.square(
+                        dimension: OkaySizes.minTouchTarget,
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 150),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: canSend ? OkayColors.primary : OkayChatColors.sendIdle,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 22,
+                              color: OkayColors.text.withValues(alpha: canSend ? 1 : 0.45),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- files and photos -------------------------------------------------------------------------
+
+enum _FileChoice { photo, document }
+
+/// What can be added, and what happens to it. The note is shown every time: the file goes to
+/// the AI provider to be read.
+class _AddFilesSheet extends StatelessWidget {
+  const _AddFilesSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: OkaySpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: OkaySpacing.gutter),
+              child: Text('Add files and photos', style: OkayText.sectionTitle),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                OkaySpacing.gutter,
+                OkaySpacing.xs,
+                OkaySpacing.gutter,
+                OkaySpacing.sm,
+              ),
+              child: Text(
+                'O-Kay reads receipts, bills and statements. Up to 3 files, 10 MB each.',
+                style: OkayText.subtitle,
+              ),
+            ),
+            MenuRow(
+              icon: Icons.photo_camera_outlined,
+              title: 'Photo',
+              subtitle: 'A receipt or bill, from your photos or the camera',
+              onTap: () => Navigator.of(context).pop(_FileChoice.photo),
+            ),
+            MenuRow(
+              icon: Icons.description_outlined,
+              title: 'Document',
+              subtitle: 'PDF, Excel (.xlsx) or CSV',
+              onTap: () => Navigator.of(context).pop(_FileChoice.document),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                OkaySpacing.gutter,
+                OkaySpacing.md,
+                OkaySpacing.gutter,
+                0,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lock_outline_rounded, size: 16, color: OkayColors.textSecondary),
+                  SizedBox(width: OkaySpacing.sm),
+                  Expanded(
+                    child: Text(
+                      "Files are sent to O-Kay's AI service to be read and aren't kept. "
+                      "Don't add ID cards, card numbers or passwords.",
+                      style: OkayText.caption,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+IconData _fileIcon(AttachmentKind kind) => switch (kind) {
+  AttachmentKind.photo => Icons.image_outlined,
+  AttachmentKind.pdf => Icons.picture_as_pdf_outlined,
+  AttachmentKind.spreadsheet => Icons.table_chart_outlined,
+  AttachmentKind.file => Icons.insert_drive_file_outlined,
+};
+
+/// A small square: the photo itself, or an icon for a document.
+class _FileThumb extends StatelessWidget {
+  const _FileThumb(this.attachment, {this.size = 36});
+  final ChatAttachment attachment;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = attachment.bytes;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox.square(
+        dimension: size,
+        child: attachment.kind == AttachmentKind.photo && bytes != null
+            ? Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                excludeFromSemantics: true,
+                errorBuilder: (context, error, stack) => _iconTile(size),
+              )
+            : _iconTile(size),
+      ),
+    );
+  }
+}
+
+extension on _FileThumb {
+  Widget _iconTile(double size) => ColoredBox(
+    color: OkayChatColors.quickIconTile,
+    child: Icon(_fileIcon(attachment.kind), size: size * 0.55, color: OkayChatColors.quickIcon),
+  );
+}
+
+/// A file waiting to be sent, above the input; it can be taken off again.
+class _PendingFile extends StatelessWidget {
+  const _PendingFile(this.attachment, {required this.onRemove});
+  final ChatAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(left: 6),
+      decoration: BoxDecoration(
+        color: OkayColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: OkayChatColors.inputBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _FileThumb(attachment),
+          const SizedBox(width: OkaySpacing.sm),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  attachment.name,
+                  style: OkayText.caption.copyWith(color: OkayColors.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(attachment.sizeLabel, style: OkayText.caption),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove ${attachment.name}',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close_rounded, size: 18, color: OkayColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A file in a sent message: the photo, or the document's icon and name.
+class _SentFile extends StatelessWidget {
+  const _SentFile(this.attachment);
+  final ChatAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = attachment.bytes;
+    if (attachment.kind == AttachmentKind.photo && bytes != null) {
+      return Semantics(
+        label: 'Photo: ${attachment.name}',
+        image: true,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220, maxHeight: 260),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              excludeFromSemantics: true,
+              errorBuilder: (context, error, stack) => _nameRow(),
+            ),
+          ),
+        ),
+      );
+    }
+    return _nameRow();
+  }
+
+  Widget _nameRow() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FileThumb(attachment, size: 32),
+        const SizedBox(width: OkaySpacing.sm),
+        Flexible(
+          child: Text(
+            attachment.name,
+            style: OkayText.subtitle.copyWith(color: OkayColors.text),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

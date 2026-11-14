@@ -19,9 +19,10 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, select
 
+from app.ai.attachments import AttachmentError, decode
 from app.ai.cards import Card, Suggestion
 from app.ai.chat import ChatService
 from app.api.deps import SessionDep, TodayDep, UserDep
@@ -33,11 +34,32 @@ from app.sources.mock import MockBillSource, MockTransactionSource
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+class AttachmentIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200, description="file name, e.g. receipt.jpg")
+    data_base64: str = Field(min_length=4, description="the file's bytes, base64")
+
+
+class AttachmentOut(BaseModel):
+    name: str
+    kind: Literal["photo", "pdf", "spreadsheet", "file"]
+
+
 class ChatIn(BaseModel):
-    message: str = Field(min_length=1, max_length=1000)
+    message: str = Field("", max_length=1000, description="may be empty when files are added")
     language: Literal["auto", "en", "ne", "rom"] = Field(
         "auto", description="Reply language: auto-detect, English, Nepali or Romanized Nepali."
     )
+    attachments: list[AttachmentIn] = Field(
+        default_factory=list,
+        description="Photos (JPEG, PNG, WebP, GIF), PDF, Excel (.xlsx) or CSV. They are read "
+        "to answer (photos by the AI provider's image model) and never stored.",
+    )
+
+    @model_validator(mode="after")
+    def _something_to_ask(self) -> ChatIn:
+        if not self.message.strip() and not self.attachments:
+            raise ValueError("send a message or a file")
+        return self
 
 
 class ChatMessageOut(BaseModel):
@@ -46,6 +68,7 @@ class ChatMessageOut(BaseModel):
     content: str
     cards: list[Card]
     suggestions: list[Suggestion]
+    attachments: list[AttachmentOut] = Field(default_factory=list)
     language: str | None
     feedback: Literal["up", "down"] | None
     created_at: dt.datetime
@@ -67,6 +90,8 @@ def _sse(event: str, data: dict[str, object]) -> str:
             "description": "Server-sent events: status*, token+, (reset, token+)?, done.",
             "content": {"text/event-stream": {}},
         },
+        413: {"description": "The files are too large."},
+        422: {"description": "A file couldn't be read (the detail says why), or too many."},
         429: {"description": "Too many messages; see Retry-After."},
     },
 )
@@ -74,7 +99,24 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
     """Ask O-Kay. Streams the reply, then a final event with cards and follow-up chips."""
     settings = request.app.state.settings
     limiter = request.app.state.rate_limiter
+    if len(body.attachments) > settings.max_attachments:
+        raise HTTPException(
+            status_code=422, detail=f"Add at most {settings.max_attachments} files at a time."
+        )
+    try:
+        uploads = [
+            decode(a.name, a.data_base64, settings.max_attachment_mb * 1024 * 1024)
+            for a in body.attachments
+        ]
+    except AttachmentError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    rate_keys = []
+    if uploads:  # each photo costs an image-model call
+        rate_keys.append(
+            (f"files:user:{user_id}", [Limit(settings.rate_attachments_per_day, 86_400)])
+        )
     for key, limits in (
+        *rate_keys,
         (
             f"chat:user:{user_id}",
             [Limit(settings.rate_chat_per_minute, 60), Limit(settings.rate_chat_per_day, 86_400)],
@@ -112,7 +154,7 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
                 history_messages=settings.chat_history_messages,
                 max_tool_rounds=settings.chat_max_tool_rounds,
             )
-            for ev in service.respond(body.message, body.language):
+            for ev in service.respond(body.message, body.language, uploads):
                 yield _sse(ev.event, ev.data)
 
     return StreamingResponse(
@@ -140,6 +182,7 @@ def get_history(session: SessionDep, user_id: UserDep, limit: int = 50) -> list[
             content=r.content,  # type: ignore[arg-type]
             cards=json.loads(r.cards_json),
             suggestions=json.loads(r.suggestions_json),
+            attachments=json.loads(r.attachments_json or "[]"),
             language=r.language,
             feedback=r.feedback,  # type: ignore[arg-type]
             created_at=r.created_at.replace(tzinfo=NPT),

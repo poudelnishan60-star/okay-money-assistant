@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:khalti_ai_assistant/demo_host/demo_host_app.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/chat/attachments.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_repository.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/core/clock.dart';
@@ -75,6 +76,23 @@ Future<void> loadMascot(WidgetTester t) async {
   await t.pumpAndSettle();
 }
 
+/// Stands in for the device's file picker: returns the files queued for the next pick.
+class FakeFileSource implements FileSource {
+  final photos = <List<PickedFile>>[];
+  final documents = <List<PickedFile>>[];
+
+  @override
+  Future<List<PickedFile>> pickPhotos() async => photos.isEmpty ? [] : photos.removeAt(0);
+
+  @override
+  Future<List<PickedFile>> pickDocuments() async => documents.isEmpty ? [] : documents.removeAt(0);
+}
+
+/// A tiny real PNG (a receipt-like sketch), so photos render in tests and golden images.
+final samplePhoto = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAADAAAABACAIAAADTQmMRAAAAYklEQVR42u3UMQ4AEBBFQcTJNM6scSuNygHUZIv5pWoim5f3XinSSgo2ICCg16v3U2v9p2DOEfqHslIDAemQDjlqIB3SIR0CAtIhHXLUQDqkQ24ICEiHdMhRAwEBAQEBPdsBXxgm5e5IM+MAAAAASUVORK5CYII=',
+);
+
 /// What the Khalti app's hide-balance eye (or Settings > Hide amounts) does.
 Future<void> hideAmounts(WidgetTester t) async {
   ProviderScope.containerOf(t.element(find.byType(Navigator).first))
@@ -116,9 +134,17 @@ class FakeChatRepository implements ChatRepository {
   Object? confirmError;
   bool cleared = false;
 
+  /// Names of the files sent with each message (same order as [sent]).
+  final sentFiles = <List<String>>[];
+
   @override
-  Stream<ChatStreamEvent> send(String message, {String language = 'auto'}) async* {
+  Stream<ChatStreamEvent> send(
+    String message, {
+    String language = 'auto',
+    List<ChatAttachment> attachments = const [],
+  }) async* {
     sent.add((message, language));
+    sentFiles.add([for (final a in attachments) a.name]);
     if (sendError != null) throw sendError!;
     final script = scripts.isEmpty ? <ChatStreamEvent>[] : scripts.removeAt(0);
     for (final ev in script) {
@@ -169,6 +195,7 @@ List<ChatStreamEvent> answer(
   bool enabled = true,
   FakeChatRepository? chat,
   FakeApi? api,
+  FakeFileSource? files,
 }) {
   final key = GlobalKey<NavigatorState>();
   final bridge = MockHostAppBridge(key);
@@ -186,6 +213,7 @@ List<ChatStreamEvent> answer(
         meProvider.overrideWith((ref) async => demoMe),
         chatRepositoryProvider.overrideWithValue(repo),
         clockProvider.overrideWithValue(() => fixtureNow),
+        fileSourceProvider.overrideWithValue(files ?? FakeFileSource()),
       ],
       child: DemoHostApp(navigatorKey: key),
     ),

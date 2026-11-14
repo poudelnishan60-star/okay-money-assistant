@@ -164,6 +164,8 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     cards_json: Mapped[str] = mapped_column(Text, default="[]")
     suggestions_json: Mapped[str] = mapped_column(Text, default="[]")
+    # Files added to a user message: names and kinds only, never the contents.
+    attachments_json: Mapped[str] = mapped_column(Text, default="[]", server_default="[]")
     language: Mapped[str | None] = mapped_column(String(10))
     feedback: Mapped[str | None] = mapped_column(String(10))  # "up" | "down"
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt, index=True)

@@ -9,6 +9,7 @@
 ///   5. uses [buildOkayTheme] (or maps [OkayColors] etc. onto its own design system).
 library;
 
+export 'chat/attachments.dart' show FileSource, PickedFile, fileSourceProvider;
 export 'chat/chat_screen.dart' show ChatScreen;
 export 'config.dart';
 export 'core/api_client.dart' show ApiClient, ApiException, apiClientProvider, httpClientProvider;

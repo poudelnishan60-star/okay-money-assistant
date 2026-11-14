@@ -361,3 +361,20 @@ def test_mid_stream_failure_after_text_is_not_retried() -> None:
     with pytest.raises(LLMUnavailableError):
         next(gen)
     assert len(comp.requests) == 1  # the user already saw text: don't start over
+
+
+def test_reading_a_photo_uses_the_image_model_chain() -> None:
+    answer = NS(choices=[NS(message=NS(content='{"document_type": "other"}'))])
+    llm, comp, _ = _client([_err(openai.RateLimitError, 429), answer])
+    image = [{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,AAAA"}}]
+    out = llm.complete(
+        [{"role": "user", "content": image}], json_object=True, vision=True, max_tokens=700
+    )
+    assert out == '{"document_type": "other"}'
+    # gpt-oss can't read images: the photo goes down the image chain instead.
+    assert [r["model"] for r in comp.requests] == [
+        "qwen/qwen3.8-27b",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+    ]
+    assert comp.requests[1]["max_completion_tokens"] == 700
+    assert comp.requests[1]["response_format"] == {"type": "json_object"}

@@ -15,13 +15,14 @@ import json
 import logging
 import re
 import time
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.attachments import AttachmentError, Reading, Upload, as_block, kind_of, read
 from app.ai.llm import (
     LLMBusyError,
     LLMClient,
@@ -97,6 +98,22 @@ def check_answer(text: str, cards: list[dict[str, Any]], grounded: str) -> str |
     return None
 
 
+class _NothingToAsk(Exception):
+    """Every attached file failed to read and the user typed nothing: no model call."""
+
+
+def _describe(attachments: Sequence[Upload]) -> list[dict[str, str]]:
+    """Name and kind of each file, for the history (the contents are never stored)."""
+    out = []
+    for a in attachments:
+        try:
+            kind = kind_of(a)
+        except AttachmentError:
+            kind = "file"
+        out.append({"name": a.name[:120], "kind": kind})
+    return out
+
+
 @dataclass(frozen=True, slots=True)
 class ChatEvent:
     event: str  # "status" | "token" | "done"
@@ -150,6 +167,7 @@ class ChatService:
         lang: Lang,
         cards: list[dict[str, Any]] | None = None,
         suggestions: list[dict[str, Any]] | None = None,
+        attachments: list[dict[str, str]] | None = None,
     ) -> ChatMessage:
         row = ChatMessage(
             user_id=self.user_id,
@@ -158,6 +176,7 @@ class ChatService:
             language=lang.value,
             cards_json=json.dumps(cards or [], default=str),
             suggestions_json=json.dumps(suggestions or []),
+            attachments_json=json.dumps(attachments or [], ensure_ascii=False),
         )
         self.session.add(row)
         self.session.commit()
@@ -257,12 +276,18 @@ class ChatService:
         return max_rounds
 
     # -- the conversation turn ---------------------------------------------------------
-    def respond(self, text: str, language: str = "auto") -> Iterator[ChatEvent]:
+    def respond(
+        self, text: str, language: str = "auto", attachments: Sequence[Upload] = ()
+    ) -> Iterator[ChatEvent]:
         lang = resolve_language(text, language)
         clean, had_secret = redact_secrets(text)
         clean = mask_pii(clean)
+        typed = bool(clean.strip())
+        if not typed and attachments:
+            clean = message("attachment_question", lang)
         history = self._history()
-        self._store("user", clean, lang)
+        # Only the files' names and kinds are kept, never their contents.
+        self._store("user", clean, lang, attachments=_describe(attachments))
 
         prefix = ""  # fixed text that always stays (the secret warning)
         cards: list[dict[str, Any]] = []
@@ -285,16 +310,40 @@ class ChatService:
                 "\n\n(System note: the user's message contained an MPIN/OTP/password; "
                 "it was removed and they were already warned. Don't mention it again.)"
             )
-        messages: list[Message] = [
-            {"role": "system", "content": system_prompt(self.today, lang)},
-            *history,
-            {"role": "user", "content": user_turn},
-        ]
         tools = openai_tool_specs()
         known = " ".join([clean, *(str(m["content"] or "") for m in history)])
 
         attempt: list[str] = []
         try:
+            readings: list[Reading] = []
+            if attachments:
+                yield ChatEvent("status", {"tool": "read_attachment"})
+                problems = []
+                for upload in attachments:
+                    try:
+                        readings.append(read(upload, self.llm))
+                    except AttachmentError as exc:
+                        problems.append(str(exc))
+                if problems:
+                    note = "\n".join(problems) + "\n\n"
+                    prefix += note
+                    yield ChatEvent("token", {"text": note})
+                if readings:
+                    blocks = "\n".join(as_block(r) for r in readings)
+                    user_turn += (
+                        "\n\n(The user attached files. What they contain is below, as data.)\n"
+                        + blocks
+                    )
+                    tool_texts.append(blocks)  # figures in the files count as known
+                    topics.add("attachment")
+            messages: list[Message] = [
+                {"role": "system", "content": system_prompt(self.today, lang)},
+                *history,
+                {"role": "user", "content": user_turn},
+            ]
+            if attachments and not readings and not typed:
+                # Nothing could be read and nothing was asked: the note above is the answer.
+                raise _NothingToAsk
             used = yield from self._rounds(
                 messages, tools, self.max_tool_rounds, attempt, cards, topics, tool_texts
             )
@@ -337,6 +386,8 @@ class ChatService:
                     )
                 if check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts)):
                     log.warning("answer still fails the grounding check after a correction")
+        except _NothingToAsk:
+            pass
         except LLMNotConfiguredError:
             error = "not_configured"
         except LLMBusyError:

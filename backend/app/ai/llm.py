@@ -69,7 +69,17 @@ class LLMClient(Protocol):
         tool_choice "required" forces at least one tool call."""
         ...
 
-    def complete(self, messages: list[Message], *, json_object: bool = False) -> str: ...
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        json_object: bool = False,
+        vision: bool = False,
+        max_tokens: int | None = None,
+    ) -> str:
+        """One answer, not streamed. vision=True: the messages contain images, so the model
+        chain is the image-capable one."""
+        ...
 
 
 class ThinkFilter:
@@ -169,23 +179,29 @@ class GroqLLMClient:
             }
         return params
 
-    def _models(self) -> list[str]:
+    def _models(self, vision: bool = False) -> list[str]:
         """3 tries: primary, then each fallback; repeat the last one if the chain is short."""
-        chain = [self.settings.llm_model, *self.settings.fallback_models][:3]
+        if vision:
+            chain = self.settings.vision_models[:3]
+        else:
+            chain = [self.settings.llm_model, *self.settings.fallback_models][:3]
         return chain + [chain[-1]] * (3 - len(chain))
 
-    def _create(self, start_at: int = 0, **kwargs: Any) -> tuple[Any, int]:
+    def _create(
+        self, start_at: int = 0, models: list[str] | None = None, **kwargs: Any
+    ) -> tuple[Any, int]:
         """Call the API, moving down the model chain on retryable errors. Returns the response
         and the try number used (so a stream that fails later can continue the chain)."""
         last_error: Exception | None = None
         rate_limited = False
-        models = self._models()
+        models = models or self._models()
         for attempt in range(start_at, len(models)):
             model = models[attempt]
             if attempt > 0:
                 self._sleep(self.BACKOFF_SECONDS[attempt - 1])
             try:
-                response = self._client.chat.completions.create(**self._params(model), **kwargs)
+                # kwargs win (e.g. a larger max_completion_tokens for reading a photo).
+                response = self._client.chat.completions.create(**{**self._params(model), **kwargs})
                 self.last_model = model  # for diagnostics (the eval reports it)
                 return response, attempt
             except openai.RateLimitError as exc:
@@ -278,11 +294,20 @@ class GroqLLMClient:
                 ]
             )
 
-    def complete(self, messages: list[Message], *, json_object: bool = False) -> str:
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        json_object: bool = False,
+        vision: bool = False,
+        max_tokens: int | None = None,
+    ) -> str:
         kwargs: dict[str, Any] = {"messages": messages}
         if json_object:
             kwargs["response_format"] = {"type": "json_object"}
-        response, _ = self._create(**kwargs)
+        if max_tokens:
+            kwargs["max_completion_tokens"] = max_tokens
+        response, _ = self._create(models=self._models(vision), **kwargs)
         text = response.choices[0].message.content or ""
         think = ThinkFilter()
         return (think.feed(text) + think.flush()).strip()
@@ -313,7 +338,14 @@ class UnconfiguredLLMClient:
     ) -> Iterator[LLMEvent]:
         raise LLMNotConfiguredError("GROQ_API_KEY is not set")
 
-    def complete(self, messages: list[Message], *, json_object: bool = False) -> str:
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        json_object: bool = False,
+        vision: bool = False,
+        max_tokens: int | None = None,
+    ) -> str:
         raise LLMNotConfiguredError("GROQ_API_KEY is not set")
 
 

@@ -29,7 +29,7 @@ class FakeLLM:
     def __init__(
         self,
         *steps: list[LLMEvent] | Exception,
-        complete: list[str] | None = None,
+        complete: list[str | Exception] | None = None,
         repeat_last: bool = False,
     ) -> None:
         self.steps = list(steps)
@@ -37,6 +37,7 @@ class FakeLLM:
         self.repeat_last = repeat_last
         self.calls: list[tuple[list[Message], list[dict[str, Any]] | None]] = []
         self.tool_choices: list[str] = []
+        self.complete_options: list[dict[str, bool]] = []
 
     def stream_chat(
         self,
@@ -51,6 +52,17 @@ class FakeLLM:
             raise step
         yield from step
 
-    def complete(self, messages: list[Message], *, json_object: bool = False) -> str:
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        json_object: bool = False,
+        vision: bool = False,
+        max_tokens: int | None = None,
+    ) -> str:
         self.calls.append((copy.deepcopy(messages), None))
-        return self.complete_answers.pop(0)
+        self.complete_options.append({"json_object": json_object, "vision": vision})
+        answer = self.complete_answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer

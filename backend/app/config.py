@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     chat_history_messages: int = 20
     chat_max_tool_rounds: int = 5
 
+    # Files and photos in the chat. Photos are read by an image model (the main model on
+    # Groq reads images; gpt-oss does not, so the image chain is separate).
+    vision_model: str = "qwen/qwen3.8-27b"
+    vision_fallback_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    max_attachments: int = 3  # per message
+    max_attachment_mb: int = 10  # per file, after decoding
+    rate_attachments_per_day: int = 20  # files per visitor: each photo costs a model call
+
     # Public website: every visitor gets their own demo copy via POST /sessions.
     public_mode: bool = False  # true = requests without a session are refused
     session_ttl_days: int = 7
@@ -48,6 +56,11 @@ class Settings(BaseSettings):
     # 8,000 tokens/min per model (~2-3 questions/min each; 3 models with fallback)
     rate_chat_global_per_hour: int = 300
     rate_sessions_per_ip_per_hour: int = 10
+
+    @property
+    def vision_models(self) -> list[str]:
+        extra = [m.strip() for m in self.vision_fallback_model.split(",") if m.strip()]
+        return [self.vision_model, *extra]
 
     @property
     def fallback_models(self) -> list[str]:

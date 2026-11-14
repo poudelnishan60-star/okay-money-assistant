@@ -42,11 +42,16 @@ class _TolerantComparator extends LocalFileComparator {
 
 const _phone = Size(390, 1200);
 
-Future<FakeApi> _pumpHost(WidgetTester t, {FakeChatRepository? chat, FakeApi? api}) async {
+Future<FakeApi> _pumpHost(
+  WidgetTester t, {
+  FakeChatRepository? chat,
+  FakeApi? api,
+  FakeFileSource? files,
+}) async {
   t.view.physicalSize = _phone * 1.5;
   t.view.devicePixelRatio = 1.5;
   addTearDown(t.view.reset);
-  final demo = demoApp(chat: chat, api: api);
+  final demo = demoApp(chat: chat, api: api, files: files);
   await t.pumpWidget(demo.app);
   await t.pumpAndSettle();
   await loadMascot(t);
@@ -92,6 +97,45 @@ void main() {
     await t.tap(find.text('My spending'));
     await t.pumpAndSettle();
     await _matches('chat_spending');
+  });
+
+  testWidgets('a photo and a document sent, with the answer', (t) async {
+    final files = FakeFileSource()
+      ..photos.add([PickedFile('receipt.png', samplePhoto)])
+      ..documents.add([PickedFile('november.csv', samplePhoto)]);
+    final chat = FakeChatRepository([
+      answer(
+        'You bought from **Himalayan Fresh Mart** on 13 Nov: rice Rs. 1,150, milk Rs. 190, '
+        'eggs Rs. 480 and tea Rs. 325. Total: Rs. 2,145.',
+        suggestions: const [
+          Suggestion('How does this compare with my spending?'),
+          Suggestion('Show my budgets'),
+        ],
+      ),
+    ]);
+    await _pumpHost(t, chat: chat, files: files);
+    for (final option in ['Photo', 'Document']) {
+      await t.tap(find.byTooltip('Add files and photos'));
+      await t.pumpAndSettle();
+      await t.tap(find.text(option));
+      await t.pumpAndSettle();
+    }
+    await t.runAsync(
+      () => precacheImage(MemoryImage(samplePhoto), t.element(find.byType(Navigator).first)),
+    );
+    await t.pumpAndSettle();
+    await _matches('chat_files_waiting');
+    await t.enterText(find.byType(TextField), 'What did I buy?');
+    await t.tap(find.bySemanticsLabel('Send'));
+    await t.pumpAndSettle();
+    await _matches('chat_files_sent');
+  });
+
+  testWidgets('the add files and photos sheet', (t) async {
+    await _pumpHost(t);
+    await t.tap(find.byTooltip('Add files and photos'));
+    await t.pumpAndSettle();
+    await _matches('chat_add_files');
   });
 
   testWidgets('chat in Nepali with confirm and pay cards', (t) async {

@@ -9,8 +9,9 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 
@@ -91,6 +92,16 @@ def create_app(
     app.state.llm = llm or build_llm_client(settings)
     app.state.rate_limiter = RateLimiter()
     app.state.push = push or NoPush()  # Khalti's push service when merged into the app
+
+    # Files come base64 in the JSON (+37%): refuse oversized bodies before reading them.
+    max_body = int(settings.max_attachments * settings.max_attachment_mb * 1.4 + 1) * 1024 * 1024
+
+    @app.middleware("http")
+    async def _limit_body(request: Request, call_next):  # type: ignore[no-untyped-def]
+        size = request.headers.get("content-length")
+        if size and size.isdigit() and int(size) > max_body:
+            return JSONResponse({"detail": "The files are too large."}, status_code=413)
+        return await call_next(request)
 
     app.add_middleware(
         CORSMiddleware,

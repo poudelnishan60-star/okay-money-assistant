@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/preferences.dart';
 import '../data/providers.dart';
+import 'attachments.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
 
@@ -23,9 +24,13 @@ class ChatState {
     this.sending = false,
     this.historyLoaded = false,
     this.confirmations = const {},
+    this.pending = const [],
   });
 
   final List<ChatMessage> messages;
+
+  /// Files added to the message being written, not sent yet.
+  final List<ChatAttachment> pending;
   final bool sending;
   final bool historyLoaded;
 
@@ -57,11 +62,13 @@ class ChatState {
     bool? sending,
     bool? historyLoaded,
     Map<String, ConfirmState>? confirmations,
+    List<ChatAttachment>? pending,
   }) => ChatState(
     messages: messages ?? this.messages,
     sending: sending ?? this.sending,
     historyLoaded: historyLoaded ?? this.historyLoaded,
     confirmations: confirmations ?? this.confirmations,
+    pending: pending ?? this.pending,
   );
 }
 
@@ -88,21 +95,45 @@ class ChatController extends Notifier<ChatState> {
     state = state.copyWith(messages: messages);
   }
 
+  /// Adds picked files to the message being written. Returns why any were left out.
+  List<String> addFiles(List<PickedFile> files) {
+    final problems = <String>[];
+    final pending = [...state.pending];
+    for (final f in files) {
+      final problem = attachmentProblem(f.name, f.bytes.length);
+      if (problem != null) {
+        problems.add(problem);
+      } else if (pending.length >= maxAttachments) {
+        problems.add('Add up to $maxAttachments files at a time.');
+        break;
+      } else {
+        pending.add(ChatAttachment(name: f.name, kind: attachmentKindFor(f.name)!, bytes: f.bytes));
+      }
+    }
+    state = state.copyWith(pending: pending);
+    return problems;
+  }
+
+  void removePending(int index) =>
+      state = state.copyWith(pending: [...state.pending]..removeAt(index));
+
   Future<void> send(String text) async {
     final message = text.trim();
-    if (message.isEmpty || state.sending) return;
+    final files = state.pending;
+    if ((message.isEmpty && files.isEmpty) || state.sending) return;
     state = state.copyWith(
       sending: true,
       historyLoaded: true,
+      pending: const [],
       messages: [
         ...state.messages,
-        ChatMessage(role: MessageRole.user, text: message),
+        ChatMessage(role: MessageRole.user, text: message, attachments: files),
         const ChatMessage(role: MessageRole.assistant, text: '', streaming: true),
       ],
     );
     final language = ref.read(assistantPrefsProvider).language;
     try {
-      await for (final ev in _repo.send(message, language: language)) {
+      await for (final ev in _repo.send(message, language: language, attachments: files)) {
         switch (ev) {
           case ToolStatusEvent(:final tool):
             _updateLast((m) => m.copyWith(toolStatus: tool));
@@ -155,6 +186,13 @@ class ChatController extends Notifier<ChatState> {
     if (assistantIndex < 1 || state.sending) return;
     final question = state.messages[assistantIndex - 1];
     if (!question.isUser) return;
+    // Files sent in this visit are still in memory: send them again with the question.
+    state = state.copyWith(
+      pending: [
+        for (final a in question.attachments)
+          if (a.bytes != null) a,
+      ],
+    );
     await send(question.text);
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
 import '../core/sse.dart';
+import 'attachments.dart';
 import 'chat_models.dart';
 
 /// Talks to /chat. The only place that knows the wire format of the chat stream.
@@ -12,11 +13,23 @@ class ChatRepository {
   final ApiClient _api;
 
   /// Ask O-Kay. Emits tool-status and text events as they arrive, then one DoneEvent.
-  /// [language]: 'auto' | 'en' | 'ne' | 'rom'.
-  Stream<ChatStreamEvent> send(String message, {String language = 'auto'}) async* {
+  /// [language]: 'auto' | 'en' | 'ne' | 'rom'. [attachments] go as base64 in the body.
+  Stream<ChatStreamEvent> send(
+    String message, {
+    String language = 'auto',
+    List<ChatAttachment> attachments = const [],
+  }) async* {
     final response = await _api.openStream(
       '/chat',
-      body: {'message': message, 'language': language},
+      body: {
+        'message': message,
+        'language': language,
+        if (attachments.isNotEmpty)
+          'attachments': [
+            for (final a in attachments)
+              if (a.bytes != null) {'name': a.name, 'data_base64': base64Encode(a.bytes!)},
+          ],
+      },
     );
     await for (final ev in parseSse(response.stream)) {
       final data = jsonDecode(ev.data);

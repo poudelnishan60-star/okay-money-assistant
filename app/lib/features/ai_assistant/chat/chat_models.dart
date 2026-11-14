@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
 import '../core/dates.dart';
+import 'attachments.dart';
 
 // --- cards ------------------------------------------------------------------------------
 
@@ -400,6 +401,7 @@ class ChatMessage {
     this.streaming = false,
     this.toolStatus,
     this.error,
+    this.attachments = const [],
   });
 
   factory ChatMessage.fromJson(Map<String, Object?> j) => ChatMessage(
@@ -409,6 +411,10 @@ class ChatMessage {
     cards: [for (final c in j.objList('cards')) ChatCard.fromJson(c)],
     suggestions: [for (final s in j.objList('suggestions')) Suggestion.fromJson(s)],
     feedback: j.strOrNull('feedback'),
+    attachments: [
+      for (final a in (j['attachments'] as List<Object?>? ?? const []))
+        ChatAttachment.fromJson(a! as Map<String, Object?>),
+    ],
   );
 
   final int? id;
@@ -424,6 +430,9 @@ class ChatMessage {
 
   /// 'busy' | 'unavailable' | 'not_configured' | 'rate_limited' | 'network'
   final String? error;
+
+  /// Files added to a user message.
+  final List<ChatAttachment> attachments;
 
   bool get isUser => role == MessageRole.user;
 
@@ -448,6 +457,7 @@ class ChatMessage {
     streaming: streaming ?? this.streaming,
     toolStatus: clearToolStatus ? null : (toolStatus ?? this.toolStatus),
     error: error ?? this.error,
+    attachments: attachments,
   );
 }
 
