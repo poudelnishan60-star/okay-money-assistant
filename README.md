@@ -2,7 +2,8 @@
 
 A self-contained prototype that upgrades Khalti's chat assistant, O-Kay, so it understands the
 user's own money: spending, budgets, goals, bills and forecasts. It runs on **mock data only**;
-no real customer data is ever sent to the LLM provider. The full spec is in [CLAUDE.md](CLAUDE.md).
+no real customer data is ever sent to the LLM provider, except files a user chooses to add to
+the chat (see "Files and photos"). The full spec is in [CLAUDE.md](CLAUDE.md).
 
 **Live demo:** https://poudelnishan60-star.github.io/okay-money-assistant/ (unofficial, not
 affiliated with Khalti). The backend runs on a free server that sleeps when idle, so the first
@@ -128,6 +129,30 @@ uses about 3,000 tokens, so expect roughly 2-3 questions a minute per model. Fin
 a busy public site needs a paid Groq tier (or lower limits in `.env`).
 
 Live check against Groq (mock data only): `python scripts/live_chat_check.py`.
+
+### Files and photos
+
+A chat message can carry up to 3 files, 10 MB each, as base64:
+`{"message": "What did I buy?", "attachments": [{"name": "receipt.jpg", "data_base64": "..."}]}`.
+The message may be empty when files are attached. The file type is taken from the file's own
+bytes, not its name.
+
+| File | How it is read |
+|---|---|
+| Photo (JPEG, PNG, WebP, GIF) | Shrunk to 1600 px, re-saved without EXIF (no location or device data), then read by Groq's image model: `VISION_MODEL` (qwen/qwen3.8-27b), falling back to `VISION_FALLBACK_MODEL` (Llama 4 Scout). It returns the shop, date, items and total as JSON. |
+| PDF | Text read in code (pypdf, first 10 pages). A scanned PDF with no text is refused with advice to send a photo. |
+| Excel (.xlsx) and CSV | Read in code (openpyxl, first 3 sheets). The first 40 rows go to the model; every number column's total, count, smallest and largest value are computed in code (Decimal), so the model never adds anything up. |
+
+HEIC photos and old `.xls` files are refused with a hint (share as JPEG; save as .xlsx or CSV).
+
+Safety: the file's text is masked like the rest (phone, account and reference numbers,
+anything that looks like a password or key), `<` and `>` are neutralized, and it goes to the
+model inside `<attachment>` tags as data, never instructions. Figures in a file count as
+grounded for the "every Rs. amount must come from a tool" check. Files are not stored: the
+chat history keeps only each file's name and kind. Each visitor can add 20 files a day
+(`RATE_ATTACHMENTS_PER_DAY`); a request over the size limit is refused before it is read.
+
+Live check against Groq with a made-up receipt and CSV: `python scripts/live_attachment_check.py`.
 
 ### Alerts
 
@@ -269,6 +294,13 @@ Streamed answers, cards (spending, where-it-went bars, budgets, bills with Pay/A
 with Smart Deposit, transactions, confirm, open-in-Khalti), follow-up chips, thumbs, retry, clear
 chat. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
 flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
+
+**Files and photos.** The + in the input opens a sheet with Photo (gallery or camera) and
+Document (PDF, Excel .xlsx, CSV), and a note that files go to O-Kay's AI service, aren't kept,
+and shouldn't include ID cards, card numbers or passwords. Picked files wait above the input
+(up to 3, each removable) and can be sent without typing anything; photos show in the sent
+message. Picking uses the `file_picker` package behind a `FileSource` interface, so the Khalti
+app can supply its own picker.
 
 The website opens straight into this chat: there is no stand-in Khalti home screen around it.
 While the free server wakes up, the chat says so ("Waking O-Kay up…") instead of showing a

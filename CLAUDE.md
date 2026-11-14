@@ -65,6 +65,13 @@ Build an AI financial assistant for Khalti, a Nepali digital wallet (currency: N
 - The assistant never moves money. For requests like "pay my electricity bill", it returns an open_app_flow card. The app opens its existing flow pre-filled, and the user finishes with MPIN or biometric.
 - Before anything is sent to Groq, mask phone numbers, account numbers and reference IDs, and send only the fields a tool result needs. Log tool calls (not raw prompts) for audit.
 - Keep chat history per user and send the last 20 messages as context.
+- Files and photos in the chat (decided 14 Nov 2026): the one exception to "mock data only".
+  The user may add up to 3 receipts, bills or statements (photos, PDF, Excel .xlsx, CSV) to a
+  message. Photos are read by Groq's image model (location and device data removed first);
+  PDF and spreadsheets are read in code, and their totals are computed in code. The add sheet
+  warns that files go to the AI service and must not contain ID cards, card numbers or
+  passwords. Text from files is masked like everything else and passed as data inside
+  `<attachment>` tags. Files are not stored: only their names are kept with the message.
 
 ## Design (match the Khalti app; hex values are approximate, replace with official tokens)
 - Dark theme for v1.
