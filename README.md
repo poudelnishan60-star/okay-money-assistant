@@ -141,16 +141,30 @@ bytes, not its name.
 |---|---|
 | Photo (JPEG, PNG, WebP, GIF) | Shrunk to 1600 px, re-saved without EXIF (no location or device data), then read by Groq's image model: `VISION_MODEL` (qwen/qwen3.8-27b), falling back to `VISION_FALLBACK_MODEL` (Llama 4 Scout). It returns the shop, date, items and total as JSON. |
 | PDF | Text read in code (pypdf, first 10 pages). A scanned PDF with no text is refused with advice to send a photo. |
-| Excel (.xlsx) and CSV | Read in code (openpyxl, first 3 sheets). The first 40 rows go to the model; every number column's total, count, smallest and largest value are computed in code (Decimal), so the model never adds anything up. |
+| Excel (.xlsx) and CSV | Read in code (openpyxl, first 3 sheets) into a report worked out with Decimal from every row (`app/ai/sheets.py`): the date range; money out and in (columns like `Amount(-)`/`Debit` and `Amount(+)`/`Credit`); a running balance's value after the oldest and the newest entry (never added up); totals by a type column (Scan and Pay, Transfer, Fee...); the biggest payments by description; totals per week (per month for long sheets). Then as many of the first rows as fit. The header row is found even under a title block, which is left out (it holds the owner's name and phone). A single `Amount` column is only totalled, since + can mean spent or received. |
 
 HEIC photos and old `.xls` files are refused with a hint (share as JPEG; save as .xlsx or CSV).
 
 Safety: the file's text is masked like the rest (phone, account and reference numbers,
 anything that looks like a password or key), `<` and `>` are neutralized, and it goes to the
 model inside `<attachment>` tags as data, never instructions. Figures in a file count as
-grounded for the "every Rs. amount must come from a tool" check. Files are not stored: the
-chat history keeps only each file's name and kind. Each visitor can add 20 files a day
-(`RATE_ATTACHMENTS_PER_DAY`); a request over the size limit is refused before it is read.
+grounded for the "every Rs. amount must come from a tool" check; if an answer about a file
+states a figure the file doesn't show, the correction points the model back to the file's
+worked-out lines (it is not pushed to call a tool, whose figures are the Khalti account's, not
+the file's). Each visitor can add 20 files a day (`RATE_ATTACHMENTS_PER_DAY`); a request over
+the size limit is refused before it is read.
+
+Follow-up questions: files are not stored (the chat history keeps only each file's name and
+kind), but what was read from them, already masked, is remembered in the server's memory, never
+on disk, for an hour (`FILE_MEMORY_MINUTES`) or until the chat is cleared
+(`app/ai/file_memory.py`). Later questions get it again as data, so "where did most of the
+money go?" still sees the sheet. Once forgotten, the model sees only the name ("[Attached:
+...]") and asks for the file again.
+
+Request size: Groq's free tier refuses a request over about 7,000 input tokens a minute (HTTP
+413). Each file's text is capped at 5,000 characters, older history is left out to keep a
+request under `LLM_INPUT_TOKEN_BUDGET` (an estimate of 5,000 tokens), a 413 moves to the next
+model, and if every model refuses, O-Kay says the request was too much to read at once.
 
 Live check against Groq with a made-up receipt and CSV: `python scripts/live_attachment_check.py`.
 
@@ -296,8 +310,9 @@ chat. Budgets/goals are saved only when the user taps Confirm; payments open the
 flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
 
 **Files and photos.** The + in the input opens a sheet with Photo (gallery or camera) and
-Document (PDF, Excel .xlsx, CSV), and a note that files go to O-Kay's AI service, aren't kept,
-and shouldn't include ID cards, card numbers or passwords. Picked files wait above the input
+Document (PDF, Excel .xlsx, CSV), and a note that files go to O-Kay's AI service and aren't
+saved, that what O-Kay read is remembered for an hour for follow-up questions, and that they
+shouldn't include ID cards, card numbers or passwords. Picked files wait above the input
 (up to 3, each removable) and can be sent without typing anything; photos show in the sent
 message. Picking uses the `file_picker` package behind a `FileSource` interface, so the Khalti
 app can supply its own picker.

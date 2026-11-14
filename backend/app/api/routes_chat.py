@@ -139,6 +139,7 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
 
     factory = request.app.state.session_factory
     llm = request.app.state.llm
+    files = request.app.state.file_memory
 
     def stream() -> Iterator[str]:
         # Own DB session: the request's one is closed once streaming starts.
@@ -153,6 +154,8 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
                 today,
                 history_messages=settings.chat_history_messages,
                 max_tool_rounds=settings.chat_max_tool_rounds,
+                files=files,
+                token_budget=settings.llm_input_token_budget,
             )
             for ev in service.respond(body.message, body.language, uploads):
                 yield _sse(ev.event, ev.data)
@@ -192,9 +195,11 @@ def get_history(session: SessionDep, user_id: UserDep, limit: int = 50) -> list[
 
 
 @router.delete("/history", status_code=204)
-def clear_history(session: SessionDep, user_id: UserDep) -> Response:
+def clear_history(request: Request, session: SessionDep, user_id: UserDep) -> Response:
+    """Delete the chat, and forget what O-Kay read from the visitor's files."""
     session.execute(delete(ChatMessage).where(ChatMessage.user_id == user_id))
     session.commit()
+    request.app.state.file_memory.forget(user_id)
     return Response(status_code=204)
 
 

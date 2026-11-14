@@ -49,6 +49,7 @@ void main() {
     expect(find.text('Document'), findsOneWidget);
     expect(find.text('PDF, Excel (.xlsx) or CSV'), findsOneWidget);
     expect(find.textContaining("sent to O-Kay's AI service to be read"), findsOneWidget);
+    expect(find.textContaining('remembered for an hour, for follow-up questions'), findsOneWidget);
     expect(find.textContaining("Don't add ID cards, card numbers or passwords"), findsOneWidget);
   });
 

@@ -54,6 +54,11 @@ class LLMBusyError(LLMUnavailableError):
     """Still rate-limited (HTTP 429) after all retries."""
 
 
+class LLMTooLargeError(LLMUnavailableError):
+    """Every model refused the request as too large (Groq's free tier: about 7,000 input
+    tokens a minute; HTTP 413)."""
+
+
 class LLMNotConfiguredError(LLMUnavailableError):
     """No API key on the server."""
 
@@ -64,9 +69,12 @@ class LLMClient(Protocol):
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
         tool_choice: str = "auto",
+        *,
+        max_tokens: int | None = None,
     ) -> Iterator[LLMEvent]:
         """Stream text deltas; if the model wants tools, finish with one ToolCallsReady.
-        tool_choice "required" forces at least one tool call."""
+        tool_choice "required" forces at least one tool call. max_tokens: a longer answer
+        than usual (e.g. a report on a file)."""
         ...
 
     def complete(
@@ -193,7 +201,7 @@ class GroqLLMClient:
         """Call the API, moving down the model chain on retryable errors. Returns the response
         and the try number used (so a stream that fails later can continue the chain)."""
         last_error: Exception | None = None
-        rate_limited = False
+        rate_limited = too_large = False
         models = models or self._models()
         for attempt in range(start_at, len(models)):
             model = models[attempt]
@@ -224,6 +232,17 @@ class GroqLLMClient:
                 log.warning("LLM tool call garbled (try %d, model %s)", attempt + 1, model)
                 last_error = exc
             except openai.APIStatusError as exc:
+                if exc.status_code == 413:
+                    # "Request too large" for this model's per-minute limit: the next model
+                    # in the chain has its own (and often larger) limit.
+                    log.warning(
+                        "LLM request too large (try %d, model %s): %s",
+                        attempt + 1,
+                        model,
+                        _error_text(exc)[:160],
+                    )
+                    last_error, too_large = exc, True
+                    continue
                 log.error(
                     "LLM request rejected: %s %s %s",
                     exc.status_code,
@@ -233,6 +252,8 @@ class GroqLLMClient:
                 raise LLMUnavailableError(str(exc.status_code)) from exc
         if rate_limited:  # at least one model was only busy: "try again in a minute" is true
             raise LLMBusyError("rate limited") from last_error
+        if too_large:
+            raise LLMTooLargeError("request too large") from last_error
         raise LLMUnavailableError("provider unavailable") from last_error
 
     # -- public API ---------------------------------------------------------------------
@@ -241,8 +262,12 @@ class GroqLLMClient:
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
         tool_choice: str = "auto",
+        *,
+        max_tokens: int | None = None,
     ) -> Iterator[LLMEvent]:
         kwargs: dict[str, Any] = {"messages": messages, "stream": True}
+        if max_tokens:
+            kwargs["max_completion_tokens"] = max_tokens
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = tool_choice
@@ -335,6 +360,8 @@ class UnconfiguredLLMClient:
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
         tool_choice: str = "auto",
+        *,
+        max_tokens: int | None = None,
     ) -> Iterator[LLMEvent]:
         raise LLMNotConfiguredError("GROQ_API_KEY is not set")
 

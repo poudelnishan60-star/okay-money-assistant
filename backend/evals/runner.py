@@ -181,10 +181,12 @@ class RecordingLLM:
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
         tool_choice: str = "auto",
+        *,
+        max_tokens: int | None = None,
     ) -> Iterator[LLMEvent]:
         self.requests += 1
         self.seen += [str(m.get("content") or "") for m in messages]
-        for ev in self.inner.stream_chat(messages, tools, tool_choice):
+        for ev in self.inner.stream_chat(messages, tools, tool_choice, max_tokens=max_tokens):
             if isinstance(ev, ToolCallsReady):
                 self.calls += [(c.name, parse_arguments(c.arguments)) for c in ev.calls]
             yield ev

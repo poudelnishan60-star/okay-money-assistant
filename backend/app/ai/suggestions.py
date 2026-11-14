@@ -58,6 +58,21 @@ _CHIPS: dict[str, dict[Lang, str]] = {
         Lang.NE: "यो मेरो खर्चसँग कस्तो छ?",
         Lang.ROM: "Yo mero kharcha sanga kasto chha?",
     },
+    "file_by_type": {
+        Lang.EN: "Break the file down by type",
+        Lang.NE: "फाइललाई प्रकार अनुसार छुट्याऊ",
+        Lang.ROM: "File lai type anusar chhutyau",
+    },
+    "file_biggest": {
+        Lang.EN: "Biggest payments in the file",
+        Lang.NE: "फाइलका सबैभन्दा ठूला भुक्तानी",
+        Lang.ROM: "File ka sabai bhanda thula payment",
+    },
+    "file_by_week": {
+        Lang.EN: "Week by week in the file",
+        Lang.NE: "फाइलमा हप्ता अनुसार",
+        Lang.ROM: "File ma hapta anusar",
+    },
     "top_merchants": {
         Lang.EN: "Where do I spend the most?",
         Lang.NE: "सबैभन्दा धेरै कहाँ खर्च हुन्छ?",
@@ -77,6 +92,7 @@ _BY_TOPIC: dict[str, list[str]] = {
     "help": ["where_money", "bills_week"],
     "app_flow": ["bills_week", "run_low"],
     "attachment": ["compare_spending", "where_money", "my_budgets"],
+    "attachment_table": ["file_by_type", "file_biggest", "file_by_week"],
 }
 _DEFAULT = ["month_vs_last", "where_money", "food_budget"]  # the empty-state chips
 
@@ -88,6 +104,7 @@ def suggestions_for(
     topics: set[str], lang: Lang, asked: str = "", limit: int = 3
 ) -> list[Suggestion]:
     order = [
+        "attachment_table",
         "attachment",
         "budget_proposal",
         "goal_proposal",

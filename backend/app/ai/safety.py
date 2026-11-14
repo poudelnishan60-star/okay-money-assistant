@@ -35,7 +35,7 @@ _SENSITIVE_TERMS = (  # words that announce an MPIN, OTP or password
 )
 # "my mpin is 1234", "OTP: 482913", "पिन ४५६७"
 _SECRET_NUMBER = re.compile(
-    rf"(\b|^){_SENSITIVE_TERMS}\b[^\n]{{0,25}}?({_DIGIT}(?:[\s-]?{_DIGIT}){{3,7}})(?!{_DIGIT})",
+    rf"(\b|^){_SENSITIVE_TERMS}\b[^\n]{{0,25}}?({_DIGIT}(?:[ \t-]?{_DIGIT}){{3,7}})(?!{_DIGIT})",
     re.IGNORECASE,
 )
 # "password is hunter2", "password: S3cret!"
@@ -227,6 +227,19 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         Lang.EN: "O-Kay can't answer right now. Please try again a little later.",
         Lang.NE: "O-Kay अहिले जवाफ दिन सक्दैन। कृपया केही बेरपछि प्रयास गर्नुहोस्।",
         Lang.ROM: "O-Kay ahile jawaf dina sakdaina. Kripaya ali pachi try garnus.",
+    },
+    "too_large": {
+        Lang.EN: (
+            "That was too much for O-Kay to read at once. Try a smaller file, or clear the "
+            "chat and ask again."
+        ),
+        Lang.NE: (
+            "O-Kay ले एकैपटक यति धेरै पढ्न सकेन। सानो फाइल पठाउनुहोस्, वा च्याट खाली गरेर फेरि सोध्नुहोस्।"
+        ),
+        Lang.ROM: (
+            "O-Kay le ekai choti yati dherai padhna sakena. Sano file pathaunus, wa chat "
+            "khali garera pheri sodhnus."
+        ),
     },
     "not_configured": {
         Lang.EN: "O-Kay isn't connected to its AI service yet (no API key on the server).",

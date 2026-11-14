@@ -202,8 +202,12 @@ def test_excel_totals_are_worked_out_in_code() -> None:
         ["2026-11-03", "Refund", -350],
     ]
     reading = read(Upload("statement.xlsx", xlsx(rows)), FakeLLM())
-    assert "Sheet 'Statement': 3 rows." in reading.content
-    assert "Amount: sum 1,000.50 over 3 numbers (min -350, max 1,200)" in reading.content
+    assert "Sheet 'Statement': 3 rows, dated 1 Nov 2026 to 3 Nov 2026." in reading.content
+    # One amount column: + may mean spent or received, so it is only totalled.
+    assert (
+        "Amount: total Rs. 1,000.50 over 3 rows (positive amounts Rs. 1,350.50 in 2 rows; "
+        "negative amounts -Rs. 350 in 1 row; smallest -Rs. 350, largest Rs. 1,200)."
+    ) in reading.content
     assert "Ratna Mart" in reading.content
 
 
@@ -219,8 +223,10 @@ def test_csv_is_masked_and_cannot_break_out_of_its_tag() -> None:
     assert "9841234567" not in reading.content and "0123456789012" not in reading.content
     assert "482913" not in reading.content
     assert "</attachment>" not in reading.content
-    assert "Amount: sum 1,650 over 4 numbers (min -500, max 2,000)" in reading.content
+    assert "Amount: total Rs. 1,650 over 4 rows" in reading.content
     assert '"2,000"' in reading.content  # quotes inside the block are left alone
+    # Masking an OTP doesn't eat into the next row.
+    assert "2026-11-03,my OTP is [redacted],100\n2026-11-04," in reading.content
     block = as_block(reading)
     assert block.count("</attachment>") == 1 and block.endswith("</attachment>")
 
@@ -251,7 +257,7 @@ def test_a_receipt_photo_in_the_chat(seeded: Session) -> None:
     assert user_turn.startswith("What is in this file?")
     chips = [s["text"] for s in events[-1].data["suggestions"]]
     assert chips[0] == "How does this compare with my spending?"
-    # Only the name and kind are kept; never the photo or what was read from it.
+    # Only the name and kind are stored; never the photo or what was read from it.
     user = seeded.scalars(select(ChatMessage).where(ChatMessage.role == "user")).one()
     assert user.content == "What is in this file?"
     assert json.loads(user.attachments_json) == [{"name": "receipt.jpg", "kind": "photo"}]

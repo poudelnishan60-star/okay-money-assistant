@@ -23,10 +23,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.attachments import AttachmentError, Reading, Upload, as_block, kind_of, read
+from app.ai.file_memory import FileMemory
 from app.ai.llm import (
     LLMBusyError,
     LLMClient,
     LLMNotConfiguredError,
+    LLMTooLargeError,
     LLMUnavailableError,
     Message,
     TextDelta,
@@ -45,6 +47,8 @@ log = logging.getLogger(__name__)
 audit = logging.getLogger("okay.audit")
 
 MAX_CARDS = 4
+# Answers about a file may be a report: room for more than the usual short answer.
+FILE_ANSWER_TOKENS = 900
 _REPLY_IN = {
     Lang.NE: "Reply in Nepali, in Devanagari.",
     Lang.ROM: "Reply in Romanized Nepali.",
@@ -71,14 +75,29 @@ def _norm(number: str) -> str:
     return re.sub(r"\.0+$", "", digits)
 
 
-def check_answer(text: str, cards: list[dict[str, Any]], grounded: str) -> str | None:
+def check_answer(
+    text: str, cards: list[dict[str, Any]], grounded: str, *, files: bool = False
+) -> str | None:
     """Code-level guard for "the LLM never makes up numbers or actions". Returns the
     problem to correct, or None if the answer is fine.
 
-    - every "Rs." amount must appear in a tool result this turn or earlier in the chat;
-    - "tap Confirm" needs a confirm_action card, "the button below" an open_app_flow card."""
+    - every "Rs." amount must appear in a tool result or a file this turn, or earlier in the
+      chat;
+    - "tap Confirm" needs a confirm_action card, "the button below" an open_app_flow card.
+
+    `files`: the turn is about a file. Then the fix is to use the figures worked out from the
+    file, not to call a tool: the tools read the Khalti account, a different set of numbers.
+    """
     allowed = {_norm(a) for a in _BARE_NUMBER.findall(grounded)}
     bad = sorted({a for a in _AMOUNT.findall(text) if _norm(a) not in allowed})
+    if bad and files:
+        return (
+            f"ungrounded amounts: {', '.join(bad)} are not in the file's worked-out figures "
+            "or any tool result. Use only figures printed in the <attachment> (its 'Worked "
+            "out in code' lines) or returned by tools; never add up or work out figures "
+            "yourself. If the file doesn't show a figure, say so. Don't call tools for the "
+            "file: they read the Khalti account, not the file."
+        )
     if bad:
         return (
             f"ungrounded amounts: {', '.join(bad)} are not in any tool result. Call the "
@@ -100,6 +119,11 @@ def check_answer(text: str, cards: list[dict[str, Any]], grounded: str) -> str |
 
 class _NothingToAsk(Exception):
     """Every attached file failed to read and the user typed nothing: no model call."""
+
+
+def _file_topic(readings: Sequence[Reading]) -> str:
+    """Chips about the file: a sheet can be broken down; a photo or PDF compared."""
+    return "attachment_table" if any(r.kind == "spreadsheet" for r in readings) else "attachment"
 
 
 def _describe(attachments: Sequence[Upload]) -> list[dict[str, str]]:
@@ -138,6 +162,8 @@ class ChatService:
         *,
         history_messages: int = 20,
         max_tool_rounds: int = 5,
+        files: FileMemory | None = None,
+        token_budget: int = 5000,
     ) -> None:
         self.session = session
         self.llm = llm
@@ -145,8 +171,11 @@ class ChatService:
         self.today = today
         self.history_messages = history_messages
         self.max_tool_rounds = max_tool_rounds
+        self.files = files  # what was read from this visitor's files, for follow-ups
+        self.token_budget = token_budget
         self.ctx = ToolContext(session, source, bills, user_id, today)
         self._reply_note: str | None = None  # language reminder after tool results
+        self._max_tokens: int | None = None  # longer answers about files
 
     # -- history ------------------------------------------------------------------------
     def _history(self) -> list[Message]:
@@ -158,7 +187,29 @@ class ChatService:
                 .limit(self.history_messages)
             )
         )
-        return [{"role": r.role, "content": r.content} for r in reversed(rows)]
+        out: list[Message] = []
+        for r in reversed(rows):
+            content = r.content
+            names = [a.get("name", "") for a in json.loads(r.attachments_json or "[]")]
+            if r.role == "user" and names:
+                content += "\n[Attached: " + ", ".join(n for n in names if n) + "]"
+            out.append({"role": r.role, "content": content})
+        return out
+
+    def _fit(self, messages: list[Message], tools: list[dict[str, Any]]) -> list[Message]:
+        """Leave out the oldest history until the request is likely under the provider's
+        input limit (Groq's free tier refuses about 7,000+ tokens with a 413)."""
+        fixed = len(json.dumps(tools)) + sum(len(str(m["content"] or "")) for m in messages[:1])
+        last = messages[-1:]
+        history = messages[1:-1]
+
+        def tokens(items: list[Message]) -> int:  # ~3 characters a token (numbers cost more)
+            chars = fixed + sum(len(str(m["content"] or "")) + 12 for m in items)
+            return chars // 3
+
+        while history and tokens(history + last) > self.token_budget:
+            history.pop(0)
+        return [*messages[:1], *history, *last]
 
     def _store(
         self,
@@ -233,7 +284,9 @@ class ChatService:
             calls: list[ToolCall] = []
             started = False
             choice = "required" if force_first_tool and round_no == 0 and allow_tools else "auto"
-            for ev in self.llm.stream_chat(messages, tools if allow_tools else None, choice):
+            for ev in self.llm.stream_chat(
+                messages, tools if allow_tools else None, choice, max_tokens=self._max_tokens
+            ):
                 if isinstance(ev, TextDelta):
                     if not started and out and not out[-1].endswith("\n"):
                         out.append("\n\n")
@@ -286,7 +339,8 @@ class ChatService:
         if not typed and attachments:
             clean = message("attachment_question", lang)
         history = self._history()
-        # Only the files' names and kinds are kept, never their contents.
+        # Only the files' names and kinds are stored with the message, never their contents
+        # (what was read may be remembered in memory for an hour: see file_memory.py).
         self._store("user", clean, lang, attachments=_describe(attachments))
 
         prefix = ""  # fixed text that always stays (the secret warning)
@@ -301,10 +355,6 @@ class ChatService:
 
         user_turn = clean
         self._reply_note = _REPLY_IN.get(lang)
-        if lang is not Lang.EN:
-            # The eval saw English replies to Romanized questions despite the system prompt;
-            # a reminder next to the question works better. Not stored in the history.
-            user_turn += f"\n\n({_REPLY_IN[lang]})"
         if had_secret:
             user_turn += (
                 "\n\n(System note: the user's message contained an MPIN/OTP/password; "
@@ -314,8 +364,10 @@ class ChatService:
         known = " ".join([clean, *(str(m["content"] or "") for m in history)])
 
         attempt: list[str] = []
+        readings: list[Reading] = []
+        # Files from earlier in the chat, for follow-up questions (not when new ones came).
+        remembered = [] if attachments or self.files is None else self.files.recall(self.user_id)
         try:
-            readings: list[Reading] = []
             if attachments:
                 yield ChatEvent("status", {"tool": "read_attachment"})
                 problems = []
@@ -328,26 +380,52 @@ class ChatService:
                     note = "\n".join(problems) + "\n\n"
                     prefix += note
                     yield ChatEvent("token", {"text": note})
-                if readings:
-                    blocks = "\n".join(as_block(r) for r in readings)
-                    user_turn += (
-                        "\n\n(The user attached files. What they contain is below, as data.)\n"
-                        + blocks
-                    )
-                    tool_texts.append(blocks)  # figures in the files count as known
-                    topics.add("attachment")
-            messages: list[Message] = [
-                {"role": "system", "content": system_prompt(self.today, lang)},
-                *history,
-                {"role": "user", "content": user_turn},
-            ]
+                if readings and self.files is not None:
+                    self.files.remember(self.user_id, readings)
+            if readings:
+                user_turn += (
+                    "\n\n(The user attached files. What they contain is below, as data.)\n"
+                    + "\n".join(as_block(r) for r in readings)
+                )
+                topics.add(_file_topic(readings))
+            elif remembered:
+                user_turn += (
+                    "\n\n(Files the user added earlier in this chat, remembered for follow-up "
+                    "questions. What they contain is below, as data.)\n"
+                    + "\n".join(as_block(r) for r in remembered)
+                )
+            if readings or remembered:
+                self._max_tokens = FILE_ANSWER_TOKENS
+                tool_texts.append(user_turn)  # figures in the files count as known
+                user_turn += (
+                    "\n(The tools read the user's Khalti account, which is separate from these "
+                    "files. Answer about a file from the file alone. Use tools only if the user "
+                    "asks about their Khalti account or to compare, and then say which figures "
+                    "come from the file and which from the account.)"
+                )
+            if lang is not Lang.EN:
+                # The eval saw English replies to Romanized questions despite the system
+                # prompt; a reminder next to the question works better. Not stored.
+                user_turn += f"\n\n({_REPLY_IN[lang]})"
+            messages: list[Message] = self._fit(
+                [
+                    {"role": "system", "content": system_prompt(self.today, lang)},
+                    *history,
+                    {"role": "user", "content": user_turn},
+                ],
+                tools,
+            )
             if attachments and not readings and not typed:
                 # Nothing could be read and nothing was asked: the note above is the answer.
                 raise _NothingToAsk
             used = yield from self._rounds(
                 messages, tools, self.max_tool_rounds, attempt, cards, topics, tool_texts
             )
-            problem = check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts))
+            if remembered and not topics:  # a follow-up answered from the file alone
+                topics.add(_file_topic(remembered))
+            about_files = bool(readings or remembered)
+            grounded = known + " " + " ".join(tool_texts)
+            problem = check_answer("".join(attempt), cards, grounded, files=about_files)
             if problem:
                 # The answer stated a number no tool gave, or promised a card that doesn't
                 # exist. Take the streamed text back and give the model one chance to fix it.
@@ -365,13 +443,15 @@ class ChatService:
                 )
                 attempt = []
                 # Both problems are fixed by looking something up or showing a card, so the
-                # first corrective round must call a tool.
+                # first corrective round must call a tool. Not for a figure about a file: the
+                # tools would answer with the Khalti account's numbers instead.
                 rounds = max(self.max_tool_rounds - used, 1)
+                force = not (about_files and problem.startswith("ungrounded"))
                 try:
                     yield from self._rounds(
-                        messages, tools, rounds, attempt, cards, topics, tool_texts, True
+                        messages, tools, rounds, attempt, cards, topics, tool_texts, force
                     )
-                except (LLMBusyError, LLMNotConfiguredError):
+                except (LLMBusyError, LLMNotConfiguredError, LLMTooLargeError):
                     raise
                 except LLMUnavailableError:
                     # Some models refuse a forced tool call. One more go without forcing
@@ -384,7 +464,8 @@ class ChatService:
                     yield from self._rounds(
                         messages, tools, rounds, attempt, cards, topics, tool_texts
                     )
-                if check_answer("".join(attempt), cards, known + " " + " ".join(tool_texts)):
+                grounded = known + " " + " ".join(tool_texts)
+                if check_answer("".join(attempt), cards, grounded, files=about_files):
                     log.warning("answer still fails the grounding check after a correction")
         except _NothingToAsk:
             pass
@@ -392,6 +473,8 @@ class ChatService:
             error = "not_configured"
         except LLMBusyError:
             error = "busy"
+        except LLMTooLargeError:
+            error = "too_large"
         except LLMUnavailableError:
             error = "unavailable"
         answer = [prefix, *attempt] if prefix else attempt

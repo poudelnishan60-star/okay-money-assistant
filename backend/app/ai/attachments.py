@@ -4,12 +4,15 @@
   dropped, the longest side is at most 1600 px), then an image model reads them into a small
   JSON record: what kind of document, merchant, date, items and total, copied as printed.
 - PDF: its text (pypdf). A scan with no text layer is refused with a clear message.
-- Excel (.xlsx) and CSV: the first rows as text, plus per-column totals worked out here in
-  code (the LLM never adds numbers up).
+- Excel (.xlsx) and CSV: a report worked out in code from every row (see sheets.py: money
+  in and out, balance, totals by type, biggest payments, per week), then the first rows.
+  The LLM never adds numbers up.
 
-Nothing is stored. Text is masked (phone, account and reference numbers) and anything that
-looks like an MPIN, OTP or password is removed before it goes to the AI provider. All of it
-is untrusted: the chat passes it to the model inside <attachment> tags, as data.
+The file itself is never stored. What was read from it may be remembered in memory for an
+hour for follow-up questions (see file_memory.py). Text is masked (phone, account and
+reference numbers) and anything that looks like an MPIN, OTP or password is removed before
+it goes to the AI provider. All of it is untrusted: the chat passes it to the model
+inside <attachment> tags, as data.
 """
 
 from __future__ import annotations
@@ -20,21 +23,22 @@ import io
 import json
 import re
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
 from app.ai.llm import LLMClient, Message
 from app.ai.safety import mask_pii, redact_secrets
+from app.ai.sheets import sheet_text
 
 Kind = Literal["photo", "pdf", "spreadsheet"]
 
 MAX_PHOTO_SIDE = 1600
 MAX_PDF_PAGES = 10
-MAX_TEXT_CHARS = 8_000  # per file, what the model gets (the free tier is 8,000 tokens/minute)
+# Per file, what the model gets. Groq's free tier takes about 7,000 input tokens a minute for
+# the whole request (instructions, tools, history and the file), so a file gets about a third.
+MAX_TEXT_CHARS = 5_000
 MAX_ROWS_READ = 5_000
-MAX_ROWS_SHOWN = 40
 MAX_SHEETS = 3
 
 
@@ -251,38 +255,6 @@ def _read_pdf(upload: Upload) -> str:
 
 # --- spreadsheets ---------------------------------------------------------------------------
 
-_NUMBER = re.compile(r"^\(?-?(?:Rs\.?|NPR|रु\.?)?\s*-?[\d,०-९]+(?:\.\d+)?\)?$", re.IGNORECASE)
-_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
-
-
-def _number(value: object) -> Decimal | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, int | float):
-        try:
-            return Decimal(str(value))
-        except InvalidOperation:
-            return None
-    text = str(value).strip()
-    if not text or not _NUMBER.match(text):
-        return None
-    negative = text.startswith("(") and text.endswith(")") or "-" in text
-    bare = re.sub(r"(?i)rs\.?|npr|रु\.?", "", text)
-    digits = re.sub(r"[^\d.]", "", bare.translate(_DEVANAGARI_DIGITS))
-    if not digits or digits.count(".") > 1:
-        return None
-    try:
-        n = Decimal(digits)
-    except InvalidOperation:
-        return None
-    return -n if negative else n
-
-
-def _fmt(n: Decimal) -> str:
-    q = n.quantize(Decimal("0.01"))
-    text = f"{abs(q):,.2f}".removesuffix(".00")
-    return ("-" if q < 0 else "") + text
-
 
 def _rows_from_csv(upload: Upload) -> list[tuple[str, list[list[object]]]]:
     for encoding in ("utf-8-sig", "utf-16", "cp1252"):
@@ -330,40 +302,11 @@ def _rows_from_xlsx(upload: Upload) -> list[tuple[str, list[list[object]]]]:
 def _read_table(upload: Upload) -> str:
     is_csv = upload.name.lower().endswith((".csv", ".tsv", ".txt"))
     sheets = _rows_from_csv(upload) if is_csv else _rows_from_xlsx(upload)
-    parts = []
-    for title, raw_rows in sheets:
-        rows = [r for r in raw_rows if any(c not in (None, "") for c in r)]
-        if not rows:
-            continue
-        header = [
-            _cell(c) if c not in (None, "") else f"Column {i + 1}" for i, c in enumerate(rows[0])
-        ]
-        body = rows[1:]
-        part = [f"Sheet {title!r}: " if title else "", f"{len(body)} rows. "]
-        part.append("Columns: " + ", ".join(header) + ".")
-        totals = []
-        for col, name in enumerate(header):
-            values = [r[col] for r in body if col < len(r) and r[col] not in (None, "")]
-            numbers = [n for n in (_number(v) for v in values) if n is not None]
-            if values and len(numbers) >= max(1, len(values) // 2):
-                totals.append(
-                    f"{name}: sum {_fmt(sum(numbers, Decimal(0)))} over {len(numbers)} "
-                    f"numbers (min {_fmt(min(numbers))}, max {_fmt(max(numbers))})"
-                )
-        if totals:
-            part.append("\nWorked out in code: " + "; ".join(totals) + ".")
-        shown = body[:MAX_ROWS_SHOWN]
-        out = io.StringIO()
-        writer = csv.writer(out, lineterminator="\n")
-        writer.writerow(header)
-        for r in shown:
-            writer.writerow(["" if c is None else _cell(c) for c in r])
-        part.append(f"\nFirst {len(shown)} rows:\n" if len(body) > len(shown) else "\nAll rows:\n")
-        part.append(out.getvalue())
-        parts.append("".join(part))
+    budget = MAX_TEXT_CHARS // max(1, len(sheets))
+    parts = [text for title, rows in sheets if (text := sheet_text(title, rows, budget))]
     if not parts:
         raise AttachmentError(f"{_short(upload.name)} is empty.")
-    return _safe_text("\n".join(parts))
+    return _safe_text("\n\n".join(parts))
 
 
 # --- helpers ------------------------------------------------------------------------------
@@ -387,11 +330,6 @@ def _clean(value: object) -> str | None:
         return None
     text, _ = redact_secrets(text)
     return _neutral(mask_pii(text))[:120]
-
-
-def _cell(value: object) -> str:
-    text, _ = redact_secrets(str(value).strip())
-    return mask_pii(text)
 
 
 # An account number right before ", " (as in "A/C 0123456789012, Kathmandu"): the shared

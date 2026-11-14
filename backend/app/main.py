@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 
+from app.ai.file_memory import FileMemory
 from app.ai.llm import LLMClient, build_llm_client
 from app.api import (
     routes_bills,
@@ -91,6 +92,7 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.llm = llm or build_llm_client(settings)
     app.state.rate_limiter = RateLimiter()
+    app.state.file_memory = FileMemory(settings.file_memory_minutes)
     app.state.push = push or NoPush()  # Khalti's push service when merged into the app
 
     # Files come base64 in the JSON (+37%): refuse oversized bodies before reading them.

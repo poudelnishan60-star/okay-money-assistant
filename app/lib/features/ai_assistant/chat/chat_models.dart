@@ -428,7 +428,8 @@ class ChatMessage {
   /// While a tool runs: which one (e.g. 'get_spending_summary').
   final String? toolStatus;
 
-  /// 'busy' | 'unavailable' | 'not_configured' | 'rate_limited' | 'network'
+  /// 'busy' | 'unavailable' | 'too_large' | 'not_configured' | 'rate_limited' | 'network'
+  /// ('too_large' isn't retried: the same request would be refused again).
   final String? error;
 
   /// Files added to a user message.

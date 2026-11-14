@@ -1007,7 +1007,8 @@ class _AddFilesSheet extends StatelessWidget {
                   SizedBox(width: OkaySpacing.sm),
                   Expanded(
                     child: Text(
-                      "Files are sent to O-Kay's AI service to be read and aren't kept. "
+                      "Files are sent to O-Kay's AI service to be read and aren't saved. "
+                      'What O-Kay read is remembered for an hour, for follow-up questions. '
                       "Don't add ID cards, card numbers or passwords.",
                       style: OkayText.caption,
                     ),

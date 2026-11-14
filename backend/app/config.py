@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 30.0
     chat_history_messages: int = 20
     chat_max_tool_rounds: int = 5
+    # Groq's free tier refuses a request over about 7,000 input tokens a minute ("413 too
+    # large"). Older history is left out so a request stays under this estimate.
+    llm_input_token_budget: int = 5000
 
     # Files and photos in the chat. Photos are read by an image model (the main model on
     # Groq reads images; gpt-oss does not, so the image chain is separate).
@@ -43,6 +46,9 @@ class Settings(BaseSettings):
     max_attachments: int = 3  # per message
     max_attachment_mb: int = 10  # per file, after decoding
     rate_attachments_per_day: int = 20  # files per visitor: each photo costs a model call
+    # What was read from a file is remembered (in memory only, never on disk) for follow-up
+    # questions for this long. 0 = forget it after the answer.
+    file_memory_minutes: int = 60
 
     # Public website: every visitor gets their own demo copy via POST /sessions.
     public_mode: bool = False  # true = requests without a session are refused

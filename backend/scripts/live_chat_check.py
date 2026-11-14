@@ -59,10 +59,12 @@ class RecordingLLM:
         messages: list[Message],
         tools: list[dict[str, Any]] | None,
         tool_choice: str = "auto",
+        *,
+        max_tokens: int | None = None,
     ) -> Iterator[LLMEvent]:
         self.calls += 1
         self.tool_text = [m["content"] for m in messages if m.get("role") == "tool"]
-        yield from self.inner.stream_chat(messages, tools, tool_choice)
+        yield from self.inner.stream_chat(messages, tools, tool_choice, max_tokens=max_tokens)
 
     def complete(self, messages: list[Message], *, json_object: bool = False) -> str:
         self.calls += 1

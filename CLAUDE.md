@@ -72,6 +72,13 @@ Build an AI financial assistant for Khalti, a Nepali digital wallet (currency: N
   warns that files go to the AI service and must not contain ID cards, card numbers or
   passwords. Text from files is masked like everything else and passed as data inside
   `<attachment>` tags. Files are not stored: only their names are kept with the message.
+  Changed 14 Nov 2026, after a real chat about a statement went wrong: what was read from a
+  file (masked text, never the file) is remembered in the server's memory only, never on
+  disk, for 1 hour or until the chat is cleared, so follow-up questions work. A sheet is
+  turned into a report worked out in code (money in/out, balance after the oldest and newest
+  entry, by type, biggest payments, per week); a running balance is never added up. Answers
+  about a file use the file only: the tools read the Khalti account, a different set of
+  numbers, and are used only when the user asks about the account or to compare.
 
 ## Design (match the Khalti app; hex values are approximate, replace with official tokens)
 - Dark theme for v1.
