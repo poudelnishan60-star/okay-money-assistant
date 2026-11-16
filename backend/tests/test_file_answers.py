@@ -137,6 +137,7 @@ def test_a_statement_is_reported_from_every_row() -> None:
         "Transaction ID, Description, Type, Amount(-) Rs, Amount(+) Rs, Balance, Status."
     )
     for line in [
+        "Worked out in code from all 6 rows (complete; use these for totals):",
         "- Amount(-) Rs (money out): Rs. 4,794.31 over 4 rows, largest Rs. 1,450.",
         "- Amount(+) Rs (money in): Rs. 5,025 over 2 rows, largest Rs. 5,000.",
         "- Money in minus money out: Rs. 230.69.",
@@ -176,8 +177,10 @@ def test_a_long_sheet_shows_the_report_and_only_the_rows_that_fit() -> None:
     text = read(Upload("long.csv", data), FakeLLM()).content
     # 400 x 100, plus each of 0..49 eight times.
     assert "Debit (money out): Rs. 49,800 over 400 rows" in text
-    assert "First " in text and " of 400 rows:" in text
-    assert len(text) <= 5_100
+    # The listed rows are said to be a sample, so the model doesn't think it is missing data.
+    assert "Worked out in code from all 400 rows (complete; use these for totals):" in text
+    assert " of 400 rows, only a sample (the worked-out lines above cover all 400 rows):" in text
+    assert len(text) <= 5_000
 
 
 # --- remembering a file for follow-ups --------------------------------------------------------

@@ -443,11 +443,15 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
             )
 
     if worked:
-        lines.append("Worked out in code from all rows:")
+        # Seen live: with only some rows listed below, a model said it "can only see 44 of
+        # 99 rows" and gave no totals. So say plainly that these lines cover every row.
+        lines.append(
+            f"Worked out in code from all {_rows(len(body))} (complete; use these for totals):"
+        )
         lines += [f"- {w}" for w in worked]
 
-    # As many of the first rows as fit in what is left.
-    room = budget - sum(len(x) + 1 for x in lines) - 40
+    # As many of the first rows as fit in what is left (and room for the label).
+    room = budget - sum(len(x) + 1 for x in lines) - 100
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(header)
@@ -462,8 +466,15 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
         out.write(line.getvalue())
         shown += 1
     if shown:
-        lines.append(
-            f"All {shown} rows:" if shown == len(body) else f"First {shown} of {len(body)} rows:"
-        )
+        if shown == len(body):
+            label = f"All {_rows(shown)}:"
+        elif worked:
+            label = (
+                f"First {shown} of {len(body)} rows, only a sample (the worked-out lines "
+                f"above cover all {len(body)} rows):"
+            )
+        else:
+            label = f"First {shown} of {len(body)} rows (the rest didn't fit):"
+        lines.append(label)
         lines.append(out.getvalue().rstrip("\n"))
     return "\n".join(lines)
