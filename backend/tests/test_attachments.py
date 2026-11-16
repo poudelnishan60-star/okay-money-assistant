@@ -256,7 +256,11 @@ def test_a_receipt_photo_in_the_chat(seeded: Session) -> None:
     assert '<attachment name="receipt.jpg" kind="photo">' in user_turn
     assert user_turn.startswith("What is in this file?")
     chips = [s["text"] for s in events[-1].data["suggestions"]]
-    assert chips[0] == "How does this compare with my spending?"
+    assert chips[:3] == [
+        "What did I pay for?",
+        "Sum up the file in 3 lines",
+        "How does this compare with my spending?",
+    ]
     # Only the name and kind are stored; never the photo or what was read from it.
     user = seeded.scalars(select(ChatMessage).where(ChatMessage.role == "user")).one()
     assert user.content == "What is in this file?"

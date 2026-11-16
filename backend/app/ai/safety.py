@@ -175,6 +175,13 @@ _ROMAN_STRONG = {
     "pugyo",
     "kinna",
     "kinne",
+    # Found missing by the file chips ("File lai type anusar chhutyau", "... aayeko ra gayeko").
+    "anusar",
+    "chhutyau",
+    "chhutyaunu",
+    "aayeko",
+    "gayeko",
+    "sakchhu",
 }
 _ROMAN_WEAK = {
     "ma", "ko", "ho", "ni", "ta", "haru", "yo", "tyo", "ra", "pani", "paisa", "ke", "ani",

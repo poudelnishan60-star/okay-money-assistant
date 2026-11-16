@@ -143,7 +143,10 @@ def test_a_statement_is_reported_from_every_row() -> None:
         "- Money in minus money out: Rs. 230.69.",
         # A running balance is never added up: its value after the oldest and newest entry.
         "- Balance: Rs. 14,017.80 after the oldest entry (29 Oct 2026), Rs. 15,230.69 after "
-        "the newest entry (13 Nov 2026). It is a running balance, so it is not added up.",
+        "the newest entry (13 Nov 2026), up Rs. 1,212.89 between them. It is a running "
+        "balance, so it is not added up.",
+        "- Balance check (done in code, row by row): Balance follows money in and out on "
+        "every row (5 rows checked).",
         "- By Type: Scan and Pay: 2 rows, out Rs. 2,075; Transfer: 1 row, out Rs. 1,450; "
         "Service payment: 1 row, out Rs. 1,269.31; Khalti hub load: 1 row, in Rs. 5,000; "
         "Cashback: 1 row, in Rs. 25.",
@@ -159,6 +162,33 @@ def test_a_statement_is_reported_from_every_row() -> None:
     # The title block (owner's name and phone) is left out; numbers in cells are masked.
     assert "Sita" not in text and "9801234567" not in text and "9841234567" not in text
     assert "8812345678" not in text
+
+
+def test_the_balance_is_checked_row_by_row_in_code() -> None:
+    # Seen live: asked "anything unusual?", a model checked the rows itself and called a
+    # correct statement wrong. Now code checks, and says which rows don't follow.
+    head = b"Date,Description,Debit,Credit,Balance\n"
+    wrong = head + (
+        b"2026-11-01,Load,,1000,1000\n2026-11-02,Tea,100,,900\n"
+        b"2026-11-03,Bus,50,,800\n2026-11-04,Shop,200,,600\n"
+    )
+    text = read(Upload("w.csv", wrong), None).content
+    assert (
+        "- Balance check (done in code, row by row): Balance does not follow money in and "
+        "out on 1 of 3 rows checked, for example: 3 Nov 2026, Bus." in text
+    )
+    # Newest first, as statements often are: still checked oldest to newest.
+    newest_first = head + b"2026-11-02,Tea,100,,900\n2026-11-01,Load,,1000,1000\n"
+    assert (
+        "follows money in and out on every row (1 row checked)"
+        in read(Upload("n.csv", newest_first), None).content
+    )
+    # Rows out of date order: most don't follow, so nothing is said rather than a false alarm.
+    shuffled = head + (
+        b"2026-11-03,Bus,50,,850\n2026-11-01,Load,,1000,1000\n"
+        b"2026-11-04,Shop,200,,650\n2026-11-02,Tea,100,,900\n"
+    )
+    assert "Balance check" not in read(Upload("x.csv", shuffled), None).content
 
 
 def test_amounts_use_nepali_grouping() -> None:
@@ -234,6 +264,8 @@ def test_follow_up_questions_still_see_the_file(seeded: Session) -> None:
     assert chips == [
         "Break the file down by type",
         "Biggest payments in the file",
+        "Anything unusual in the file?",
+        "Where can I cut back?",
         "Week by week in the file",
     ]
 
@@ -329,7 +361,7 @@ def test_the_turn_says_tools_read_the_account_not_the_file(seeded: Session) -> N
     assert "The tools read the user's Khalti account" in turn
     assert turn.endswith("(Reply in Romanized Nepali.)")  # the language reminder stays last
     system = llm.calls[0][0][0]["content"]
-    assert "never add rows up yourself" in system
+    assert "never add rows up or check their arithmetic yourself" in system
 
 
 # --- staying under the provider's size limit -------------------------------------------------

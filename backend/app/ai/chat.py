@@ -40,6 +40,7 @@ from app.ai.llm import (
 )
 from app.ai.prompt import system_prompt
 from app.ai.safety import Lang, detect_language, mask_pii, message, redact_secrets
+from app.ai.sheets import report_parts
 from app.ai.suggestions import suggestions_for
 from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, run_tool
 from app.models import ChatMessage, ToolCallLog
@@ -588,7 +589,21 @@ class ChatService:
             if c not in unique:
                 unique.append(c)
         cards = unique[-MAX_CARDS:]
-        chips = [s.model_dump() for s in suggestions_for(topics, lang, asked=text)]
+        # New questions as the chat goes on; a sheet only gets those its report answers.
+        asked_before = [
+            str(m["content"] or "").split("\n[Attached:")[0] for m in history if m["role"] == "user"
+        ]
+        sheets = [r.content for r in (readings or remembered) if r.kind == "spreadsheet"]
+        chips = [
+            s.model_dump()
+            for s in suggestions_for(
+                topics,
+                lang,
+                asked=text,
+                asked_before=asked_before,
+                file_parts=report_parts("\n".join(sheets)) if sheets else None,
+            )
+        ]
         row = self._store("assistant", mask_pii("".join(answer).strip()), lang, cards, chips)
         yield ChatEvent(
             "done",

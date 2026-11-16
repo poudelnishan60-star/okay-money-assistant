@@ -25,7 +25,7 @@ import datetime as dt
 import io
 import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
@@ -209,6 +209,45 @@ class _Totals:
         return (-self.out, -self.into) if split else (-abs(self.total), Decimal(0))
 
 
+def _balance_check(
+    name: str,
+    balance: dict[int, Decimal],
+    chrono: list[int],
+    money: Callable[[int], tuple[Decimal, Decimal, Decimal]],
+    where: Callable[[int], str],
+) -> str | None:
+    """Does the running balance follow money in and out, row by row? Worked out here so the
+    model never checks rows itself (seen live: it called a correct statement wrong).
+
+    Only neighbouring rows are compared, oldest first. A signed amount column may mean spent
+    or received, so both readings are tried. Said only when it is clear: if most rows don't
+    follow, the rows are likely not in date order, and nothing is said.
+    """
+    steps = [(a, b) for a, b in zip(chrono, chrono[1:], strict=False) if abs(a - b) == 1]
+    if not steps:
+        return None
+
+    def off(sign: int) -> list[int]:
+        bad = []
+        for prev, k in steps:
+            out, into, signed = money(k)
+            if abs(balance[prev] + into - out + sign * signed - balance[k]) > Decimal("0.01"):
+                bad.append(k)
+        return bad
+
+    wrong = min(off(1), off(-1), key=len)
+    if len(wrong) * 2 > len(steps):
+        return None
+    head = f"Balance check (done in code, row by row): {name}"
+    if not wrong:
+        return f"{head} follows money in and out on every row ({_rows(len(steps))} checked)."
+    shown = "; ".join(where(k) for k in wrong[:3])
+    return (
+        f"{head} does not follow money in and out on {len(wrong)} of {len(steps)} rows "
+        f"checked, for example: {shown}."
+    )
+
+
 def _header_index(rows: Sequence[Sequence[object]]) -> int:
     """The first row that looks like column names: wide enough, and only text."""
     width = max((sum(c not in (None, "") for c in r) for r in rows[:50]), default=0)
@@ -360,6 +399,15 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
         all_in = sum((money(k)[1] for k in range(len(body))), Decimal(0))
         worked.append(f"Money in minus money out: {rupees(all_in - all_out)}.")
 
+    def where(k: int) -> str:
+        """A row, so the user can find it: its date and description."""
+        d = dates[date_col].get(k) if date_col is not None else None
+        bits = [_day(d)] if d else []
+        row = body[k]
+        if desc_col is not None and desc_col < len(row) and row[desc_col] not in (None, ""):
+            bits.append(cell(row[desc_col]))
+        return ", ".join(bits) or f"row {k + 1}"
+
     for i in balances:
         known = numbers[i]
         if not known:
@@ -376,11 +424,16 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
             d = dates[date_col].get(k) if date_col is not None else None
             return f" ({_day(d)})" if d else ""
 
+        change = known[newest] - known[oldest]
         worked.append(
             f"{header[i]}: {rupees(known[oldest])} after the oldest entry{when(oldest)}, "
-            f"{rupees(known[newest])} after the newest entry{when(newest)}. It is a running "
-            "balance, so it is not added up."
+            f"{rupees(known[newest])} after the newest entry{when(newest)}, "
+            f"{'down' if change < 0 else 'up'} {rupees(abs(change))} between them. It is a "
+            "running balance, so it is not added up."
         )
+        chrono = list(reversed(order)) if newest_first else order
+        if flows and (check := _balance_check(header[i], known, chrono, money, where)):
+            worked.append(check)
 
     for i in others:
         values = list(numbers[i].values())
@@ -478,3 +531,30 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
         lines.append(label)
         lines.append(out.getvalue().rstrip("\n"))
     return "\n".join(lines)
+
+
+def report_parts(text: str) -> set[str]:
+    """Which parts the worked-out lines of sheet reports (sheet_text) have, so follow-up chips
+    offer only questions the file can answer: "in_out", "balance", "periods", "types" and
+    "biggest". Only the "Worked out in code" lines are looked at, never the rows."""
+    parts: set[str] = set()
+    in_block = False
+    for line in text.split("\n"):
+        if line.startswith("Worked out in code"):
+            in_block = True
+            continue
+        if not (in_block and line.startswith("- ")):
+            in_block = False
+            continue
+        body = line[2:]
+        if body.startswith("Money in minus money out:"):
+            parts.add("in_out")
+        elif "after the oldest entry" in body:
+            parts.add("balance")
+        elif body.startswith(("By week (", "By month: ")):
+            parts.add("periods")
+        elif body.startswith("By "):
+            parts.add("types")
+        elif body.startswith(("Biggest money out by ", "Largest amounts by ")):
+            parts.add("biggest")
+    return parts

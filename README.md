@@ -164,6 +164,14 @@ on disk, for an hour (`FILE_MEMORY_MINUTES`) or until the chat is cleared
 money go?" still sees the sheet. Once forgotten, the model sees only the name ("[Attached:
 ...]") and asks for the file again.
 
+Questions to ask next (`app/ai/suggestions.py`): after an answer about a file, five chips
+instead of three. A sheet gets nine possible questions (by type, biggest payments, anything
+unusual, where to cut back, week by week, compare with the Khalti account, money in vs out,
+how the balance changed, a 3-line summary), but only those its report can answer: a sheet
+with no type column, dates or balance doesn't get "by type", "week by week" or "balance". A
+receipt or bill gets "What did I pay for?", a summary and comparisons with the account.
+Questions already asked in the chat aren't offered again, so new ones come up as it goes on.
+
 Request size: Groq's free tier refuses a request over about 7,000 input tokens a minute (HTTP
 413). Each file's text is capped at 5,000 characters, older history is left out to keep a
 request under `LLM_INPUT_TOKEN_BUDGET` (an estimate of 5,000 tokens), a 413 moves to the next
