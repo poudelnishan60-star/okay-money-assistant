@@ -28,6 +28,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _input = TextEditingController();
   final _focus = FocusNode();
 
+  /// The newest answer, so it can be scrolled to its start.
+  final _latestAnswer = GlobalKey();
+  final _scroll = ScrollController();
+
+  /// The list sits at its bottom, so a tall card (a file's charts) would push the answer's
+  /// words off the top. When an answer with cards finishes, show its start instead. A short
+  /// answer doesn't move (the list can't scroll past its bottom).
+  void _showStartOfFinishedAnswer(ChatState? before, ChatState now) {
+    if (now.messages.length > (before?.messages.length ?? 0)) {
+      // A new question: back to the bottom, where it and its answer appear.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients || _scroll.offset <= 0) return;
+        if (MediaQuery.disableAnimationsOf(context)) {
+          _scroll.jumpTo(0);
+        } else {
+          _scroll.animateTo(
+            0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+      return;
+    }
+    final was = before?.messages.lastOrNull;
+    final is_ = now.messages.lastOrNull;
+    if (was == null || is_ == null || is_.isUser || !was.streaming || is_.streaming) return;
+    if (is_.cards.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _latestAnswer.currentContext;
+      if (target == null || !target.mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        alignment: 1, // the list is reversed: 1 puts the answer's top at the top
+        duration: MediaQuery.disableAnimationsOf(target)
+            ? Duration.zero
+            : const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +81,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     _input.dispose();
     _focus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -112,6 +155,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(chatControllerProvider);
     final messages = state.messages;
+    ref.listen(chatControllerProvider, _showStartOfFinishedAnswer);
     return TabTitle(
       title: 'Chat',
       child: Scaffold(
@@ -136,6 +180,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: messages.isEmpty
                     ? _EmptyState(onPick: _send, loading: !state.historyLoaded)
                     : ListView.builder(
+                        controller: _scroll,
                         reverse: true,
                         padding: const EdgeInsets.fromLTRB(
                           OkaySpacing.gutter,
@@ -147,6 +192,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         itemBuilder: (context, i) {
                           final index = messages.length - 1 - i;
                           return _MessageView(
+                            key: i == 0 ? _latestAnswer : null,
                             message: messages[index],
                             index: index,
                             onRetry: () => ref.read(chatControllerProvider.notifier).retry(index),
@@ -479,7 +525,12 @@ const _toolWords = {
 };
 
 class _MessageView extends ConsumerWidget {
-  const _MessageView({required this.message, required this.index, required this.onRetry});
+  const _MessageView({
+    super.key,
+    required this.message,
+    required this.index,
+    required this.onRetry,
+  });
 
   final ChatMessage message;
   final int index;

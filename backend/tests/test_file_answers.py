@@ -330,7 +330,8 @@ def test_a_made_up_figure_about_a_file_is_corrected_from_the_file(seeded: Sessio
     assert "Don't call tools for the file" in correction["content"]
     # Not forced to call a tool: the tools would answer with the account's numbers.
     assert llm.tool_choices == ["auto", "auto"]
-    assert events[-1].data["cards"] == []
+    # No account cards: only the file's own chart, worked out in code.
+    assert [c["type"] for c in events[-1].data["cards"]] == ["file_report"]
 
 
 def test_sums_the_model_adds_up_itself_are_taken_out_of_a_report(seeded: Session) -> None:

@@ -12,8 +12,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/chat/cards/card_views.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 
 import '../ai_assistant/test_harness.dart';
@@ -192,5 +194,33 @@ void main() {
     await hideAmounts(t);
     await _open(t, OkayRoutes.insights);
     await _matches('insights_hidden');
+  });
+
+  testWidgets('file chart card (a statement added in the chat)', (t) async {
+    t.view.physicalSize = const Size(390, 1950) * 1.5;
+    t.view.devicePixelRatio = 1.5;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: buildOkayTheme(),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ChatCardView(
+                card: ChatCard.fromJson(fixtureCard('file_report')),
+                messageIndex: 0,
+                cardIndex: 0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.text('Service payment')); // a lifted slice
+    await t.pumpAndSettle();
+    await _matches('chat_file_charts');
   });
 }

@@ -39,6 +39,7 @@ sealed class ChatCard {
       'transactions_preview' => TransactionsPreviewCard.fromJson(j),
       'confirm_action' => ConfirmActionCard.fromJson(j),
       'open_app_flow' => OpenAppFlowCard.fromJson(j),
+      'file_report' => FileReportCard.fromJson(j),
       _ => UnknownCard(j['type']?.toString() ?? '?'),
     };
   }
@@ -361,6 +362,163 @@ class OpenAppFlowCard extends ChatCard {
   final String? recipientName;
   final String? goalName;
   final int? monthlyAmountPaisa;
+}
+
+/// One part of a file's total: a type (Scan and Pay, Transfer, ...) or a payee.
+@immutable
+class FileSlice {
+  const FileSlice({
+    required this.label,
+    required this.paisa,
+    required this.sharePercent,
+    required this.rows,
+    this.isOther = false,
+  });
+
+  factory FileSlice.fromJson(Map<String, Object?> j) => FileSlice(
+    label: j.str('label'),
+    paisa: j.integer('paisa'),
+    sharePercent: j.dbl('share_percent'),
+    rows: j.integer('rows'),
+    isOther: j['is_other'] == true,
+  );
+
+  final String label;
+  final int paisa;
+  final double sharePercent;
+  final int rows;
+  final bool isOther;
+}
+
+@immutable
+class FilePeriod {
+  const FilePeriod({
+    required this.start,
+    required this.label,
+    required this.paisa,
+    this.inPaisa = 0,
+  });
+
+  factory FilePeriod.fromJson(Map<String, Object?> j) => FilePeriod(
+    start: parseApiDate(j.str('start')),
+    label: j.str('label'),
+    paisa: j.integer('paisa'),
+    inPaisa: j.intOrNull('in_paisa') ?? 0,
+  );
+
+  final DateTime start;
+  final String label;
+
+  /// The card's measure (money out, money in or amounts).
+  final int paisa;
+
+  /// Money in, when the measure is money out.
+  final int inPaisa;
+}
+
+@immutable
+class BalancePoint {
+  const BalancePoint(this.date, this.paisa);
+
+  factory BalancePoint.fromJson(Map<String, Object?> j) {
+    final d = j.strOrNull('date');
+    return BalancePoint(d == null ? null : parseApiDate(d), j.integer('paisa'));
+  }
+
+  final DateTime? date;
+  final int paisa;
+}
+
+/// Charts for a spreadsheet the user added, worked out in code by the backend from every
+/// row. Arrives with the answer only; it isn't stored with the chat history.
+class FileReportCard extends ChatCard {
+  const FileReportCard({
+    required this.fileName,
+    required this.rows,
+    this.start,
+    this.end,
+    this.measure,
+    this.moneyInPaisa,
+    this.moneyOutPaisa,
+    this.totalPaisa,
+    this.typeColumn,
+    this.byType = const [],
+    this.inByType = const [],
+    this.period,
+    this.periods = const [],
+    this.biggestColumn,
+    this.biggest = const [],
+    this.balanceColumn,
+    this.balance = const [],
+    this.balanceCheck,
+    this.balanceRowsChecked = 0,
+    this.balanceRowsOff = 0,
+    this.sections = const [],
+  });
+
+  factory FileReportCard.fromJson(Map<String, Object?> j) {
+    List<T> list<T>(String key, T Function(Map<String, Object?>) f) => [
+      for (final x in (j[key] as List<Object?>? ?? const [])) f(x! as Map<String, Object?>),
+    ];
+    DateTime? date(String key) {
+      final v = j.strOrNull(key);
+      return v == null ? null : parseApiDate(v);
+    }
+
+    return FileReportCard(
+      fileName: j.str('file_name'),
+      rows: j.integer('rows'),
+      start: date('start'),
+      end: date('end'),
+      measure: j.strOrNull('measure'),
+      moneyInPaisa: j.intOrNull('money_in_paisa'),
+      moneyOutPaisa: j.intOrNull('money_out_paisa'),
+      totalPaisa: j.intOrNull('total_paisa'),
+      typeColumn: j.strOrNull('type_column'),
+      byType: list('by_type', FileSlice.fromJson),
+      inByType: list('in_by_type', FileSlice.fromJson),
+      period: j.strOrNull('period'),
+      periods: list('periods', FilePeriod.fromJson),
+      biggestColumn: j.strOrNull('biggest_column'),
+      biggest: list('biggest', FileSlice.fromJson),
+      balanceColumn: j.strOrNull('balance_column'),
+      balance: list('balance', BalancePoint.fromJson),
+      balanceCheck: j.strOrNull('balance_check'),
+      balanceRowsChecked: j.intOrNull('balance_rows_checked') ?? 0,
+      balanceRowsOff: j.intOrNull('balance_rows_off') ?? 0,
+      sections: [for (final s in (j['sections'] as List<Object?>? ?? const [])) s.toString()],
+    );
+  }
+
+  final String fileName;
+  final int rows;
+  final DateTime? start;
+  final DateTime? end;
+
+  /// 'out' | 'in' | 'amount' | null (amounts of both signs: only totalled).
+  final String? measure;
+  final int? moneyInPaisa;
+  final int? moneyOutPaisa;
+  final int? totalPaisa;
+  final String? typeColumn;
+  final List<FileSlice> byType;
+  final List<FileSlice> inByType;
+
+  /// 'week' | 'month'
+  final String? period;
+  final List<FilePeriod> periods;
+  final String? biggestColumn;
+  final List<FileSlice> biggest;
+  final String? balanceColumn;
+  final List<BalancePoint> balance;
+
+  /// 'ok' | 'off' | null (not checked)
+  final String? balanceCheck;
+  final int balanceRowsChecked;
+  final int balanceRowsOff;
+
+  /// Which charts to show, in order: 'types', 'periods', 'biggest', 'balance'.
+  final List<String> sections;
 }
 
 /// A card type this app version doesn't know yet: skipped, never a crash.

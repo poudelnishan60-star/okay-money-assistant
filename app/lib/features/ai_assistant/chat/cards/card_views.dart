@@ -12,6 +12,7 @@ import '../../theme/okay_theme.dart';
 import '../../widgets/widgets.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
+import 'file_report_view.dart';
 
 /// Renders one card from an answer. [messageIndex]/[cardIndex] identify confirm cards.
 class ChatCardView extends StatelessWidget {
@@ -37,6 +38,7 @@ class ChatCardView extends StatelessWidget {
       final TransactionsPreviewCard c => _TransactionsPreview(c),
       final ConfirmActionCard c => _ConfirmAction(c, messageIndex, cardIndex),
       final OpenAppFlowCard c => _OpenAppFlow(c),
+      final FileReportCard c => FileReportView(c),
       UnknownCard() => const SizedBox.shrink(),
     };
   }
@@ -177,13 +179,29 @@ class _SpendingSummary extends StatelessWidget {
           ],
         ),
         if (pct != null) ...[
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              const Text('Then: ', style: OkayText.caption),
-              AmountText(card.previousPaisa, style: OkayText.caption),
-            ],
-          ),
+          const SizedBox(height: OkaySpacing.md),
+          // Now against then: two bars on one scale (the figures are the card's own).
+          for (final (label, paisa, color) in [
+            ('Now', card.totalPaisa, OkayColors.accentPink),
+            ('Then', card.previousPaisa, OkayChartColors.other),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: OkaySpacing.sm),
+              child: Row(
+                children: [
+                  SizedBox(width: 44, child: Text(label, style: OkayText.caption)),
+                  Expanded(
+                    child: _Bar(
+                      fraction: paisa / math.max(1, math.max(card.totalPaisa, card.previousPaisa)),
+                      color: color,
+                      height: 10,
+                    ),
+                  ),
+                  const SizedBox(width: OkaySpacing.sm),
+                  AmountText(paisa, style: OkayText.caption.copyWith(color: OkayColors.text)),
+                ],
+              ),
+            ),
         ],
         TransactionsLinkButton(card.link),
       ],
@@ -191,14 +209,23 @@ class _SpendingSummary extends StatelessWidget {
   }
 }
 
-/// Ranked horizontal bars, one hue (part-to-whole read row by row; easier to compare than a
-/// donut in a narrow chat card). Shows the top 5 and folds the rest into "Other".
-class _CategoryBreakdown extends StatelessWidget {
+/// A 3D pie for the overall shape, then ranked bars in the same colours that give each
+/// category's exact share and amount (the tilt bends slice sizes; the bars don't). Shows the
+/// top 5 and folds the rest into "Other". Tap a slice or a row to pick it out.
+class _CategoryBreakdown extends StatefulWidget {
   const _CategoryBreakdown(this.card);
   final CategoryBreakdownCard card;
 
   @override
+  State<_CategoryBreakdown> createState() => _CategoryBreakdownState();
+}
+
+class _CategoryBreakdownState extends State<_CategoryBreakdown> {
+  int? _selected;
+
+  @override
   Widget build(BuildContext context) {
+    final card = widget.card;
     final items = [...card.items];
     if (items.length > 6) {
       final rest = items.sublist(5);
@@ -213,26 +240,71 @@ class _CategoryBreakdown extends StatelessWidget {
         );
     }
     final maxSpent = items.fold(1, (a, b) => math.max(a, b.spentPaisa));
+    final colors = [
+      for (final (n, i) in items.indexed)
+        i.category == 'Other' && n == items.length - 1 || n >= OkayChartColors.categorical.length
+            ? OkayChartColors.other
+            : OkayChartColors.categorical[n],
+    ];
+    final selected = _selected != null && _selected! < items.length ? _selected : null;
     return _Frame(
-      icon: Icons.bar_chart_rounded,
+      icon: Icons.pie_chart_outline_rounded,
       title: 'Where it went · ${card.periodLabel}',
       children: [
-        for (final i in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: OkaySpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        if (items.length >= 2) ...[
+          Pie3D(
+            height: 160,
+            slices: [
+              for (final (n, i) in items.indexed) Pie3DSlice(i.spentPaisa.toDouble(), colors[n]),
+            ],
+            selected: selected,
+            onSelect: (n) => setState(() => _selected = n),
+            semanticLabel:
+                'Pie chart of spending by category: '
+                '${items.map((i) => '${i.category} ${i.sharePercent.toStringAsFixed(0)}%').join(', ')}',
+          ),
+          const SizedBox(height: OkaySpacing.md),
+        ],
+        for (final (n, i) in items.indexed)
+          Semantics(
+            selected: n == selected,
+            button: true,
+            child: InkWell(
+              onTap: () => setState(() => _selected = n == selected ? null : n),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                padding: const EdgeInsets.symmetric(horizontal: OkaySpacing.sm, vertical: 6),
+                decoration: BoxDecoration(
+                  color: n == selected ? OkayColors.surfaceElevated : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(i.category, style: OkayText.body.copyWith(fontSize: 14))),
-                    Text('${i.sharePercent.toStringAsFixed(0)}%  ', style: OkayText.caption),
-                    AmountText(i.spentPaisa, style: OkayText.amount.copyWith(fontSize: 14)),
+                    Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: colors[n],
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: OkaySpacing.sm),
+                        Expanded(
+                          child: Text(i.category, style: OkayText.body.copyWith(fontSize: 14)),
+                        ),
+                        Text('${i.sharePercent.toStringAsFixed(0)}%  ', style: OkayText.caption),
+                        AmountText(i.spentPaisa, style: OkayText.amount.copyWith(fontSize: 14)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    _Bar(fraction: i.spentPaisa / maxSpent, color: colors[n]),
                   ],
                 ),
-                const SizedBox(height: 6),
-                _Bar(fraction: i.spentPaisa / maxSpent),
-              ],
+              ),
             ),
           ),
       ],
@@ -240,21 +312,31 @@ class _CategoryBreakdown extends StatelessWidget {
   }
 }
 
+/// A rounded bar that grows from the left when it first shows (not with reduced motion).
 class _Bar extends StatelessWidget {
-  const _Bar({required this.fraction});
+  const _Bar({required this.fraction, this.color = OkayColors.accentPink, this.height = 8});
   final double fraction;
+  final Color color;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) => Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          height: 8,
-          width: math.max(4, c.maxWidth * fraction.clamp(0, 1)),
-          decoration: BoxDecoration(
-            color: OkayColors.accentPink,
-            borderRadius: BorderRadius.circular(4),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: fraction.clamp(0, 1)),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, f, _) => LayoutBuilder(
+        builder: (context, c) => Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            height: height,
+            width: math.max(height / 2, c.maxWidth * f),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(height / 2),
+              gradient: LinearGradient(colors: [color.withValues(alpha: 0.65), color]),
+            ),
           ),
         ),
       ),

@@ -22,14 +22,15 @@ import csv
 import io
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
+from app.ai.cards import FileReportCard
 from app.ai.llm import LLMClient, Message
 from app.ai.safety import mask_pii, redact_secrets
-from app.ai.sheets import sheet_text
+from app.ai.sheets import sheet_report
 
 Kind = Literal["photo", "pdf", "spreadsheet"]
 
@@ -54,11 +55,13 @@ class Upload:
 
 @dataclass(frozen=True, slots=True)
 class Reading:
-    """What the model gets for one file (already masked), plus a note for the user."""
+    """What the model gets for one file (already masked). A spreadsheet also has chart
+    cards for the app, worked out in code from the same figures (the model never sees them)."""
 
     name: str
     kind: Kind
     content: str
+    charts: tuple[FileReportCard, ...] = field(default=())
 
 
 def decode(name: str, data_base64: str, max_bytes: int) -> Upload:
@@ -107,13 +110,13 @@ def read(upload: Upload, llm: LLMClient) -> Reading:
     """Read one file. AttachmentError for a file that can't be read; LLM errors (busy,
     unavailable) pass through for the chat to handle like any other."""
     kind = kind_of(upload)
+    name = _short(upload.name, 60)
     if kind == "photo":
-        content = _read_photo(upload, llm)
-    elif kind == "pdf":
-        content = _read_pdf(upload)
-    else:
-        content = _read_table(upload)
-    return Reading(name=_short(upload.name, 60), kind=kind, content=content)
+        return Reading(name=name, kind=kind, content=_read_photo(upload, llm))
+    if kind == "pdf":
+        return Reading(name=name, kind=kind, content=_read_pdf(upload))
+    content, charts = _read_table(upload)
+    return Reading(name=name, kind=kind, content=content, charts=charts)
 
 
 def as_block(reading: Reading) -> str:
@@ -299,14 +302,21 @@ def _rows_from_xlsx(upload: Upload) -> list[tuple[str, list[list[object]]]]:
     return sheets
 
 
-def _read_table(upload: Upload) -> str:
+def _read_table(upload: Upload) -> tuple[str, tuple[FileReportCard, ...]]:
     is_csv = upload.name.lower().endswith((".csv", ".tsv", ".txt"))
     sheets = _rows_from_csv(upload) if is_csv else _rows_from_xlsx(upload)
     budget = MAX_TEXT_CHARS // max(1, len(sheets))
-    parts = [text for title, rows in sheets if (text := sheet_text(title, rows, budget))]
-    if not parts:
+    reports = [(title, r) for title, rows in sheets if (r := sheet_report(title, rows, budget))]
+    if not reports:
         raise AttachmentError(f"{_short(upload.name)} is empty.")
-    return _safe_text("\n\n".join(parts))
+    charts = []
+    for title, (_, chart) in reports:
+        if chart is not None:
+            name = _short(upload.name, 60)
+            if title and len(sheets) > 1:
+                name += f" · {_neutral(title)[:40]}"
+            charts.append(chart.model_copy(update={"file_name": name}))
+    return _safe_text("\n\n".join(text for _, (text, _) in reports)), tuple(charts)
 
 
 # --- helpers ------------------------------------------------------------------------------

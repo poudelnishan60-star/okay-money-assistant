@@ -55,6 +55,7 @@ void main() {
         'TransactionsPreviewCard',
         'ConfirmActionCard',
         'OpenAppFlowCard',
+        'FileReportCard',
       ]);
       final summary = cards[0] as SpendingSummaryCard;
       expect(summary.periodLabel, 'Oct 2026');

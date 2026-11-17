@@ -6,6 +6,12 @@
       "runtimeExecutable": "backend/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "http.server", "8080", "--directory", "app/build/web", "--bind", "127.0.0.1"],
+      "port": 8080
     }
   ]
 }

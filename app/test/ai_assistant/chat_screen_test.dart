@@ -156,6 +156,29 @@ void main() {
     expect(find.text('You spent Rs. 1,270 on food.'), findsOneWidget); // bold markers gone
   });
 
+  testWidgets('a tall answer with file charts shows its start when it finishes', (t) async {
+    const words = 'Here is your statement, worked out from all 24 rows.';
+    final chat = FakeChatRepository([
+      answer(words, cardTypes: ['file_report']),
+      answer('You spent Rs. 1,270 on food.'),
+    ]);
+    await openChat(t, demoApp(chat: chat).app);
+    await t.tap(find.text('My spending'));
+    await t.pumpAndSettle();
+    final screen = t.view.physicalSize / t.view.devicePixelRatio;
+    final top = t.getRect(find.text(words));
+    expect(top.top, greaterThan(0));
+    expect(top.bottom, lessThan(screen.height / 2)); // near the top, the charts below it
+    expect(find.text('statement.csv'), findsOneWidget);
+
+    // A short answer without cards stays at the bottom, as before.
+    await t.enterText(find.byType(TextField), 'and food?');
+    await t.pumpAndSettle();
+    await t.tap(find.bySemanticsLabel('Send'));
+    await t.pumpAndSettle();
+    expect(find.text('You spent Rs. 1,270 on food.'), findsOneWidget);
+  });
+
   testWidgets('errors offer Try again, which re-asks the question', (t) async {
     final chat = FakeChatRepository([
       [

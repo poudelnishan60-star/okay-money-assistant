@@ -14,6 +14,9 @@ itself. Everything here is computed with Decimal from every row:
   description, and totals per week (or per month for a long sheet);
 - then as many of the first rows as fit.
 
+The same figures also make a chart card for the app (sheet_report): a pie by type, week by
+week bars, the biggest payments and the balance line. The model never sees the card.
+
 Cell text is masked (phone, account and reference numbers; anything like an MPIN or OTP)
 and cannot contain the tags the chat wraps files in.
 """
@@ -27,14 +30,17 @@ import re
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from app.ai.cards import BalancePoint, FilePeriod, FileReportCard, FileSlice
 from app.ai.safety import mask_pii, redact_secrets
 from app.money import _group_lakh
 
 MAX_GROUPS = 10  # values listed per type column
 MAX_BIGGEST = 6  # descriptions listed for money out
 MAX_PERIODS = 10  # weeks or months listed
+MAX_SLICES = 5  # pie slices before "Other" (the app's chart palette has five colours)
+MAX_BALANCE_POINTS = 60  # points on the balance line
 
 _NUMBER = re.compile(r"^\(?-?(?:Rs\.?|NPR|रु\.?)?\s*-?[\d,०-९]+(?:\.\d+)?\)?$", re.IGNORECASE)
 _DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
@@ -157,6 +163,14 @@ def rupees(n: Decimal, *, prefix: bool = True) -> str:
     return f"{sign}Rs. {text}" if prefix else sign + text
 
 
+def paisa(n: Decimal) -> int:
+    return int((n * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def _share(part: Decimal, whole: Decimal) -> float:
+    return float((part * 100 / whole).quantize(Decimal("0.1"), ROUND_HALF_UP)) if whole else 0.0
+
+
 def _day(d: dt.date) -> str:
     return f"{d.day} {d:%b %Y}"
 
@@ -209,18 +223,17 @@ class _Totals:
         return (-self.out, -self.into) if split else (-abs(self.total), Decimal(0))
 
 
-def _balance_check(
-    name: str,
+def _balance_mismatches(
     balance: dict[int, Decimal],
     chrono: list[int],
     money: Callable[[int], tuple[Decimal, Decimal, Decimal]],
-    where: Callable[[int], str],
-) -> str | None:
+) -> tuple[list[int], int] | None:
     """Does the running balance follow money in and out, row by row? Worked out here so the
     model never checks rows itself (seen live: it called a correct statement wrong).
+    Returns the rows that don't, and how many were checked.
 
     Only neighbouring rows are compared, oldest first. A signed amount column may mean spent
-    or received, so both readings are tried. Said only when it is clear: if most rows don't
+    or received, so both readings are tried. None unless it is clear: if most rows don't
     follow, the rows are likely not in date order, and nothing is said.
     """
     steps = [(a, b) for a, b in zip(chrono, chrono[1:], strict=False) if abs(a - b) == 1]
@@ -238,14 +251,56 @@ def _balance_check(
     wrong = min(off(1), off(-1), key=len)
     if len(wrong) * 2 > len(steps):
         return None
+    return wrong, len(steps)
+
+
+def _balance_check(name: str, wrong: list[int], checked: int, where: Callable[[int], str]) -> str:
     head = f"Balance check (done in code, row by row): {name}"
     if not wrong:
-        return f"{head} follows money in and out on every row ({_rows(len(steps))} checked)."
+        return f"{head} follows money in and out on every row ({_rows(checked)} checked)."
     shown = "; ".join(where(k) for k in wrong[:3])
     return (
-        f"{head} does not follow money in and out on {len(wrong)} of {len(steps)} rows "
+        f"{head} does not follow money in and out on {len(wrong)} of {checked} rows "
         f"checked, for example: {shown}."
     )
+
+
+def _slices(
+    groups: dict[str, _Totals], value: Callable[[_Totals], Decimal], keep: int, *, fold: bool
+) -> list[FileSlice]:
+    """The biggest groups by `value`, largest first; with `fold`, the rest as "Other" so
+    the slices add up to the whole (a pie)."""
+    ranked = sorted(
+        ((n, t) for n, t in groups.items() if value(t) > 0), key=lambda g: (-value(g[1]), g[0])
+    )
+    whole = sum((value(t) for _, t in ranked), Decimal(0))
+    top, rest = ranked[:keep], ranked[keep:]
+    out = [
+        FileSlice(
+            label=n, paisa=paisa(value(t)), share_percent=_share(value(t), whole), rows=t.rows
+        )
+        for n, t in top
+    ]
+    if fold and rest:
+        other = sum((value(t) for _, t in rest), Decimal(0))
+        out.append(
+            FileSlice(
+                label="Other",
+                paisa=paisa(other),
+                share_percent=_share(other, whole),
+                rows=sum(t.rows for _, t in rest),
+                is_other=True,
+            )
+        )
+    return out
+
+
+def _sample(items: list[int], n: int) -> list[int]:
+    """At most n of them, evenly spread, always with the first and the last."""
+    if len(items) <= n:
+        return items
+    picks = sorted({round(j * (len(items) - 1) / (n - 1)) for j in range(n)})
+    return [items[j] for j in picks]
 
 
 def _header_index(rows: Sequence[Sequence[object]]) -> int:
@@ -262,6 +317,15 @@ def _header_index(rows: Sequence[Sequence[object]]) -> int:
 
 def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) -> str | None:
     """The report for one sheet, at most about `budget` characters. None if it's empty."""
+    report = sheet_report(title, raw_rows, budget)
+    return report[0] if report else None
+
+
+def sheet_report(
+    title: str, raw_rows: Sequence[Sequence[object]], budget: int
+) -> tuple[str, FileReportCard | None] | None:
+    """The report for one sheet (see sheet_text) and, if it has something to chart, a chart
+    card made from the same figures. None if the sheet is empty."""
     rows = [list(r) for r in raw_rows if any(c not in (None, "") for c in r)]
     if not rows:
         return None
@@ -362,9 +426,11 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
     # -- lines -------------------------------------------------------------------------
     head = f"Sheet {title!r}: " if title else ""
     head += f"{len(body)} rows"
+    chart = FileReportCard(file_name=title, rows=len(body))
     if date_col is not None and dates[date_col]:
         first, last = min(dates[date_col].values()), max(dates[date_col].values())
         head += f", dated {_day(first)} to {_day(last)}"
+        chart.start, chart.end = first, last
     lines = [head + ". Columns: " + ", ".join(header) + "."]
     worked: list[str] = []
 
@@ -399,6 +465,31 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
         all_in = sum((money(k)[1] for k in range(len(body))), Decimal(0))
         worked.append(f"Money in minus money out: {rupees(all_in - all_out)}.")
 
+    # The chart's measure. One amount column whose values have both signs is only totalled
+    # (+ may mean spent or received), so it isn't broken down.
+    signed = [f.index for f in flows if f.kind == "signed"]
+    signed_values = [money(k)[2] for k in range(len(body)) if any(k in numbers[i] for i in signed)]
+    if any(f.kind == "out" for f in flows):
+        chart.measure = "out"
+    elif any(f.kind == "in" for f in flows):
+        chart.measure = "in"
+    elif signed_values and (
+        all(v >= 0 for v in signed_values) or all(v <= 0 for v in signed_values)
+    ):
+        chart.measure = "amount"
+    every_row = range(len(body))
+    if any(f.kind == "out" for f in flows):
+        chart.money_out_paisa = paisa(sum((money(k)[0] for k in every_row), Decimal(0)))
+    if any(f.kind == "in" for f in flows):
+        chart.money_in_paisa = paisa(sum((money(k)[1] for k in every_row), Decimal(0)))
+    if not has_split and signed_values:
+        chart.total_paisa = paisa(sum(signed_values, Decimal(0)))
+
+    def measured(t: _Totals) -> Decimal:
+        if chart.measure == "out":
+            return t.out
+        return t.into if chart.measure == "in" else abs(t.total)
+
     def where(k: int) -> str:
         """A row, so the user can find it: its date and description."""
         d = dates[date_col].get(k) if date_col is not None else None
@@ -432,8 +523,22 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
             "running balance, so it is not added up."
         )
         chrono = list(reversed(order)) if newest_first else order
-        if flows and (check := _balance_check(header[i], known, chrono, money, where)):
-            worked.append(check)
+        checked = _balance_mismatches(known, chrono, money) if flows else None
+        if checked:
+            worked.append(_balance_check(header[i], *checked, where))
+        if chart.balance_column is None and len(chrono) >= 2:
+            chart.balance_column = header[i]
+            chart.balance = [
+                BalancePoint(
+                    date=dates[date_col].get(k) if date_col is not None else None,
+                    paisa=paisa(known[k]),
+                )
+                for k in _sample(chrono, MAX_BALANCE_POINTS)
+            ]
+            if checked:
+                chart.balance_check = "off" if checked[0] else "ok"
+                chart.balance_rows_checked = checked[1]
+                chart.balance_rows_off = len(checked[0])
 
     for i in others:
         values = list(numbers[i].values())
@@ -452,6 +557,11 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
             shown = "; ".join(f"{n}: {t.text(has_split)}" for n, t in ranked[:MAX_GROUPS])
             more = f"; and {len(ranked) - MAX_GROUPS} more" if len(ranked) > MAX_GROUPS else ""
             worked.append(f"By {header[i]}: {shown}{more}.")
+            if chart.measure and chart.type_column is None:
+                chart.type_column = header[i]
+                chart.by_type = _slices(groups, measured, MAX_SLICES, fold=True)
+                if chart.measure == "out":
+                    chart.in_by_type = _slices(groups, lambda t: t.into, MAX_SLICES, fold=True)
 
         if desc_col is not None:
             payees: dict[str, _Totals] = defaultdict(_Totals)
@@ -473,6 +583,9 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
                 title = f"Largest amounts by {header[desc_col]}"
             if listed:
                 worked.append(f"{title}: " + "; ".join(listed) + ".")
+            if chart.measure:
+                chart.biggest_column = header[desc_col]
+                chart.biggest = _slices(payees, measured, MAX_BIGGEST, fold=False)
 
         if date_col is not None and dates[date_col]:
             first, last = min(dates[date_col].values()), max(dates[date_col].values())
@@ -494,6 +607,17 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
                 + "; ".join(f"{label(d)}: {t.text(has_split)}" for d, t in ordered)
                 + "."
             )
+            if chart.measure:
+                chart.period = "week" if weekly else "month"
+                chart.periods = [
+                    FilePeriod(
+                        start=d,
+                        label=label(d),
+                        paisa=paisa(measured(t)),
+                        in_paisa=paisa(t.into) if chart.measure == "out" else 0,
+                    )
+                    for d, t in ordered
+                ]
 
     if worked:
         # Seen live: with only some rows listed below, a model said it "can only see 44 of
@@ -530,7 +654,20 @@ def sheet_text(title: str, raw_rows: Sequence[Sequence[object]], budget: int) ->
             label = f"First {shown} of {len(body)} rows (the rest didn't fit):"
         lines.append(label)
         lines.append(out.getvalue().rstrip("\n"))
-    return "\n".join(lines)
+
+    chart.sections = [
+        name
+        for name, ok in (
+            ("types", len(chart.by_type) >= 2),
+            ("periods", len(chart.periods) >= 2),
+            ("biggest", len(chart.biggest) >= 2),
+            ("balance", len(chart.balance) >= 2),
+        )
+        if ok
+    ]
+    totals = (chart.money_in_paisa, chart.money_out_paisa, chart.total_paisa)
+    charted = chart.sections or any(t is not None for t in totals)
+    return "\n".join(lines), chart if charted else None
 
 
 def report_parts(text: str) -> set[str]:

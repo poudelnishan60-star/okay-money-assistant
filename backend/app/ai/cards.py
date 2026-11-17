@@ -151,6 +151,63 @@ class OpenAppFlowCard(BaseModel):
     note: str = "You'll confirm in Khalti with your MPIN."
 
 
+class FileSlice(BaseModel):
+    """One part of a file's total: a type (Scan and Pay, Transfer, ...) or a payee."""
+
+    label: str
+    paisa: int
+    share_percent: float  # of the whole file's total for this measure, worked out in code
+    rows: int
+    is_other: bool = False  # the smaller parts folded together
+
+
+class FilePeriod(BaseModel):
+    start: dt.date  # Monday of the week, or the 1st of the month
+    label: str  # "26 Oct-1 Nov" or "Nov 2026"
+    paisa: int  # the card's measure
+    in_paisa: int = 0  # money in, when the measure is money out
+
+
+class BalancePoint(BaseModel):
+    date: dt.date | None
+    paisa: int
+
+
+FileSection = Literal["types", "periods", "biggest", "balance"]
+
+
+class FileReportCard(BaseModel):
+    """Charts for a spreadsheet the user added, worked out in code from every row (see
+    sheets.py), like the report the model gets. Sent with the answer but never stored with
+    it: what was read from a file stays in the server's memory only."""
+
+    type: Literal["file_report"] = "file_report"
+    file_name: str
+    rows: int
+    start: dt.date | None = None
+    end: dt.date | None = None
+    # What the charts add up: money out (the sheet has money in and out columns), money in
+    # (only an in column), or "amount" (one amount column whose values all have one sign).
+    # None: one amount column with both signs, which is only totalled, so not charted.
+    measure: Literal["out", "in", "amount"] | None = None
+    money_in_paisa: int | None = None
+    money_out_paisa: int | None = None
+    total_paisa: int | None = None  # one amount column
+    type_column: str | None = None
+    by_type: list[FileSlice] = Field(default_factory=list)
+    in_by_type: list[FileSlice] = Field(default_factory=list)
+    period: Literal["week", "month"] | None = None
+    periods: list[FilePeriod] = Field(default_factory=list)
+    biggest_column: str | None = None
+    biggest: list[FileSlice] = Field(default_factory=list)
+    balance_column: str | None = None
+    balance: list[BalancePoint] = Field(default_factory=list)  # oldest first, sampled
+    balance_check: Literal["ok", "off"] | None = None  # follows money in and out row by row
+    balance_rows_checked: int = 0
+    balance_rows_off: int = 0
+    sections: list[FileSection] = Field(default_factory=list)  # which charts to show
+
+
 Card = Annotated[
     SpendingSummaryCard
     | CategoryBreakdownCard
@@ -159,7 +216,8 @@ Card = Annotated[
     | GoalProgressCard
     | TransactionsPreviewCard
     | ConfirmActionCard
-    | OpenAppFlowCard,
+    | OpenAppFlowCard
+    | FileReportCard,
     Field(discriminator="type"),
 ]
 

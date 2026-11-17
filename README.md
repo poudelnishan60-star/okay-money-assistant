@@ -164,6 +164,16 @@ on disk, for an hour (`FILE_MEMORY_MINUTES`) or until the chat is cleared
 money go?" still sees the sheet. Once forgotten, the model sees only the name ("[Attached:
 ...]") and asks for the file again.
 
+Charts (`file_report` card): the same worked-out figures also make a chart card for a sheet,
+built in code (`sheet_report` in `app/ai/sheets.py`; the model never sees it): money in and
+out, a 3D pie by type (out or in; the five biggest and "Other"), week by week bars (money in
+next to money out), the biggest payments, and the balance line with the row-by-row check. A
+new file gets every chart; a follow-up gets the one it asks about ("week by week", "how did
+the balance change?", "where can I cut back?" gets the pie and the biggest payments, in
+English, Nepali or Romanized Nepali), and a question about the account gets none. The card
+is sent with the answer but not stored with it, so file data stays in memory only; reloading
+the chat shows the answer text without the chart.
+
 Questions to ask next (`app/ai/suggestions.py`): after an answer about a file, five chips
 instead of three. A sheet gets nine possible questions (by type, biggest payments, anything
 unusual, where to cut back, week by week, compare with the Khalti account, money in vs out,
@@ -315,9 +325,13 @@ Fonts (DM Sans, Noto Sans Devanagari; SIL OFL, `app/assets/fonts/`) are bundled.
 
 ### O-Kay chat
 
-Streamed answers, cards (spending, where-it-went bars, budgets, bills with Pay/Autopay, goals
-with Smart Deposit, transactions, confirm, open-in-Khalti), follow-up chips, thumbs, retry, clear
-chat. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
+Streamed answers, cards (spending with now-vs-then bars, where it went as a 3D pie with
+ranked bars, budgets, bills with Pay/Autopay, goals with Smart Deposit, transactions, confirm,
+open-in-Khalti, and charts for an added sheet), follow-up chips, thumbs, retry, clear chat.
+The 3D pie (`widgets/pie_3d.dart`) is a CustomPainter: tap a slice or its legend row to lift
+it out. Because the tilt bends slice sizes, the legend always gives the exact share and
+amount. Charts sweep or grow in once, and not at all with reduced motion; at large text the
+amounts move under their labels. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
 flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
 
 **Files and photos.** The + in the input opens a sheet with Photo (gallery or camera) and

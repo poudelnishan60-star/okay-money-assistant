@@ -201,6 +201,70 @@ def _file_topic(readings: Sequence[Reading]) -> str:
     return "attachment_table" if any(r.kind == "spreadsheet" for r in readings) else "attachment"
 
 
+MAX_CHART_CARDS = 3
+_FILE_TOPICS = {"attachment", "attachment_table"}
+CHARTS_NOTE = (
+    "Under your answer the app shows charts of the file's worked-out figures (money in and "
+    "out, by type, week by week, biggest payments, balance). So keep the text short: the main "
+    "totals and the 2-3 points that matter most, not every type, week or payment."
+)
+# Which of a sheet's charts a follow-up is about, in English, Nepali or Romanized Nepali. A
+# new file shows every chart; a follow-up that names none shows none (the text answers it).
+_ALL_CHARTS = re.compile(
+    r"sum ?up|summar|overview|analy[sz]|unusual|asamanya|असामान्य|\b3 lines?\b|३ लाइन|"
+    r"saransh|सारांश|chart|graph|visual|dekhau|देखाऊ",
+    re.IGNORECASE,
+)
+_CHART_WORDS: dict[str, re.Pattern[str]] = {
+    "types": re.compile(
+        r"\btypes?\b|\bkinds?\b|break\w* (?:it |the file )?down|breakdown|prakar|प्रकार|kisim"
+        r"|किसिम|categor|cut back|kam garna|कम गर्न",
+        re.IGNORECASE,
+    ),
+    "periods": re.compile(
+        r"\bweek|hapta|हप्ता|\bmonth|mahina|महिना|money in|\bin vs|in and out|aayeko|आएको"
+        r"|gayeko|गएको",
+        re.IGNORECASE,
+    ),
+    "biggest": re.compile(
+        r"biggest|largest|\btop\b|thul[oa]|ठूल|sabai ?bhanda|सबैभन्दा|cut back|kam garna"
+        r"|कम गर्न|paid for|ke ko lagi|केको लागि|spen[dt] (?:the )?most",
+        re.IGNORECASE,
+    ),
+    "balance": re.compile(r"balance|ब्यालेन्स|मौज्दात", re.IGNORECASE),
+}
+
+
+def chart_cards(
+    readings: Sequence[Reading], remembered: Sequence[Reading], question: str, *, account: bool
+) -> list[dict[str, Any]]:
+    """Chart cards for spreadsheets: every chart for files added with this message; for a
+    follow-up answered from the latest file (not the account), the charts it asks about.
+    Worked out in code when the file was read; the model never sees them."""
+    if readings:
+        charts = [c for r in readings for c in r.charts]
+        wanted: set[str] | None = None
+    elif remembered and not account:
+        charts = list(remembered[-1].charts)
+        if _ALL_CHARTS.search(question):
+            wanted = None
+        else:
+            wanted = {name for name, words in _CHART_WORDS.items() if words.search(question)}
+            if not wanted:
+                return []
+    else:
+        return []
+    out = []
+    for chart in charts[:MAX_CHART_CARDS]:
+        sections = [s for s in chart.sections if wanted is None or s in wanted]
+        # "Money in vs out" with no week by week chart: the totals at the top answer it.
+        has_totals = chart.money_in_paisa is not None and chart.money_out_paisa is not None
+        if wanted is not None and not sections and not ("periods" in wanted and has_totals):
+            continue
+        out.append(chart.model_copy(update={"sections": sections}).model_dump(mode="json"))
+    return out
+
+
 def _describe(attachments: Sequence[Upload]) -> list[dict[str, str]]:
     """Name and kind of each file, for the history (the contents are never stored)."""
     out = []
@@ -482,6 +546,10 @@ class ChatService:
                     "asks about their Khalti account or to compare, and then say which figures "
                     "come from the file and which from the account.)"
                 )
+                if chart_cards(readings, remembered, clean, account=False):
+                    # Seen live: with the charts under it, an answer listing every type, week
+                    # and payment said everything twice.
+                    user_turn += f"\n({CHARTS_NOTE})"
             if lang is not Lang.EN:
                 # The eval saw English replies to Romanized questions despite the system
                 # prompt; a reminder next to the question works better. Not stored.
@@ -604,12 +672,17 @@ class ChatService:
                 file_parts=report_parts("\n".join(sheets)) if sheets else None,
             )
         ]
+        # Charts of a spreadsheet go with the answer but are not stored with it: what was
+        # read from a file stays in memory only (see file_memory.py).
+        charts = chart_cards(
+            readings, remembered, clean, account=bool(cards) or bool(topics - _FILE_TOPICS)
+        )
         row = self._store("assistant", mask_pii("".join(answer).strip()), lang, cards, chips)
         yield ChatEvent(
             "done",
             {
                 "message_id": row.id,
-                "cards": cards,
+                "cards": charts + cards,
                 "suggestions": chips,
                 "language": lang.value,
                 "error": error,

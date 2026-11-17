@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.ai.attachments import Upload, read  # noqa: E402
 from app.ai.tools import ToolContext, run_tool  # noqa: E402
 from app.api.deps import get_today  # noqa: E402
 from app.config import Settings  # noqa: E402
@@ -44,6 +45,47 @@ ENDPOINTS = {
     "bills": "/bills",
     "notifications": "/notifications",  # after the others: reading it stores the alerts
 }
+
+
+# A made-up wallet statement (newest first, like a Khalti export) for the file chart card.
+_PAYMENTS = [
+    ("Chiya Chautari", "Scan and Pay", 285),
+    ("Ratna Mart", "Scan and Pay", 1240.50),
+    ("NEA Electricity", "Service payment", 1180),
+    ("Sajilo Supermarket", "Scan and Pay", 2310),
+    ("Fund transfer to 9841234567", "Transfer", 1500),
+    ("Chiya Chautari", "Scan and Pay", 340),
+    ("Worldlink Internet", "Service payment", 1695),
+    ("Withdraw to bank A/C 0123456789012", "Withdraw", 3000),
+    ("Ratna Mart", "Scan and Pay", 865.25),
+    ("Ncell Topup", "Service payment", 500),
+    ("Chiya Chautari", "Scan and Pay", 410),
+    ("Khalti hub load", "Load", -8000),
+    ("Bakery Cafe", "Scan and Pay", 620),
+    ("Fund transfer to 9812345678", "Transfer", 2200),
+    ("Ratna Mart", "Scan and Pay", 1530),
+    ("Cashback on Scan and Pay", "Cashback", -45),
+    ("Khanepani", "Service payment", 450),
+    ("Chiya Chautari", "Scan and Pay", 295),
+    ("Khalti hub load", "Load", -10000),
+    ("Sajilo Supermarket", "Scan and Pay", 1875.75),
+    ("Bus ticket Kathmandu-Pokhara", "Service payment", 1800),
+    ("Chiya Chautari", "Scan and Pay", 365),
+    ("Fund transfer to 9841234567", "Transfer", 1000),
+    ("Ratna Mart", "Scan and Pay", 990),
+]
+
+
+def sample_statement() -> bytes:
+    rows = ["Date,Description,Type,Amount(-) Rs,Amount(+) Rs,Balance"]
+    balance = 4_825.50  # after the newest entry
+    day = dt.datetime(2026, 11, 8, 18, 0)
+    for i, (text, kind, amount) in enumerate(_PAYMENTS):
+        out, into = (f"{amount:.2f}", "") if amount > 0 else ("", f"{-amount:.2f}")
+        rows.append(f"{day:%Y-%m-%d %H:%M},{text},{kind},{out},{into},{balance:.2f}")
+        balance += amount  # the balance before this entry, for the next (older) row
+        day -= dt.timedelta(days=1 if i % 3 else 2, hours=3)
+    return ("\n".join(rows) + "\n").encode()
 
 
 def main() -> None:
@@ -75,6 +117,11 @@ def main() -> None:
                 ("open_app_flow", {"flow": "bill_payment", "service": "electricity"}),
             ]:
                 cards += [c.model_dump(mode="json") for c in run_tool(ctx, tool, args).cards]
+    # The chart card for a statement, as the chat sends it with the answer.
+    cards += [
+        c.model_dump(mode="json")
+        for c in read(Upload("statement.csv", sample_statement()), None).charts
+    ]  # type: ignore[arg-type]  # noqa: E501
     (OUT / "chat_cards.json").write_text(
         json.dumps(cards, ensure_ascii=False, indent=1), encoding="utf-8"
     )

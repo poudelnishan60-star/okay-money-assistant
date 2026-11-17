@@ -305,5 +305,249 @@
    "monthly_amount_paisa": null
   },
   "note": "You'll confirm in Khalti with your MPIN."
+ },
+ {
+  "type": "file_report",
+  "file_name": "statement.csv",
+  "rows": 24,
+  "start": "2026-10-05",
+  "end": "2026-11-08",
+  "measure": "out",
+  "money_in_paisa": 1804500,
+  "money_out_paisa": 2445150,
+  "total_paisa": null,
+  "type_column": "Type",
+  "by_type": [
+   {
+    "label": "Scan and Pay",
+    "paisa": 1112650,
+    "share_percent": 45.5,
+    "rows": 12,
+    "is_other": false
+   },
+   {
+    "label": "Service payment",
+    "paisa": 562500,
+    "share_percent": 23.0,
+    "rows": 5,
+    "is_other": false
+   },
+   {
+    "label": "Transfer",
+    "paisa": 470000,
+    "share_percent": 19.2,
+    "rows": 3,
+    "is_other": false
+   },
+   {
+    "label": "Withdraw",
+    "paisa": 300000,
+    "share_percent": 12.3,
+    "rows": 1,
+    "is_other": false
+   }
+  ],
+  "in_by_type": [
+   {
+    "label": "Load",
+    "paisa": 1800000,
+    "share_percent": 99.8,
+    "rows": 2,
+    "is_other": false
+   },
+   {
+    "label": "Cashback",
+    "paisa": 4500,
+    "share_percent": 0.2,
+    "rows": 1,
+    "is_other": false
+   }
+  ],
+  "period": "week",
+  "periods": [
+   {
+    "start": "2026-10-05",
+    "label": "5 Oct-11 Oct",
+    "paisa": 603075,
+    "in_paisa": 0
+   },
+   {
+    "start": "2026-10-12",
+    "label": "12 Oct-18 Oct",
+    "paisa": 74500,
+    "in_paisa": 1004500
+   },
+   {
+    "start": "2026-10-19",
+    "label": "19 Oct-25 Oct",
+    "paisa": 476000,
+    "in_paisa": 800000
+   },
+   {
+    "start": "2026-10-26",
+    "label": "26 Oct-1 Nov",
+    "paisa": 640025,
+    "in_paisa": 0
+   },
+   {
+    "start": "2026-11-02",
+    "label": "2 Nov-8 Nov",
+    "paisa": 651550,
+    "in_paisa": 0
+   }
+  ],
+  "biggest_column": "Description",
+  "biggest": [
+   {
+    "label": "Fund transfer to [phone]",
+    "paisa": 470000,
+    "share_percent": 19.2,
+    "rows": 3,
+    "is_other": false
+   },
+   {
+    "label": "Ratna Mart",
+    "paisa": 462575,
+    "share_percent": 18.9,
+    "rows": 4,
+    "is_other": false
+   },
+   {
+    "label": "Sajilo Supermarket",
+    "paisa": 418575,
+    "share_percent": 17.1,
+    "rows": 2,
+    "is_other": false
+   },
+   {
+    "label": "Withdraw to bank A/C [number]",
+    "paisa": 300000,
+    "share_percent": 12.3,
+    "rows": 1,
+    "is_other": false
+   },
+   {
+    "label": "Bus ticket Kathmandu-Pokhara",
+    "paisa": 180000,
+    "share_percent": 7.4,
+    "rows": 1,
+    "is_other": false
+   },
+   {
+    "label": "Chiya Chautari",
+    "paisa": 169500,
+    "share_percent": 6.9,
+    "rows": 5,
+    "is_other": false
+   }
+  ],
+  "balance_column": "Balance",
+  "balance": [
+   {
+    "date": "2026-10-05",
+    "paisa": 1024200
+   },
+   {
+    "date": "2026-10-07",
+    "paisa": 924200
+   },
+   {
+    "date": "2026-10-09",
+    "paisa": 887700
+   },
+   {
+    "date": "2026-10-10",
+    "paisa": 707700
+   },
+   {
+    "date": "2026-10-11",
+    "paisa": 520125
+   },
+   {
+    "date": "2026-10-13",
+    "paisa": 1520125
+   },
+   {
+    "date": "2026-10-14",
+    "paisa": 1490625
+   },
+   {
+    "date": "2026-10-15",
+    "paisa": 1445625
+   },
+   {
+    "date": "2026-10-17",
+    "paisa": 1450125
+   },
+   {
+    "date": "2026-10-19",
+    "paisa": 1297125
+   },
+   {
+    "date": "2026-10-20",
+    "paisa": 1077125
+   },
+   {
+    "date": "2026-10-22",
+    "paisa": 1015125
+   },
+   {
+    "date": "2026-10-23",
+    "paisa": 1815125
+   },
+   {
+    "date": "2026-10-24",
+    "paisa": 1774125
+   },
+   {
+    "date": "2026-10-26",
+    "paisa": 1724125
+   },
+   {
+    "date": "2026-10-27",
+    "paisa": 1637600
+   },
+   {
+    "date": "2026-10-28",
+    "paisa": 1337600
+   },
+   {
+    "date": "2026-10-31",
+    "paisa": 1168100
+   },
+   {
+    "date": "2026-11-01",
+    "paisa": 1134100
+   },
+   {
+    "date": "2026-11-02",
+    "paisa": 984100
+   },
+   {
+    "date": "2026-11-04",
+    "paisa": 753100
+   },
+   {
+    "date": "2026-11-05",
+    "paisa": 635100
+   },
+   {
+    "date": "2026-11-06",
+    "paisa": 511050
+   },
+   {
+    "date": "2026-11-08",
+    "paisa": 482550
+   }
+  ],
+  "balance_check": "ok",
+  "balance_rows_checked": 23,
+  "balance_rows_off": 0,
+  "sections": [
+   "types",
+   "periods",
+   "biggest",
+   "balance"
+  ]
  }
 ]
