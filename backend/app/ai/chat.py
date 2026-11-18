@@ -242,13 +242,38 @@ _CHART_WORDS: dict[str, re.Pattern[str]] = {
 }
 
 
-# A question about the account's money flow, in English, Nepali or Romanized Nepali. Not
-# "where did my money go?": that one gets the categories (its own chip and pie).
-_ACCOUNT_FLOW = re.compile(
+# A question that asks for the money flow itself, in English, Nepali or Romanized Nepali.
+# Not "where did (most of) my money go?": that one wants the biggest uses, in words.
+_FLOW_QUESTION = re.compile(
     r"\bflow\b|diagram|sankey|come from|came from|money in and out|in vs out|kaha ?bata"
     r"|कहाँबाट|आवतजावत|aawat ?jawat",
     re.IGNORECASE,
 )
+
+
+# A time other than this month, in English, Nepali or Romanized Nepali ("last month",
+# "hapta", "गत", a date): a stand-in money-flow diagram is never guessed for it.
+_OTHER_TIME = re.compile(
+    r"\b(?:last|previous|past|week|year|yesterday|today|since|between|\d{1,4}"
+    r"|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june"
+    r"|july|august|september|october|november|december|gaya|aghillo|hapta|barsa|hijo|aaja)\b"
+    r"|गत|अघिल्लो|हप्ता|वर्ष|हिजो|आज|[०-९]",
+    re.IGNORECASE,
+)
+
+
+def _held_back(
+    events: Generator[ChatEvent, None, int], hold: bool
+) -> Generator[ChatEvent, None, int]:
+    """The model's events, without its text (tokens and resets) when `hold`: for a question
+    answered by a money-flow diagram, whose words would only repeat the diagram."""
+    while True:
+        try:
+            event = next(events)
+        except StopIteration as done:
+            return done.value  # type: ignore[no-any-return]
+        if not (hold and event.event in ("token", "reset")):
+            yield event
 
 
 def chart_cards(
@@ -334,6 +359,10 @@ class ChatService:
         # Sentences taken out of the last answer because they still failed the grounding
         # check after the correction (the eval reports it as a grounding problem).
         self.dropped_sentences = 0
+        # This turn asks for the account's money flow: the spending tool gives the flow view.
+        self._flow_only = False
+        # A tool said there is no data for the period asked: no stand-in diagram then.
+        self._no_data = False
 
     # -- history ------------------------------------------------------------------------
     def _history(self) -> list[Message]:
@@ -395,8 +424,16 @@ class ChatService:
     def _run(self, call: ToolCall) -> tuple[str, ToolResult | None]:
         started = time.perf_counter()
         ok, error, result = True, None, None
+        arguments = call.arguments
         try:
-            result = run_tool(self.ctx, call.name, parse_arguments(call.arguments))
+            args = parse_arguments(call.arguments)
+            if self._flow_only and call.name == "get_spending_summary":
+                # The model's period, the flow view (seen live: it asked for a category).
+                args = {k: v for k, v in args.items() if k != "category"} | {"group_by": "flow"}
+                arguments = json.dumps(args)
+            result = run_tool(self.ctx, call.name, args)
+            if result.data.get("no_data"):
+                self._no_data = True
             payload = json.dumps(
                 result.data, ensure_ascii=False, default=str, separators=(",", ":")
             )
@@ -408,7 +445,7 @@ class ChatService:
             ok, error = False, "internal error"
             payload = json.dumps({"error": "This tool failed. Say you couldn't get the data."})
         ms = int((time.perf_counter() - started) * 1000)
-        masked_args = mask_pii(call.arguments)[:2000]
+        masked_args = mask_pii(arguments)[:2000]
         self.session.add(
             ToolCallLog(
                 user_id=self.user_id,
@@ -486,19 +523,25 @@ class ChatService:
             self.session.commit()
         return max_rounds
 
-    def _flow_card(self, cards: list[dict[str, Any]]) -> dict[str, Any] | None:
+    def _flow_card(self, cards: list[dict[str, Any]], question: str) -> dict[str, Any] | None:
         """The money-flow card for a question that asks for it, when the model looked the
         answer up another way (seen live: get_transactions for a Nepali question). Same
         period as the cards it got, else this month. Worked out in code, logged like any
         tool call."""
-        if any(c.get("type") == "money_flow" for c in cards):
+        if self._no_data or any(c.get("type") == "money_flow" for c in cards):
             return None
-        args: dict[str, Any] = {"period": "this_month"}
+        args: dict[str, Any] | None = None
         for c in cards:
             filters = (c.get("link") or {}).get("filters") or {}
             if filters.get("start") and filters.get("end"):
                 args = {"period": "custom", "start": filters["start"], "end": filters["end"]}
                 break
+        if args is None:
+            # Nothing looked up gives the period: this month, unless the question names
+            # another time (a diagram of the wrong period would be a mistake).
+            if _OTHER_TIME.search(question):
+                return None
+            args = {"period": "this_month"}
         args["group_by"] = "flow"
         _, result = self._run(ToolCall("flow", "get_spending_summary", json.dumps(args)))
         self.session.commit()
@@ -522,6 +565,7 @@ class ChatService:
 
         prefix = ""  # fixed text that always stays (the secret warning)
         self.dropped_sentences = 0
+        self._no_data = False
         cards: list[dict[str, Any]] = []
         topics: set[str] = set()
         tool_texts: list[str] = []
@@ -545,6 +589,12 @@ class ChatService:
         readings: list[Reading] = []
         # Files from earlier in the chat, for follow-up questions (not when new ones came).
         remembered = [] if attachments or self.files is None else self.files.recall(self.user_id)
+        # A money-flow question: the diagram is the answer. The model still picks the tool and
+        # the period, but its words are held back (seen live: they repeated every line of the
+        # diagram, even when asked not to); a fixed line goes over the diagram instead.
+        about_a_file = bool(attachments or remembered)
+        quiet = bool(_FLOW_QUESTION.search(clean))
+        self._flow_only = quiet and not about_a_file
         try:
             if attachments:
                 yield ChatEvent("status", {"tool": "read_attachment"})
@@ -600,21 +650,43 @@ class ChatService:
             if attachments and not readings and not typed:
                 # Nothing could be read and nothing was asked: the note above is the answer.
                 raise _NothingToAsk
-            used = yield from self._rounds(
-                messages, tools, self.max_tool_rounds, attempt, cards, topics, tool_texts
+            used = yield from _held_back(
+                self._rounds(
+                    messages, tools, self.max_tool_rounds, attempt, cards, topics, tool_texts
+                ),
+                quiet,
             )
             if remembered and not topics:  # a follow-up answered from the file alone
                 topics.add(_file_topic(remembered))
             about_files = bool(readings or remembered)
             grounded = known + " " + " ".join(tool_texts)
-            problem = check_answer("".join(attempt), cards, grounded, files=about_files)
+            # With the diagram already there, the held-back words are never shown: no need
+            # to check them (or to spend a model call correcting them).
+            diagram_ready = quiet and (
+                any(c.get("type") == "money_flow" for c in cards)
+                or any(  # the same rule that decides the charts at the end
+                    "flow" in c.get("sections", [])
+                    for c in chart_cards(
+                        readings,
+                        remembered,
+                        clean,
+                        account=bool(cards) or bool(topics - _FILE_TOPICS),
+                    )
+                )
+            )
+            problem = (
+                None
+                if diagram_ready
+                else check_answer("".join(attempt), cards, grounded, files=about_files)
+            )
             if problem:
                 # The answer stated a number no tool gave, or promised a card that doesn't
                 # exist. Take the streamed text back and give the model one chance to fix it.
                 log.warning("answer failed the grounding check: %s", problem.split(":")[0])
-                yield ChatEvent("reset", {})
-                if prefix:
-                    yield ChatEvent("token", {"text": prefix})
+                if not quiet:
+                    yield ChatEvent("reset", {})
+                    if prefix:
+                        yield ChatEvent("token", {"text": prefix})
                 messages.append({"role": "assistant", "content": "".join(attempt)})
                 messages.append(
                     {
@@ -630,8 +702,11 @@ class ChatService:
                 rounds = max(self.max_tool_rounds - used, 1)
                 force = not (about_files and problem.startswith("ungrounded"))
                 try:
-                    yield from self._rounds(
-                        messages, tools, rounds, attempt, cards, topics, tool_texts, force
+                    yield from _held_back(
+                        self._rounds(
+                            messages, tools, rounds, attempt, cards, topics, tool_texts, force
+                        ),
+                        quiet,
                     )
                 except (LLMBusyError, LLMNotConfiguredError, LLMTooLargeError):
                     raise
@@ -639,12 +714,14 @@ class ChatService:
                     # Some models refuse a forced tool call. One more go without forcing
                     # beats "O-Kay can't answer right now" (the eval found this).
                     log.warning("forced correction failed; retrying without forcing a tool")
-                    yield ChatEvent("reset", {})
-                    if prefix:
-                        yield ChatEvent("token", {"text": prefix})
+                    if not quiet:
+                        yield ChatEvent("reset", {})
+                        if prefix:
+                            yield ChatEvent("token", {"text": prefix})
                     attempt = []
-                    yield from self._rounds(
-                        messages, tools, rounds, attempt, cards, topics, tool_texts
+                    yield from _held_back(
+                        self._rounds(messages, tools, rounds, attempt, cards, topics, tool_texts),
+                        quiet,
                     )
                 grounded = known + " " + " ".join(tool_texts)
                 if check_answer("".join(attempt), cards, grounded, files=about_files):
@@ -658,11 +735,12 @@ class ChatService:
                     )
                     if dropped:
                         self.dropped_sentences = dropped
-                        yield ChatEvent("reset", {})
-                        if prefix:
-                            yield ChatEvent("token", {"text": prefix})
+                        if not quiet:
+                            yield ChatEvent("reset", {})
+                            if prefix:
+                                yield ChatEvent("token", {"text": prefix})
                         attempt = [kept] if kept else []
-                        if kept:
+                        if kept and not quiet:
                             yield ChatEvent("token", {"text": kept})
         except _NothingToAsk:
             pass
@@ -675,6 +753,9 @@ class ChatService:
         except LLMUnavailableError:
             error = "unavailable"
         answer = [prefix, *attempt] if prefix else attempt
+        held = "".join(attempt).strip()  # the model's words, not shown yet when quiet
+        if quiet:
+            answer = [prefix] if prefix else []
 
         if error:
             note = message(error, lang)
@@ -682,13 +763,13 @@ class ChatService:
                 note = "\n\n" + note
             answer.append(note)
             yield ChatEvent("token", {"text": note})
-        elif not "".join(answer).strip():
+        elif not quiet and not "".join(answer).strip():
             fallback = message("no_data", lang)
             answer.append(fallback)
             yield ChatEvent("token", {"text": fallback})
 
-        if not error and not (readings or remembered) and _ACCOUNT_FLOW.search(clean):
-            flow = self._flow_card(cards)
+        if not error and not (readings or remembered) and _FLOW_QUESTION.search(clean):
+            flow = self._flow_card(cards, clean)
             if flow:
                 cards.append(flow)
         unique: list[dict[str, Any]] = []
@@ -696,6 +777,21 @@ class ChatService:
             if c not in unique:
                 unique.append(c)
         cards = unique[-MAX_CARDS:]
+        # Charts of a spreadsheet go with the answer but are not stored with it: what was
+        # read from a file stays in memory only (see file_memory.py).
+        charts = chart_cards(
+            readings, remembered, clean, account=bool(cards) or bool(topics - _FILE_TOPICS)
+        )
+        if quiet and not error:
+            diagram = any(c.get("type") == "money_flow" for c in cards) or any(
+                "flow" in c.get("sections", []) for c in charts
+            )
+            if diagram:
+                line = message("file_flow_caption" if about_a_file else "flow_caption", lang)
+            else:  # no diagram after all (no data for that period): the model's words
+                line = held or message("no_data", lang)
+            answer.append(line)
+            yield ChatEvent("token", {"text": line})
         # New questions as the chat goes on; a sheet only gets those its report answers.
         asked_before = [
             str(m["content"] or "").split("\n[Attached:")[0] for m in history if m["role"] == "user"
@@ -711,11 +807,6 @@ class ChatService:
                 file_parts=report_parts("\n".join(sheets)) if sheets else None,
             )
         ]
-        # Charts of a spreadsheet go with the answer but are not stored with it: what was
-        # read from a file stays in memory only (see file_memory.py).
-        charts = chart_cards(
-            readings, remembered, clean, account=bool(cards) or bool(topics - _FILE_TOPICS)
-        )
         row = self._store("assistant", mask_pii("".join(answer).strip()), lang, cards, chips)
         yield ChatEvent(
             "done",

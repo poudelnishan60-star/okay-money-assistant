@@ -112,6 +112,13 @@ How it stays safe and correct:
   the flow ("money flow", "where did my money come from", "आवतजावत", "kaha bata aayo") and
   the model looked it up another way, the server adds that card itself for the same period
   (logged like any tool call). "Where did my money go?" keeps its category pie.
+- For such a flow question the diagram is the answer: the model still picks the tool and the
+  period (its spending lookups get the flow view), but its words are held back and one fixed
+  line with no figures goes over the diagram ("Here's where your money came from and where
+  it went.", in the user's language). The same for "money flow in the file". If no diagram
+  comes (no data for that period), the model's words are shown and checked as usual. A
+  stand-in diagram is never guessed: not for a period that had no data, and not as "this
+  month" when the question names another time.
 - Budgets and goals are only *proposed* (`confirm_action` card); the app saves them by calling
   `POST /budgets` / `POST /goals` after the user taps Confirm.
 - It never moves money: payments become an `open_app_flow` card that opens Khalti's own

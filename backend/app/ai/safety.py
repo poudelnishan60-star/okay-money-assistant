@@ -232,6 +232,17 @@ MESSAGES: dict[str, dict[Lang, str]] = {
         Lang.NE: "मसँग त्यो डाटा छैन।",
         Lang.ROM: "Malai tyo data chaina.",
     },
+    # Over a money-flow diagram: the diagram says it all, so no figures in words.
+    "flow_caption": {
+        Lang.EN: "Here's where your money came from and where it went.",
+        Lang.NE: "तपाईंको पैसा कहाँबाट आयो र कहाँ गयो, तल हेर्नुहोस्।",
+        Lang.ROM: "Tapai ko paisa kaha bata aayo ra kaha gayo, tala hernus.",
+    },
+    "file_flow_caption": {
+        Lang.EN: "Here's where the file's money came from and where it went.",
+        Lang.NE: "फाइलको पैसा कहाँबाट आयो र कहाँ गयो, तल हेर्नुहोस्।",
+        Lang.ROM: "File ko paisa kaha bata aayo ra kaha gayo, tala hernus.",
+    },
     "unavailable": {
         Lang.EN: "O-Kay can't answer right now. Please try again a little later.",
         Lang.NE: "O-Kay अहिले जवाफ दिन सक्दैन। कृपया केही बेरपछि प्रयास गर्नुहोस्।",

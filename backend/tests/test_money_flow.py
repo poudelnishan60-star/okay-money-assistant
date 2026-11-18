@@ -12,7 +12,7 @@ from app.ai.chat import ChatService
 from app.ai.file_memory import FileMemory
 from app.ai.tools import ToolContext, openai_tool_specs, run_tool
 from app.domain import NON_SPENDING
-from app.models import ToolCallLog
+from app.models import ChatMessage, ToolCallLog
 from app.money import format_npr
 from app.sources.base import TransactionFilter
 from app.sources.mock import MockBillSource, MockTransactionSource
@@ -137,3 +137,136 @@ def test_no_account_flow_added_when_the_question_is_about_a_file(seeded: Session
     llm = FakeLLM(say("Most came from loads."))
     events = list(_service(seeded, llm, files).respond("Money flow in the file"))
     assert _cards(events) == ["file_report"]
+
+
+# --- the diagram is the answer: no words that repeat it ------------------------------------
+
+LONG = "Money in Rs. 29,500. Remittance Rs. 27,500. Groceries Rs. 6,999.60. Left over Rs. 1."
+
+
+def _shown(events: list) -> str:  # type: ignore[type-arg]
+    return "".join(e.data["text"] for e in events if e.event == "token")
+
+
+def _stored(session: Session) -> str:
+    rows = session.scalars(select(ChatMessage).where(ChatMessage.role == "assistant")).all()
+    return rows[-1].content
+
+
+@pytest.mark.parametrize(
+    ("question", "caption"),
+    [
+        ("Show my money flow", "Here's where your money came from and where it went."),
+        ("मेरो पैसाको आवतजावत देखाऊ", "तपाईंको पैसा कहाँबाट आयो र कहाँ गयो, तल हेर्नुहोस्।"),
+        (
+            "Mero paisa kaha bata aayo, kaha gayo?",
+            "Tapai ko paisa kaha bata aayo ra kaha gayo, tala hernus.",
+        ),
+    ],
+)
+def test_a_flow_answer_is_the_diagram_with_one_fixed_line(
+    seeded: Session, question: str, caption: str
+) -> None:
+    # Seen live: the words listed every line of the diagram. They are never shown now.
+    llm = FakeLLM(call(("get_spending_summary", {"period": "this_month"})), say(LONG))
+    events = list(_service(seeded, llm).respond(question))
+    assert _shown(events) == caption  # nothing else was ever streamed
+    assert "reset" not in [e.event for e in events]
+    assert "status" in [e.event for e in events]  # the app still shows it's working
+    assert "money_flow" in _cards(events)
+    assert _stored(seeded) == caption
+
+
+def test_the_spending_tool_gives_the_flow_for_a_flow_question(seeded: Session) -> None:
+    # Seen live: "Show my money flow" came with category=Shopping and no group_by.
+    args = {"period": "last_month", "category": "Shopping"}
+    llm = FakeLLM(call(("get_spending_summary", args)), say(LONG))
+    events = list(_service(seeded, llm).respond("Show my money flow"))
+    flow = next(c for c in events[-1].data["cards"] if c["type"] == "money_flow")
+    assert flow["period_label"] != "This month"  # the period the model chose is kept
+    logged = seeded.scalars(select(ToolCallLog.arguments_json)).all()
+    assert '"group_by": "flow"' in logged[-1] and "Shopping" not in logged[-1]
+
+
+def test_no_data_for_the_period_asked_shows_the_words_not_a_guessed_diagram(
+    seeded: Session,
+) -> None:
+    month = f"{ANCHOR.year - 2}-01"
+    llm = FakeLLM(
+        call(("get_spending_summary", {"period": "month", "month": month})),
+        say("I don't have that data."),
+    )
+    events = list(_service(seeded, llm).respond(f"Money flow for {month}"))
+    assert "money_flow" not in _cards(events)
+    assert _shown(events) == "I don't have that data."
+
+
+@pytest.mark.parametrize(
+    ("question", "diagram"),
+    [
+        ("Show my money flow", True),  # this month: safe to look up
+        ("Show my money flow for last month", False),  # never guessed as this month
+        ("गत महिनाको पैसाको आवतजावत", False),
+    ],
+)
+def test_with_nothing_looked_up_the_diagram_is_only_this_months(
+    seeded: Session, question: str, diagram: bool
+) -> None:
+    llm = FakeLLM(say("You had money coming in and going out."))  # no tool at all
+    events = list(_service(seeded, llm).respond(question))
+    assert ("money_flow" in _cards(events)) is diagram
+    assert _shown(events) == (
+        "Here's where your money came from and where it went."
+        if diagram
+        else "You had money coming in and going out."
+    )
+
+
+def test_a_busy_ai_still_says_so(seeded: Session) -> None:
+    from app.ai.llm import LLMBusyError
+
+    llm = FakeLLM(LLMBusyError("busy"))
+    events = list(_service(seeded, llm).respond("Show my money flow"))
+    assert _shown(events) == "O-Kay is busy, please try again in a minute."
+    assert events[-1].data["error"] == "busy"
+
+
+def test_a_typed_mpin_warning_stays_above_the_diagram(seeded: Session) -> None:
+    llm = FakeLLM(call(("get_spending_summary", {})), say(LONG))
+    events = list(_service(seeded, llm).respond("my mpin is 4821, show my money flow"))
+    shown = _shown(events)
+    assert shown.endswith("Here's where your money came from and where it went.")
+    assert "4821" not in shown and "Rs." not in shown
+    assert len(shown) > len("Here's where your money came from and where it went.")
+
+
+def test_a_file_flow_question_gets_the_files_line(seeded: Session) -> None:
+    files = FileMemory()
+    files.remember(USER, [read(STATEMENT, FakeLLM())])
+    llm = FakeLLM(say("Most came from loads: Rs. 5,000."))
+    events = list(_service(seeded, llm, files).respond("Money flow in the file"))
+    assert _shown(events) == "Here's where the file's money came from and where it went."
+    (card,) = events[-1].data["cards"]
+    assert card["sections"] == ["flow"]
+
+
+def test_where_did_most_of_my_money_go_keeps_its_words(seeded: Session) -> None:
+    # Not a flow question: it wants the biggest uses, in words.
+    llm = FakeLLM(call(("get_spending_summary", {"period": "this_month"})), say("Groceries."))
+    events = list(_service(seeded, llm).respond("Where did most of my money go?"))
+    assert _shown(events) == "Groceries."
+
+
+def test_file_flow_words_are_checked_when_the_account_was_used_instead(seeded: Session) -> None:
+    # The model looked at the account, so no file chart is shown: its words are shown, and
+    # checked like any answer (a made-up amount is corrected).
+    files = FileMemory()
+    files.remember(USER, [read(STATEMENT, FakeLLM())])
+    llm = FakeLLM(
+        call(("get_spending_summary", {"period": "this_month"})),
+        say("You got Rs. 99,999."),  # made up
+        say("Your account shows money in and out."),
+    )
+    events = list(_service(seeded, llm, files).respond("Money flow in the file"))
+    assert "file_report" not in _cards(events)
+    assert _shown(events) == "Your account shows money in and out."
