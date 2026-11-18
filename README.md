@@ -112,6 +112,12 @@ How it stays safe and correct:
   the flow ("money flow", "where did my money come from", "आवतजावत", "kaha bata aayo") and
   the model looked it up another way, the server adds that card itself for the same period
   (logged like any tool call). "Where did my money go?" keeps its category pie.
+- Very short answers: the model is told to answer in one sentence (two at most) with the key
+  figure, since the cards show the details. Code makes sure of it: an answer that comes with
+  cards or charts keeps only its first sentence or two (about 140 characters; lists, a line
+  that only introduces a list, and a closing "Want me to...?" are left out; one long
+  sentence is kept whole). Only text is taken out, so every figure stays exactly as it was.
+  An answer with no card (how-to steps, a receipt's items) keeps its content.
 - For such a flow question the diagram is the answer: the model still picks the tool and the
   period (its spending lookups get the flow view), but its words are held back and one fixed
   line with no figures goes over the diagram ("Here's where your money came from and where

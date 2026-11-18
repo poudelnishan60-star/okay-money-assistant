@@ -50,6 +50,9 @@ log = logging.getLogger(__name__)
 audit = logging.getLogger("okay.audit")
 
 MAX_CARDS = 4
+# An answer that comes with cards: its words are cut to about this many characters (whole
+# sentences, at least one). The cards show the details.
+SHORT_ANSWER_CHARS = 140
 # Answers about a file may be a report: room for more than the usual short answer.
 FILE_ANSWER_TOKENS = 900
 _REPLY_IN = {
@@ -129,6 +132,36 @@ _SENTENCE_END = re.compile(r"(?<=[.!?।])(?<!Rs\.)(?<!रु\.)\s+")
 _LIST_MARKER = re.compile(r"\s*(?:[-*•]|\d{1,2}[.)])\s+")
 
 
+def shorten(text: str, limit: int = SHORT_ANSWER_CHARS) -> str:
+    """An answer whose cards show the details, cut to its first sentence or two (the user
+    asked for as little text as possible). Lists are left out (the cards list the same
+    things), and so is a line that only introduced one ("Here's your spending:"); whole
+    sentences are kept up to `limit` characters, always at least one. Only text is removed,
+    so every figure left is exactly as it was."""
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    prose = [line for line in lines if not _LIST_MARKER.match(line)]
+    prose = [line for line in prose if not line.rstrip("*").endswith(":")]
+    items = [line for line in lines if _LIST_MARKER.match(line)]
+    if not prose and items:  # nothing but a list (and its intro): its first item
+        prose = [_LIST_MARKER.sub("", items[0], count=1)]
+    units: list[tuple[int, str]] = []  # (line, sentence)
+    for n, line in enumerate(prose):
+        units += [(n, part.strip()) for part in _SENTENCE_END.split(line) if part.strip()]
+    # A follow-up question after the answer ("Want me to set a budget?"): the chips offer them.
+    units = [u for i, u in enumerate(units) if i == 0 or not u[1].rstrip("*").endswith("?")]
+    kept: list[tuple[int, str]] = []
+    for unit in units:
+        if kept and sum(len(u) + 1 for _, u in kept) + len(unit[1]) > limit:
+            break
+        kept.append(unit)
+    out = ""
+    for i, (n, unit) in enumerate(kept):
+        if unit.count("**") % 2:  # a bold part cut in two
+            unit = unit.replace("**", "")
+        out += ("" if i == 0 else " " if kept[i - 1][0] == n else "\n") + unit
+    return out
+
+
 def drop_ungrounded(text: str, cards: list[dict[str, Any]], grounded: str) -> tuple[str, int]:
     """Last resort when the corrected answer still fails check_answer: take out the sentences
     that state an amount no tool result or file gave (a sum the model added up itself, say),
@@ -205,9 +238,8 @@ MAX_CHART_CARDS = 3
 _FILE_TOPICS = {"attachment", "attachment_table"}
 CHARTS_NOTE = (
     "Under your answer the app shows charts of the file's worked-out figures (money flow, "
-    "money in and out, by type, week by week, biggest payments, balance). So keep the text "
-    "short: the main totals and the 2-3 points that matter most, not every type, week or "
-    "payment."
+    "money in and out, by type, week by week, biggest payments, balance). So answer in one "
+    "short sentence: the main total, or the one point that matters most."
 )
 # Which of a sheet's charts a follow-up is about, in English, Nepali or Romanized Nepali. A
 # new file shows every chart; a follow-up that names none shows none (the text answers it).
@@ -807,6 +839,17 @@ class ChatService:
                 file_parts=report_parts("\n".join(sheets)) if sheets else None,
             )
         ]
+        if not quiet and not error and (cards or charts):
+            # The cards show the details, so the words stay as short as possible: seen live,
+            # answers listed every line of their cards even when asked not to.
+            body = "".join(attempt).strip()
+            short = shorten(body) if body else body
+            if short.split() != body.split():  # not just spacing
+                yield ChatEvent("reset", {})
+                if prefix:
+                    yield ChatEvent("token", {"text": prefix})
+                yield ChatEvent("token", {"text": short})
+                answer = [prefix, short] if prefix else [short]
         row = self._store("assistant", mask_pii("".join(answer).strip()), lang, cards, chips)
         yield ChatEvent(
             "done",

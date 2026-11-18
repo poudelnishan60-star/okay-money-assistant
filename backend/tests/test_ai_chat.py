@@ -435,9 +435,11 @@ def test_made_up_sentences_are_taken_out_when_the_correction_fails(seeded: Sessi
     )
     service = _service(seeded, llm)
     events = list(service.respond("food spending?"))
-    assert [e.event for e in events].count("reset") == 2
+    # Resets: the correction, the made-up sentence taken out, then the list cut (the card
+    # under the answer shows the details).
+    assert [e.event for e in events].count("reset") == 3
     last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
-    kept = "You spent **Rs. 1,270** on food.\n- Food is your biggest category."
+    kept = "You spent **Rs. 1,270** on food."
     assert _text(events[last_reset + 1 :]) == kept
     assert service.dropped_sentences == 1
     assert events[-1].data["error"] is None

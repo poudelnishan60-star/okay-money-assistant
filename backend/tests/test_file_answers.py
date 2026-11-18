@@ -347,7 +347,8 @@ def test_sums_the_model_adds_up_itself_are_taken_out_of_a_report(seeded: Session
     llm = FakeLLM(say(report), say(report))
     service = _service(seeded, llm)
     events = list(service.respond("detailed report", "auto", [STATEMENT]))
-    kept = "**From the file:**\n- Money out: Rs. 4,794.31\n- Money in: Rs. 5,025"
+    # Then cut short: the charts under the answer show the rest.
+    kept = "Money out: Rs. 4,794.31"
     last_reset = max(i for i, e in enumerate(events) if e.event == "reset")
     assert _text(events[last_reset + 1 :]) == kept
     assert service.dropped_sentences == 1
