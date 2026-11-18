@@ -48,8 +48,8 @@ def test_a_statement_gets_five_questions_and_new_ones_as_they_are_asked() -> Non
         "Anything unusual in the file?",
         "Where can I cut back?",
         "Week by week in the file",
+        "Money flow in the file",
         "Compare the file with my Khalti account",
-        "Money in vs money out in the file",
     ]
 
 
@@ -108,6 +108,6 @@ def test_chips_move_on_to_questions_not_asked_yet_in_the_chat(seeded: Session) -
         "Anything unusual in the file?",
         "Where can I cut back?",
         "Week by week in the file",
+        "Money flow in the file",
         "Compare the file with my Khalti account",
-        "Money in vs money out in the file",
     ]

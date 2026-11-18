@@ -196,8 +196,8 @@ void main() {
     await _matches('insights_hidden');
   });
 
-  testWidgets('file chart card (a statement added in the chat)', (t) async {
-    t.view.physicalSize = const Size(390, 1950) * 1.5;
+  Future<void> pumpCard(WidgetTester t, String type, double height) async {
+    t.view.physicalSize = Size(390, height) * 1.5;
     t.view.devicePixelRatio = 1.5;
     addTearDown(t.view.reset);
     await t.pumpWidget(
@@ -209,7 +209,7 @@ void main() {
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: ChatCardView(
-                card: ChatCard.fromJson(fixtureCard('file_report')),
+                card: ChatCard.fromJson(fixtureCard(type)),
                 messageIndex: 0,
                 cardIndex: 0,
               ),
@@ -219,8 +219,17 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    await t.tap(find.text('Service payment')); // a lifted slice
+  }
+
+  testWidgets('file chart card (a statement added in the chat)', (t) async {
+    await pumpCard(t, 'file_report', 2350);
+    await t.tap(find.text('Service payment').last); // a lifted slice in the pie
     await t.pumpAndSettle();
     await _matches('chat_file_charts');
+  });
+
+  testWidgets('money flow card (the account, last 30 days)', (t) async {
+    await pumpCard(t, 'money_flow', 560);
+    await _matches('chat_money_flow');
   });
 }

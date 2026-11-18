@@ -307,6 +307,75 @@
   "note": "You'll confirm in Khalti with your MPIN."
  },
  {
+  "type": "money_flow",
+  "period_label": "Last 30 days",
+  "flow": {
+   "money_in_paisa": 2950000,
+   "money_out_paisa": 2588960,
+   "sources": [
+    {
+     "label": "Remittance",
+     "paisa": 2750000,
+     "kind": "in"
+    },
+    {
+     "label": "Transfers in",
+     "paisa": 200000,
+     "kind": "in"
+    }
+   ],
+   "uses": [
+    {
+     "label": "Groceries",
+     "paisa": 699960,
+     "kind": "out"
+    },
+    {
+     "label": "Food & Dining",
+     "paisa": 551000,
+     "kind": "out"
+    },
+    {
+     "label": "Education",
+     "paisa": 350000,
+     "kind": "out"
+    },
+    {
+     "label": "Bills & Utilities",
+     "paisa": 222900,
+     "kind": "out"
+    },
+    {
+     "label": "Other spending",
+     "paisa": 420100,
+     "kind": "out"
+    },
+    {
+     "label": "Smart Deposit",
+     "paisa": 200000,
+     "kind": "moved"
+    },
+    {
+     "label": "Transfers out",
+     "paisa": 145000,
+     "kind": "moved"
+    },
+    {
+     "label": "Left over",
+     "paisa": 361040,
+     "kind": "balance"
+    }
+   ]
+  },
+  "link": {
+   "count": 47,
+   "filters": {
+    "start": "2026-10-11",
+    "end": "2026-11-09"
+   }
+  }
+ },
+ {
   "type": "file_report",
   "file_name": "statement.csv",
   "rows": 24,
@@ -543,7 +612,51 @@
   "balance_check": "ok",
   "balance_rows_checked": 23,
   "balance_rows_off": 0,
+  "flow": {
+   "money_in_paisa": 1804500,
+   "money_out_paisa": 2445150,
+   "sources": [
+    {
+     "label": "Load",
+     "paisa": 1800000,
+     "kind": "in"
+    },
+    {
+     "label": "Cashback",
+     "paisa": 4500,
+     "kind": "in"
+    },
+    {
+     "label": "From balance",
+     "paisa": 640650,
+     "kind": "balance"
+    }
+   ],
+   "uses": [
+    {
+     "label": "Scan and Pay",
+     "paisa": 1112650,
+     "kind": "out"
+    },
+    {
+     "label": "Service payment",
+     "paisa": 562500,
+     "kind": "out"
+    },
+    {
+     "label": "Transfer",
+     "paisa": 470000,
+     "kind": "out"
+    },
+    {
+     "label": "Withdraw",
+     "paisa": 300000,
+     "kind": "out"
+    }
+   ]
+  },
   "sections": [
+   "flow",
    "types",
    "periods",
    "biggest",

@@ -55,6 +55,7 @@ void main() {
         'TransactionsPreviewCard',
         'ConfirmActionCard',
         'OpenAppFlowCard',
+        'MoneyFlowCard',
         'FileReportCard',
       ]);
       final summary = cards[0] as SpendingSummaryCard;

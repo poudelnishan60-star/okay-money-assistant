@@ -88,6 +88,8 @@ class Lang(StrEnum):
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 _ROMAN_STRONG = {
     "kati",
+    "aawat",
+    "jawat",
     "kharcha",
     "kharch",
     "mahina",

@@ -117,6 +117,11 @@ def main() -> None:
                 ("open_app_flow", {"flow": "bill_payment", "service": "electricity"}),
             ]:
                 cards += [c.model_dump(mode="json") for c in run_tool(ctx, tool, args).cards]
+            # The money-flow card (its spending summary is already above).
+            flow = run_tool(
+                ctx, "get_spending_summary", {"period": "last_30_days", "group_by": "flow"}
+            )
+            cards += [c.model_dump(mode="json") for c in flow.cards if c.type == "money_flow"]  # type: ignore[attr-defined]
     # The chart card for a statement, as the chat sends it with the answer.
     cards += [
         c.model_dump(mode="json")

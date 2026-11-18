@@ -39,6 +39,7 @@ sealed class ChatCard {
       'transactions_preview' => TransactionsPreviewCard.fromJson(j),
       'confirm_action' => ConfirmActionCard.fromJson(j),
       'open_app_flow' => OpenAppFlowCard.fromJson(j),
+      'money_flow' => MoneyFlowCard.fromJson(j),
       'file_report' => FileReportCard.fromJson(j),
       _ => UnknownCard(j['type']?.toString() ?? '?'),
     };
@@ -364,6 +365,60 @@ class OpenAppFlowCard extends ChatCard {
   final int? monthlyAmountPaisa;
 }
 
+/// One side of a money-flow diagram. [kind]: 'in', 'out' (spent, or money out of a file),
+/// 'moved' (transfers sent, Smart Deposit) or 'balance' (evens both sides).
+@immutable
+class FlowItem {
+  const FlowItem(this.label, this.paisa, this.kind);
+
+  factory FlowItem.fromJson(Map<String, Object?> j) =>
+      FlowItem(j.str('label'), j.integer('paisa'), j.str('kind'));
+
+  final String label;
+  final int paisa;
+  final String kind;
+}
+
+/// Money in by source -> wallet -> money out by use. Both sides add up to the same total
+/// (worked out by the backend).
+@immutable
+class MoneyFlow {
+  const MoneyFlow({
+    required this.moneyInPaisa,
+    required this.moneyOutPaisa,
+    required this.sources,
+    required this.uses,
+  });
+
+  factory MoneyFlow.fromJson(Map<String, Object?> j) => MoneyFlow(
+    moneyInPaisa: j.integer('money_in_paisa'),
+    moneyOutPaisa: j.integer('money_out_paisa'),
+    sources: [for (final i in j.objList('sources')) FlowItem.fromJson(i)],
+    uses: [for (final i in j.objList('uses')) FlowItem.fromJson(i)],
+  );
+
+  final int moneyInPaisa;
+  final int moneyOutPaisa;
+  final List<FlowItem> sources;
+  final List<FlowItem> uses;
+}
+
+/// Where the account's money came from and went in a period.
+class MoneyFlowCard extends ChatCard {
+  const MoneyFlowCard({required this.periodLabel, required this.flow, required this.link});
+
+  factory MoneyFlowCard.fromJson(Map<String, Object?> j) => MoneyFlowCard(
+    periodLabel: j.str('period_label'),
+    flow: MoneyFlow.fromJson(j.obj('flow')),
+    link: TransactionsLink.fromJson(j.obj('link')),
+  );
+
+  final String periodLabel;
+  final MoneyFlow flow;
+  @override
+  final TransactionsLink link;
+}
+
 /// One part of a file's total: a type (Scan and Pay, Transfer, ...) or a payee.
 @immutable
 class FileSlice {
@@ -453,6 +508,7 @@ class FileReportCard extends ChatCard {
     this.balanceCheck,
     this.balanceRowsChecked = 0,
     this.balanceRowsOff = 0,
+    this.flow,
     this.sections = const [],
   });
 
@@ -486,6 +542,7 @@ class FileReportCard extends ChatCard {
       balanceCheck: j.strOrNull('balance_check'),
       balanceRowsChecked: j.intOrNull('balance_rows_checked') ?? 0,
       balanceRowsOff: j.intOrNull('balance_rows_off') ?? 0,
+      flow: j['flow'] == null ? null : MoneyFlow.fromJson(j.obj('flow')),
       sections: [for (final s in (j['sections'] as List<Object?>? ?? const [])) s.toString()],
     );
   }
@@ -517,7 +574,10 @@ class FileReportCard extends ChatCard {
   final int balanceRowsChecked;
   final int balanceRowsOff;
 
-  /// Which charts to show, in order: 'types', 'periods', 'biggest', 'balance'.
+  /// Money in by type -> money out by type (only when both add up to the file's totals).
+  final MoneyFlow? flow;
+
+  /// Which charts to show, in order: 'flow', 'types', 'periods', 'biggest', 'balance'.
   final List<String> sections;
 }
 

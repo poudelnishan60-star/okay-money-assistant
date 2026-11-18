@@ -151,6 +151,50 @@ class OpenAppFlowCard(BaseModel):
     note: str = "You'll confirm in Khalti with your MPIN."
 
 
+class FlowItem(BaseModel):
+    """One side of a money-flow diagram: where money came from, or where it went."""
+
+    label: str
+    paisa: int
+    # in: money in; out: money out (spent, or any money out in a file); moved: transfers sent
+    # and Smart Deposit (account only); balance: what makes both sides equal.
+    kind: Literal["in", "out", "moved", "balance"]
+
+
+class MoneyFlow(BaseModel):
+    """Money in by source on the left, money out by use on the right, both through the
+    wallet. Both sides add up to the same total: if more went out than came in, "From your
+    balance" is a source; if less, "Left over" is a use. Worked out in code."""
+
+    money_in_paisa: int
+    money_out_paisa: int
+    sources: list[FlowItem]
+    uses: list[FlowItem]
+
+
+def money_flow(
+    sources: list[FlowItem], uses: list[FlowItem], money_in: int, money_out: int
+) -> MoneyFlow:
+    if money_out > money_in:
+        sources = [
+            *sources,
+            FlowItem(label="From balance", paisa=money_out - money_in, kind="balance"),
+        ]
+    elif money_in > money_out:
+        uses = [*uses, FlowItem(label="Left over", paisa=money_in - money_out, kind="balance")]
+    return MoneyFlow(money_in_paisa=money_in, money_out_paisa=money_out, sources=sources, uses=uses)
+
+
+class MoneyFlowCard(BaseModel):
+    """Where the account's money came from and went in a period (get_spending_summary with
+    group_by=flow)."""
+
+    type: Literal["money_flow"] = "money_flow"
+    period_label: str
+    flow: MoneyFlow
+    link: TransactionsLink
+
+
 class FileSlice(BaseModel):
     """One part of a file's total: a type (Scan and Pay, Transfer, ...) or a payee."""
 
@@ -173,7 +217,7 @@ class BalancePoint(BaseModel):
     paisa: int
 
 
-FileSection = Literal["types", "periods", "biggest", "balance"]
+FileSection = Literal["flow", "types", "periods", "biggest", "balance"]
 
 
 class FileReportCard(BaseModel):
@@ -205,6 +249,8 @@ class FileReportCard(BaseModel):
     balance_check: Literal["ok", "off"] | None = None  # follows money in and out row by row
     balance_rows_checked: int = 0
     balance_rows_off: int = 0
+    # Money in by type -> money out by type, only when both add up to the file's totals.
+    flow: MoneyFlow | None = None
     sections: list[FileSection] = Field(default_factory=list)  # which charts to show
 
 
@@ -217,6 +263,7 @@ Card = Annotated[
     | TransactionsPreviewCard
     | ConfirmActionCard
     | OpenAppFlowCard
+    | MoneyFlowCard
     | FileReportCard,
     Field(discriminator="type"),
 ]

@@ -118,6 +118,16 @@ _CHIPS: dict[str, dict[Lang, str]] = {
         Lang.NE: "मैले केको लागि तिरेँ?",
         Lang.ROM: "Maile ke ko lagi tirey?",
     },
+    "money_flow": {
+        Lang.EN: "Show my money flow",
+        Lang.NE: "मेरो पैसाको आवतजावत देखाऊ",
+        Lang.ROM: "Mero paisa ko aawat jawat dekhau",
+    },
+    "file_flow": {
+        Lang.EN: "Money flow in the file",
+        Lang.NE: "फाइलमा पैसाको आवतजावत",
+        Lang.ROM: "File ma paisa ko aawat jawat",
+    },
     "top_merchants": {
         Lang.EN: "Where do I spend the most?",
         Lang.NE: "सबैभन्दा धेरै कहाँ खर्च हुन्छ?",
@@ -126,7 +136,7 @@ _CHIPS: dict[str, dict[Lang, str]] = {
 }
 
 _BY_TOPIC: dict[str, list[str]] = {
-    "spending": ["month_vs_last", "top_merchants", "food_budget"],
+    "spending": ["month_vs_last", "money_flow", "top_merchants", "food_budget"],
     "transactions": ["where_money", "month_vs_last", "my_budgets"],
     "budgets": ["per_day", "where_money", "run_low"],
     "budget_proposal": ["my_budgets", "per_day"],
@@ -151,6 +161,7 @@ _BY_TOPIC: dict[str, list[str]] = {
         "file_unusual",
         "file_cut_back",
         "file_by_week",
+        "file_flow",
         "file_compare",
         "file_in_out",
         "file_balance",
@@ -166,6 +177,7 @@ _NEEDS = {
     "file_biggest": "biggest",
     "file_by_week": "periods",
     "file_in_out": "in_out",
+    "file_flow": "in_out",
     "file_balance": "balance",
 }
 

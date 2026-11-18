@@ -11,6 +11,7 @@ import '../../core/privacy.dart';
 import '../../theme/okay_theme.dart';
 import '../../widgets/widgets.dart';
 import '../chat_models.dart';
+import 'money_flow_view.dart';
 
 /// Charts for a spreadsheet the user added: totals in and out, a 3D pie by type, week by
 /// week bars, the biggest payments and the balance line. Every figure was worked out in code
@@ -26,6 +27,7 @@ class FileReportView extends ConsumerWidget {
     final sections = <Widget>[
       for (final s in card.sections)
         switch (s) {
+          'flow' when card.flow != null => _FlowSection(card.flow!),
           'types' => _TypesPie(card),
           'periods' => _PeriodBars(card),
           'biggest' => _Biggest(card),
@@ -402,6 +404,22 @@ class _InOutSplit extends ConsumerWidget {
       ],
     );
   }
+}
+
+// --- money flow -------------------------------------------------------------------------
+
+class _FlowSection extends StatelessWidget {
+  const _FlowSection(this.flow);
+  final MoneyFlow flow;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const _SectionTitle(Icons.account_tree_outlined, 'Where the money came from and went'),
+      MoneyFlowDiagram(flow),
+    ],
+  );
 }
 
 // --- pie by type ------------------------------------------------------------------------

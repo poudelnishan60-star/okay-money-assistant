@@ -204,9 +204,10 @@ def _file_topic(readings: Sequence[Reading]) -> str:
 MAX_CHART_CARDS = 3
 _FILE_TOPICS = {"attachment", "attachment_table"}
 CHARTS_NOTE = (
-    "Under your answer the app shows charts of the file's worked-out figures (money in and "
-    "out, by type, week by week, biggest payments, balance). So keep the text short: the main "
-    "totals and the 2-3 points that matter most, not every type, week or payment."
+    "Under your answer the app shows charts of the file's worked-out figures (money flow, "
+    "money in and out, by type, week by week, biggest payments, balance). So keep the text "
+    "short: the main totals and the 2-3 points that matter most, not every type, week or "
+    "payment."
 )
 # Which of a sheet's charts a follow-up is about, in English, Nepali or Romanized Nepali. A
 # new file shows every chart; a follow-up that names none shows none (the text answers it).
@@ -216,6 +217,12 @@ _ALL_CHARTS = re.compile(
     re.IGNORECASE,
 )
 _CHART_WORDS: dict[str, re.Pattern[str]] = {
+    "flow": re.compile(
+        r"\bflow|diagram|come from|came from|(?:money|paisa) (?:\w+ ){0,3}(?:go|went|gayo)\b"
+        r"|kaha ?bata|aayo,? kaha|कहाँबाट|आयो,? कहाँ|आवतजावत|aawat ?jawat|sankey"
+        r"|\bin vs|in and out|aayeko ra gayeko|आएको र गएको",
+        re.IGNORECASE,
+    ),
     "types": re.compile(
         r"\btypes?\b|\bkinds?\b|break\w* (?:it |the file )?down|breakdown|prakar|प्रकार|kisim"
         r"|किसिम|categor|cut back|kam garna|कम गर्न",
@@ -233,6 +240,15 @@ _CHART_WORDS: dict[str, re.Pattern[str]] = {
     ),
     "balance": re.compile(r"balance|ब्यालेन्स|मौज्दात", re.IGNORECASE),
 }
+
+
+# A question about the account's money flow, in English, Nepali or Romanized Nepali. Not
+# "where did my money go?": that one gets the categories (its own chip and pie).
+_ACCOUNT_FLOW = re.compile(
+    r"\bflow\b|diagram|sankey|come from|came from|money in and out|in vs out|kaha ?bata"
+    r"|कहाँबाट|आवतजावत|aawat ?jawat",
+    re.IGNORECASE,
+)
 
 
 def chart_cards(
@@ -470,6 +486,25 @@ class ChatService:
             self.session.commit()
         return max_rounds
 
+    def _flow_card(self, cards: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """The money-flow card for a question that asks for it, when the model looked the
+        answer up another way (seen live: get_transactions for a Nepali question). Same
+        period as the cards it got, else this month. Worked out in code, logged like any
+        tool call."""
+        if any(c.get("type") == "money_flow" for c in cards):
+            return None
+        args: dict[str, Any] = {"period": "this_month"}
+        for c in cards:
+            filters = (c.get("link") or {}).get("filters") or {}
+            if filters.get("start") and filters.get("end"):
+                args = {"period": "custom", "start": filters["start"], "end": filters["end"]}
+                break
+        args["group_by"] = "flow"
+        _, result = self._run(ToolCall("flow", "get_spending_summary", json.dumps(args)))
+        self.session.commit()
+        found = [c for c in (result.cards if result else []) if c.type == "money_flow"]  # type: ignore[attr-defined]
+        return found[0].model_dump(mode="json") if found else None
+
     # -- the conversation turn ---------------------------------------------------------
     def respond(
         self, text: str, language: str = "auto", attachments: Sequence[Upload] = ()
@@ -652,6 +687,10 @@ class ChatService:
             answer.append(fallback)
             yield ChatEvent("token", {"text": fallback})
 
+        if not error and not (readings or remembered) and _ACCOUNT_FLOW.search(clean):
+            flow = self._flow_card(cards)
+            if flow:
+                cards.append(flow)
         unique: list[dict[str, Any]] = []
         for c in cards:
             if c not in unique:

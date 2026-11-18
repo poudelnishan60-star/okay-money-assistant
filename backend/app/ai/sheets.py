@@ -32,7 +32,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from app.ai.cards import BalancePoint, FilePeriod, FileReportCard, FileSlice
+from app.ai.cards import (
+    BalancePoint,
+    FilePeriod,
+    FileReportCard,
+    FileSlice,
+    FlowItem,
+    MoneyFlow,
+    money_flow,
+)
 from app.ai.safety import mask_pii, redact_secrets
 from app.money import _group_lakh
 
@@ -655,9 +663,11 @@ def sheet_report(
         lines.append(label)
         lines.append(out.getvalue().rstrip("\n"))
 
+    chart.flow = _flow(chart)
     chart.sections = [
         name
         for name, ok in (
+            ("flow", chart.flow is not None),
             ("types", len(chart.by_type) >= 2),
             ("periods", len(chart.periods) >= 2),
             ("biggest", len(chart.biggest) >= 2),
@@ -668,6 +678,22 @@ def sheet_report(
     totals = (chart.money_in_paisa, chart.money_out_paisa, chart.total_paisa)
     charted = chart.sections or any(t is not None for t in totals)
     return "\n".join(lines), chart if charted else None
+
+
+def _flow(chart: FileReportCard) -> MoneyFlow | None:
+    """Money in by type -> money out by type, for the money-flow diagram. Only when every
+    row's money has a type, so both sides add up to the file's own totals."""
+    ins, outs = chart.money_in_paisa, chart.money_out_paisa
+    if chart.measure != "out" or not ins or not outs or not chart.in_by_type:
+        return None
+    if sum(s.paisa for s in chart.in_by_type) != ins or sum(s.paisa for s in chart.by_type) != outs:
+        return None
+    return money_flow(
+        [FlowItem(label=s.label, paisa=s.paisa, kind="in") for s in chart.in_by_type],
+        [FlowItem(label=s.label, paisa=s.paisa, kind="out") for s in chart.by_type],
+        ins,
+        outs,
+    )
 
 
 def report_parts(text: str) -> set[str]:

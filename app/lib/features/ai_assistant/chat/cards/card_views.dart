@@ -13,6 +13,7 @@ import '../../widgets/widgets.dart';
 import '../chat_controller.dart';
 import '../chat_models.dart';
 import 'file_report_view.dart';
+import 'money_flow_view.dart';
 
 /// Renders one card from an answer. [messageIndex]/[cardIndex] identify confirm cards.
 class ChatCardView extends StatelessWidget {
@@ -38,6 +39,7 @@ class ChatCardView extends StatelessWidget {
       final TransactionsPreviewCard c => _TransactionsPreview(c),
       final ConfirmActionCard c => _ConfirmAction(c, messageIndex, cardIndex),
       final OpenAppFlowCard c => _OpenAppFlow(c),
+      final MoneyFlowCard c => _MoneyFlow(c),
       final FileReportCard c => FileReportView(c),
       UnknownCard() => const SizedBox.shrink(),
     };
@@ -342,6 +344,24 @@ class _Bar extends StatelessWidget {
       ),
     );
   }
+}
+
+// --- money flow -------------------------------------------------------------------------
+
+class _MoneyFlow extends StatelessWidget {
+  const _MoneyFlow(this.card);
+  final MoneyFlowCard card;
+
+  @override
+  Widget build(BuildContext context) => _Frame(
+    icon: Icons.account_tree_outlined,
+    title: 'Money in and out · ${card.periodLabel}',
+    children: [
+      MoneyFlowDiagram(card.flow, account: true),
+      const SizedBox(height: OkaySpacing.xs),
+      TransactionsLinkButton(card.link),
+    ],
+  );
 }
 
 // --- budgets ----------------------------------------------------------------------------

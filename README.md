@@ -105,6 +105,13 @@ How it stays safe and correct:
 
 - The model never does arithmetic. Its tools (`app/ai/tools.py`) compute every number with the
   same services as the REST API and hand over pre-formatted amounts; cards are built in code.
+- Money flow: `get_spending_summary` with `group_by=flow` gives every credit by source and
+  every debit by use (the four biggest spending categories, the rest as "Other spending",
+  then transfers out and Smart Deposit), plus "Left over" or "From balance" so both sides add
+  up, and a `money_flow` card (a Sankey diagram in the app). If a question clearly asks for
+  the flow ("money flow", "where did my money come from", "आवतजावत", "kaha bata aayo") and
+  the model looked it up another way, the server adds that card itself for the same period
+  (logged like any tool call). "Where did my money go?" keeps its category pie.
 - Budgets and goals are only *proposed* (`confirm_action` card); the app saves them by calling
   `POST /budgets` / `POST /goals` after the user taps Confirm.
 - It never moves money: payments become an `open_app_flow` card that opens Khalti's own
@@ -166,7 +173,8 @@ money go?" still sees the sheet. Once forgotten, the model sees only the name ("
 
 Charts (`file_report` card): the same worked-out figures also make a chart card for a sheet,
 built in code (`sheet_report` in `app/ai/sheets.py`; the model never sees it): money in and
-out, a 3D pie by type (out or in; the five biggest and "Other"), week by week bars (money in
+out, the money flow (money in by type through the wallet to money out by type; only when the
+types cover every row, so it adds up to the file's totals), a 3D pie by type (out or in; the five biggest and "Other"), week by week bars (money in
 next to money out), the biggest payments, and the balance line with the row-by-row check. A
 new file gets every chart; a follow-up gets the one it asks about ("week by week", "how did
 the balance change?", "where can I cut back?" gets the pie and the biggest payments, in
@@ -327,7 +335,10 @@ Fonts (DM Sans, Noto Sans Devanagari; SIL OFL, `app/assets/fonts/`) are bundled.
 
 Streamed answers, cards (spending with now-vs-then bars, where it went as a 3D pie with
 ranked bars, budgets, bills with Pay/Autopay, goals with Smart Deposit, transactions, confirm,
-open-in-Khalti, and charts for an added sheet), follow-up chips, thumbs, retry, clear chat.
+open-in-Khalti, money in and out as a flow diagram, and charts for an added sheet), follow-up
+chips, thumbs, retry, clear chat. The money-flow diagram (`cards/money_flow_view.dart`) gives
+each source and use its own row, so every label sits beside its own bar; band thickness is
+the amount, colour the kind (money in, spent, sent and saved, balance), with a legend.
 The 3D pie (`widgets/pie_3d.dart`) is a CustomPainter: tap a slice or its legend row to lift
 it out. Because the tilt bends slice sizes, the legend always gives the exact share and
 amount. Charts sweep or grow in once, and not at all with reduced motion; at large text the

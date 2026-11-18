@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/ai_assistant.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/cards/card_views.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/cards/file_report_view.dart';
+import 'package:khalti_ai_assistant/features/ai_assistant/chat/cards/money_flow_view.dart';
 import 'package:khalti_ai_assistant/features/ai_assistant/chat/chat_models.dart';
 
 import 'test_harness.dart';
@@ -48,24 +49,38 @@ void main() {
     expect(c.biggest.first.label, 'Fund transfer to [phone]');
     expect(c.balance.length, 24);
     expect((c.balanceCheck, c.balanceRowsChecked), ('ok', 23));
-    expect(c.sections, ['types', 'periods', 'biggest', 'balance']);
+    expect(c.sections, ['flow', 'types', 'periods', 'biggest', 'balance']);
+    // Money flow: in by type, then "From balance" (more went out than came in).
+    expect(c.flow!.sources.map((i) => (i.label, i.kind)), [
+      ('Load', 'in'),
+      ('Cashback', 'in'),
+      ('From balance', 'balance'),
+    ]);
+    expect(c.flow!.uses.map((i) => i.label), c.byType.map((s) => s.label));
+    expect(
+      c.flow!.sources.fold(0, (a, i) => a + i.paisa),
+      c.flow!.uses.fold(0, (a, i) => a + i.paisa),
+    );
   });
 
-  testWidgets('a new file shows totals and all four charts', (t) async {
+  testWidgets('a new file shows totals and all five charts', (t) async {
     await _pump(t, _card());
     expect(find.text('statement.csv'), findsOneWidget);
     expect(find.text('Money in'), findsWidgets);
     expect(find.text('Rs. 18,045'), findsOneWidget);
     expect(find.text('Rs. 24,451.50'), findsOneWidget);
     expect(find.text('Money out by Type'), findsOneWidget);
+    expect(find.text('Where the money came from and went'), findsOneWidget);
+    expect(find.byType(MoneyFlowDiagram), findsOneWidget);
+    expect(find.text('From balance'), findsOneWidget);
     expect(find.byType(Pie3D), findsOneWidget);
     for (final label in ['Scan and Pay', 'Service payment', 'Transfer', 'Withdraw']) {
-      expect(find.text(label), findsOneWidget);
+      expect(find.text(label), findsNWidgets(2)); // in the flow and in the pie's legend
     }
     expect(find.text('Week by week'), findsOneWidget);
     expect(find.text('Biggest payments'), findsOneWidget);
     expect(find.text('Fund transfer to [phone]'), findsOneWidget);
-    expect(find.text('Balance'), findsOneWidget);
+    expect(find.text('Balance'), findsNWidgets(2)); // the flow's legend and the line's title
     expect(find.textContaining('Checked row by row'), findsOneWidget);
     expect(find.text('Worked out in code from all 24 rows'), findsOneWidget);
   });
@@ -81,10 +96,11 @@ void main() {
   testWidgets('tapping a legend row or a slice lifts that slice', (t) async {
     await _pump(t, _card());
     Pie3D pie() => t.widget<Pie3D>(find.byType(Pie3D));
-    await t.tap(find.text('Transfer'));
+    final row = find.text('Transfer').last; // the pie's legend (the flow's label comes first)
+    await t.tap(row);
     await t.pumpAndSettle();
     expect(pie().selected, 2);
-    await t.tap(find.text('Transfer'));
+    await t.tap(row);
     await t.pumpAndSettle();
     expect(pie().selected, isNull);
 
@@ -100,10 +116,10 @@ void main() {
     await t.tap(find.bySemanticsLabel('Show money in'));
     await t.pumpAndSettle();
     expect(find.text('Money in by Type'), findsOneWidget);
-    expect(find.text('Load'), findsOneWidget);
-    expect(find.text('Cashback'), findsOneWidget);
+    expect(find.text('Load'), findsNWidgets(2)); // the flow and the pie's legend
+    expect(find.text('Cashback'), findsNWidgets(2));
     expect(find.text('99.8% · 2 rows'), findsOneWidget); // a part never shows as 100%
-    expect(find.text('Scan and Pay'), findsNothing);
+    expect(find.text('Scan and Pay'), findsOneWidget); // only in the flow now
   });
 
   testWidgets('a hidden balance masks every amount in the card', (t) async {

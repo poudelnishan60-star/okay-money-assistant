@@ -32,13 +32,17 @@ from app.ai.cards import (
     CategoryBreakdownCard,
     ConfirmActionCard,
     Detail,
+    FlowItem,
     GoalItem,
     GoalProgressCard,
+    MoneyFlow,
+    MoneyFlowCard,
     OpenAppFlowCard,
     SpendingSummaryCard,
     TransactionItem,
     TransactionsLink,
     TransactionsPreviewCard,
+    money_flow,
 )
 from app.ai.safety import untrusted
 from app.domain import NON_SPENDING, Category, Direction, Transaction, TxnType
@@ -179,8 +183,48 @@ def _change(pct: float | None) -> str:
 
 
 class SpendingSummaryArgs(PeriodArgs):
-    group_by: Literal["category", "merchant", "day"] = "category"
+    group_by: Literal["category", "merchant", "day", "flow"] = "category"
     category: Category | None = None
+
+
+_IN_LABELS = {Category.TRANSFERS: "Transfers in"}
+_MOVED_LABELS = {Category.TRANSFERS: "Transfers out", Category.SAVINGS: "Smart Deposit"}
+
+
+def _money_flow(txns: list[Transaction], start: dt.date, end: dt.date) -> MoneyFlow | None:
+    """Every credit by source and every debit by use (spending by category, then transfers
+    sent and Smart Deposit), for the money-flow diagram. None when nothing moved."""
+    came: dict[str, int] = defaultdict(int)
+    spent: dict[str, int] = defaultdict(int)
+    moved: dict[str, int] = defaultdict(int)
+    for t in txns:
+        if not start <= t.occurred_at.date() <= end:
+            continue
+        if not t.is_debit:
+            came[_IN_LABELS.get(t.category, t.category.value)] += t.amount_paisa
+        elif t.is_spending:
+            spent[t.category.value] += t.amount_paisa
+        else:
+            moved[_MOVED_LABELS.get(t.category, t.category.value)] += t.amount_paisa
+    money_in, money_out = sum(came.values()), sum(spent.values()) + sum(moved.values())
+    if not money_in and not money_out:
+        return None
+
+    def ranked(d: dict[str, int]) -> list[tuple[str, int]]:
+        return sorted(d.items(), key=lambda kv: (-kv[1], kv[0]))
+
+    spending = ranked(spent)
+    if len(spending) > 5:  # the four biggest, then the rest together
+        spending = [*spending[:4], ("Other spending", sum(v for _, v in spending[4:]))]
+    return money_flow(
+        [FlowItem(label=k, paisa=v, kind="in") for k, v in ranked(came)],
+        [
+            *(FlowItem(label=k, paisa=v, kind="out") for k, v in spending),
+            *(FlowItem(label=k, paisa=v, kind="moved") for k, v in ranked(moved)),
+        ],
+        money_in,
+        money_out,
+    )
 
 
 def history_start(ctx: ToolContext) -> dt.date | None:
@@ -237,7 +281,7 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
         "note": "Spending excludes transfers to people, Smart Deposit savings and income.",
     }
 
-    if args.category is not None:
+    if args.category is not None and args.group_by != "flow":
         cat = next((c for c in s.by_category if c.category is args.category), None)
         spent = cat.spent_paisa if cat else 0
         before = cat.previous_spent_paisa if cat else 0
@@ -317,7 +361,7 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
             }
             for m in s.top_merchants
         ]
-    else:
+    elif args.group_by == "day":
         data["by_day"] = [
             {"date": d.date.isoformat(), "spent": _rs(d.spent_paisa)}
             for d in s.daily
@@ -335,6 +379,27 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
             for u in unusual
         ]
         data["unusual_note"] = "Unusual = high compared with usual, not the biggest category."
+
+    flow = _money_flow(txns, current.start, s.covered_end) if args.group_by == "flow" else None
+    if flow:
+        moved_in, moved_out = flow.money_in_paisa, flow.money_out_paisa
+        data["money_in"] = _rs(moved_in)
+        data["money_out"] = _rs(moved_out)
+        data["money_in_by_source"] = [
+            {"source": i.label, "amount": _rs(i.paisa)} for i in flow.sources if i.kind == "in"
+        ]
+        data["money_out_by_use"] = [
+            {"use": i.label, "amount": _rs(i.paisa)} for i in flow.uses if i.kind != "balance"
+        ]
+        if moved_in > moved_out:
+            data["left_over"] = _rs(moved_in - moved_out)
+        elif moved_out > moved_in:
+            data["taken_from_balance"] = _rs(moved_out - moved_in)
+        data["flow_note"] = (
+            "Money out here includes transfers sent and Smart Deposit. The app draws these "
+            "figures as a money-flow diagram under your answer: give the totals and one or two "
+            "points, not every line."
+        )
 
     link = _link(current, ctx.today, s.transaction_count, spending_only=True)
     cards: list[BaseModel] = [
@@ -364,6 +429,15 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
                     if c.spent_paisa > 0
                 ],
                 link=link,
+            )
+        )
+    if flow:
+        period_txns = sum(1 for t in txns if current.start <= t.occurred_at.date() <= s.covered_end)
+        cards.append(
+            MoneyFlowCard(
+                period_label=current.label,
+                flow=flow,
+                link=_link(current, ctx.today, period_txns),
             )
         )
     return ToolResult(data, cards, {"spending"})
@@ -940,13 +1014,17 @@ TOOLS: dict[str, Tool] = {
         Tool(
             "get_spending_summary",
             "Spending total vs previous period, by category/merchant/day, unusual spending. "
-            "category= focuses on one category.",
+            "category= focuses on one category. group_by=flow (no category): money in by "
+            "source and out by use, for money flow / where money came from and went.",
             SpendingSummaryArgs,
             get_spending_summary,
             _obj(
                 {
                     **_period_props(),
-                    "group_by": {"type": "string", "enum": ["category", "merchant", "day"]},
+                    "group_by": {
+                        "type": "string",
+                        "enum": ["category", "merchant", "day", "flow"],
+                    },
                     "category": {"type": "string", "enum": SPENDING_CATEGORIES},
                 }
             ),

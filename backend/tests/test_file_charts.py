@@ -70,7 +70,21 @@ def test_a_statement_gets_charts_worked_out_from_every_row() -> None:
         5,
         0,
     )
-    assert chart.sections == ["types", "periods", "biggest", "balance"]
+    # Money flow: in by type -> out by type; more came in, so "Left over" evens the sides.
+    flow = chart.flow
+    assert flow is not None
+    assert [(i.label, i.paisa, i.kind) for i in flow.sources] == [
+        ("Khalti hub load", 5_000_00, "in"),
+        ("Cashback", 25_00, "in"),
+    ]
+    assert [(i.label, i.paisa, i.kind) for i in flow.uses] == [
+        ("Scan and Pay", 2_075_00, "out"),
+        ("Transfer", 1_450_00, "out"),
+        ("Service payment", 1_269_31, "out"),
+        ("Left over", 230_69, "balance"),
+    ]
+    assert sum(i.paisa for i in flow.sources) == sum(i.paisa for i in flow.uses)
+    assert chart.sections == ["flow", "types", "periods", "biggest", "balance"]
     # Masked like the report: no title block (owner, phone), no numbers from cells.
     raw = chart.model_dump_json()
     assert "Sita" not in raw and "9801234567" not in raw and "9841234567" not in raw
@@ -113,6 +127,26 @@ def test_amounts_with_both_signs_are_only_totalled_not_broken_down() -> None:
     assert (chart.measure, chart.total_paisa, chart.sections) == (None, 500_00, [])
 
 
+def test_no_money_flow_unless_both_sides_add_up_to_the_totals() -> None:
+    # A payment with no type: the types don't cover all money out, so no flow diagram
+    # (it would not add up to the file's own totals).
+    gap = b"Date,Type,Debit,Credit\n2026-11-01,Load,,1000\n2026-11-02,,300,\n2026-11-03,Pay,200,\n"
+    chart = _chart(Upload("gap.csv", gap))
+    assert chart is not None and chart.flow is None and "flow" not in chart.sections
+    # More went out than came in: "From balance" evens the sides.
+    data = (
+        b"Date,Type,Debit,Credit\n2026-11-01,Load,,100\n2026-11-02,Load,,200\n"
+        b"2026-11-03,Pay,300,\n2026-11-04,Pay,200,\n"
+    )
+    flow = _chart(Upload("down.csv", data)).flow  # type: ignore[union-attr]
+    assert flow is not None
+    assert [(i.label, i.paisa) for i in flow.sources] == [
+        ("Load", 300_00),
+        ("From balance", 200_00),
+    ]
+    assert [(i.label, i.paisa) for i in flow.uses] == [("Pay", 500_00)]
+
+
 def test_a_sheet_without_money_has_no_chart() -> None:
     assert _chart(Upload("names.csv", b"Name,City\nSita,Pokhara\nRam,Butwal\n")) is None
 
@@ -130,7 +164,7 @@ def test_a_new_file_shows_every_chart_but_it_is_never_stored(seeded: Session) ->
     done = _done(list(_service(seeded, llm).respond("analyze this", "auto", [STATEMENT])))
     (card,) = done["cards"]
     assert card["type"] == "file_report"
-    assert card["sections"] == ["types", "periods", "biggest", "balance"]
+    assert card["sections"] == ["flow", "types", "periods", "biggest", "balance"]
     # What was read from a file stays in memory only: the stored answer has no chart.
     stored = seeded.scalars(select(ChatMessage).where(ChatMessage.id == done["message_id"])).one()
     assert json.loads(stored.cards_json) == []
@@ -145,9 +179,13 @@ def test_a_new_file_shows_every_chart_but_it_is_never_stored(seeded: Session) ->
         ("Biggest payments in the file", ["biggest"]),
         ("How did the balance change?", ["balance"]),
         ("Where can I cut back?", ["types", "biggest"]),
-        ("Money in vs money out in the file", ["periods"]),
-        ("Sum up the file in 3 lines", ["types", "periods", "biggest", "balance"]),
-        ("Anything unusual in the file?", ["types", "periods", "biggest", "balance"]),
+        ("Money in vs money out in the file", ["flow", "periods"]),
+        ("Sum up the file in 3 lines", ["flow", "types", "periods", "biggest", "balance"]),
+        ("Anything unusual in the file?", ["flow", "types", "periods", "biggest", "balance"]),
+        ("Money flow in the file", ["flow"]),
+        ("Where did my money come from and go?", ["flow"]),
+        ("फाइलमा पैसाको आवतजावत", ["flow"]),
+        ("File ma paisa kaha bata aayo, kaha gayo?", ["flow"]),
         ("फाइलमा हप्ता अनुसार", ["periods"]),
         ("ब्यालेन्स कसरी बदलियो?", ["balance"]),
         ("File lai type anusar chhutyau", ["types"]),
