@@ -115,9 +115,14 @@ How it stays safe and correct:
 - Very short answers: the model is told to answer in one sentence (two at most) with the key
   figure, since the cards show the details. Code makes sure of it: an answer that comes with
   cards or charts keeps only its first sentence or two (about 140 characters; lists, a line
-  that only introduces a list, and a closing "Want me to...?" are left out; one long
-  sentence is kept whole). Only text is taken out, so every figure stays exactly as it was.
-  An answer with no card (how-to steps, a receipt's items) keeps its content.
+  that only introduces a list, and a closing "Want me to...?" are left out; one sentence
+  that lists everything is cut between two items with "…", never inside "Rs. 1,300").
+  Only text is taken out, so every figure stays exactly as it was. An answer with no card
+  (how-to steps, a receipt's items) keeps its content; a reminder next to every question
+  ("be very brief; at most 4 short steps") keeps those short too.
+- The flow view is only for questions that ask for the flow: if the model asks for it for
+  another question ("where did my money go?"), it gets the categories instead (seen live:
+  money out, with transfers and savings, was called spending).
 - For such a flow question the diagram is the answer: the model still picks the tool and the
   period (its spending lookups get the flow view), but its words are held back and one fixed
   line with no figures goes over the diagram ("Here's where your money came from and where

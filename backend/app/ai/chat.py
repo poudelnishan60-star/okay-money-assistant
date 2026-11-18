@@ -53,6 +53,10 @@ MAX_CARDS = 4
 # An answer that comes with cards: its words are cut to about this many characters (whole
 # sentences, at least one). The cards show the details.
 SHORT_ANSWER_CHARS = 140
+BRIEF_NOTE = (
+    "Be very brief: one short sentence. For how-to, at most 4 short steps and nothing else; "
+    "no offers or questions at the end."
+)
 # Answers about a file may be a report: room for more than the usual short answer.
 FILE_ANSWER_TOKENS = 900
 _REPLY_IN = {
@@ -136,8 +140,9 @@ def shorten(text: str, limit: int = SHORT_ANSWER_CHARS) -> str:
     """An answer whose cards show the details, cut to its first sentence or two (the user
     asked for as little text as possible). Lists are left out (the cards list the same
     things), and so is a line that only introduced one ("Here's your spending:"); whole
-    sentences are kept up to `limit` characters, always at least one. Only text is removed,
-    so every figure left is exactly as it was."""
+    sentences are kept up to `limit` characters, always at least one, and a first sentence
+    still too long is cut between two of its items ("…"). Only text is removed, so every
+    figure left is exactly as it was."""
     lines = [line.strip() for line in text.split("\n") if line.strip()]
     prose = [line for line in lines if not _LIST_MARKER.match(line)]
     prose = [line for line in prose if not line.rstrip("*").endswith(":")]
@@ -154,6 +159,13 @@ def shorten(text: str, limit: int = SHORT_ANSWER_CHARS) -> str:
         if kept and sum(len(u) + 1 for _, u in kept) + len(unit[1]) > limit:
             break
         kept.append(unit)
+    if kept and len(kept[0][1]) > limit:
+        # One sentence that lists everything (seen live: every upcoming bill): cut it at the
+        # last comma or semicolon that fits, between two items; never inside "Rs. 1,300".
+        first = kept[0][1]
+        cut = max(first.rfind(", ", 0, limit), first.rfind("; ", 0, limit))
+        if cut >= 40:
+            kept = [(kept[0][0], first[:cut].rstrip(",;") + "…")]
     out = ""
     for i, (n, unit) in enumerate(kept):
         if unit.count("**") % 2:  # a bold part cut in two
@@ -463,6 +475,12 @@ class ChatService:
                 # The model's period, the flow view (seen live: it asked for a category).
                 args = {k: v for k, v in args.items() if k != "category"} | {"group_by": "flow"}
                 arguments = json.dumps(args)
+            elif call.name == "get_spending_summary" and args.get("group_by") == "flow":
+                # The flow view only for a question that asks for the flow. Seen live: for
+                # "where did my money go?" it took money out (with transfers and savings) for
+                # spending. Other questions get the categories.
+                args = args | {"group_by": "category"}
+                arguments = json.dumps(args)
             result = run_tool(self.ctx, call.name, args)
             if result.data.get("no_data"):
                 self._no_data = True
@@ -667,6 +685,9 @@ class ChatService:
                     # Seen live: with the charts under it, an answer listing every type, week
                     # and payment said everything twice.
                     user_turn += f"\n({CHARTS_NOTE})"
+            # Seen live: a how-to answer of 600 characters despite the system prompt. Like the
+            # language, a reminder next to the question works better. Not stored.
+            user_turn += f"\n\n({BRIEF_NOTE})"
             if lang is not Lang.EN:
                 # The eval saw English replies to Romanized questions despite the system
                 # prompt; a reminder next to the question works better. Not stored.

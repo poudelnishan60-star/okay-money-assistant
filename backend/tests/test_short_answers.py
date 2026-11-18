@@ -128,3 +128,21 @@ def test_steps_without_a_card_keep_their_content(seeded: Session) -> None:
     events = list(_service(seeded, llm).respond("how do I load money?"))
     assert "reset" not in [e.event for e in events]
     assert _final(events) == steps
+
+
+def test_one_sentence_that_lists_everything_is_cut_between_two_items() -> None:
+    # Seen live: 295 characters for every upcoming bill in one sentence.
+    bills = (
+        "Upcoming bills: **Rs. 1,300** Internet/TV (Gurans Fibernet) due in 4 days, "
+        "**Rs. 450** Internet/TV (Sajilo DTH) due in 6 days, **Rs. 3,500** Education "
+        "(Sikshya Language Institute) due in 18 days, **Rs. 499** Topup & Data (Ncell) due in "
+        "22 days, **Rs. 1,140.67** Electricity (NEA) due in 25 days."
+    )
+    short = shorten(bills)
+    assert short == (
+        "Upcoming bills: **Rs. 1,300** Internet/TV (Gurans Fibernet) due in 4 days, "
+        "**Rs. 450** Internet/TV (Sajilo DTH) due in 6 days…"
+    )
+    assert len(short) <= SHORT_ANSWER_CHARS + 1
+    assert bills.startswith(short.removesuffix("…"))  # a cut, nothing reworded
+    assert "Rs. 1," not in short.split("…")[-1]  # never inside a number

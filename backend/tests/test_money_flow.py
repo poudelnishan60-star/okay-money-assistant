@@ -270,3 +270,16 @@ def test_file_flow_words_are_checked_when_the_account_was_used_instead(seeded: S
     events = list(_service(seeded, llm, files).respond("Money flow in the file"))
     assert "file_report" not in _cards(events)
     assert _shown(events) == "Your account shows money in and out."
+
+
+def test_other_questions_get_the_categories_not_the_flow(seeded: Session) -> None:
+    # Seen live: "where did my money go?" got the flow view and money out (with transfers
+    # and Smart Deposit) was called spending. The flow view is for flow questions only.
+    llm = FakeLLM(
+        call(("get_spending_summary", {"period": "this_month", "group_by": "flow"})),
+        say("Groceries took the most."),
+    )
+    events = list(_service(seeded, llm).respond("Where did my money go?"))
+    assert _cards(events) == ["spending_summary", "category_breakdown"]
+    logged = seeded.scalars(select(ToolCallLog.arguments_json)).all()
+    assert '"group_by": "category"' in logged[-1]

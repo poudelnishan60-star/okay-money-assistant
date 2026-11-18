@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ai.chat import ChatEvent, ChatService
+from app.ai.chat import BRIEF_NOTE, ChatEvent, ChatService
 from app.ai.llm import LLMBusyError, LLMNotConfiguredError, LLMUnavailableError
 from app.ai.safety import MESSAGES, Lang
 from app.models import ChatMessage, ToolCallLog, TransactionRow
@@ -481,7 +481,9 @@ def test_language_reminder_goes_with_the_question_only(seeded: Session) -> None:
     stored = seeded.scalars(select(ChatMessage.content).where(ChatMessage.role == "user"))
     assert list(stored) == ["yo mahina kati kharcha bhayo?"]
     _run(seeded, llm, "How much did I spend?")
-    assert llm.calls[-1][0][-1]["content"] == "How much did I spend?"  # English: no note
+    # English: no language note, only the reminder to be brief (not stored either).
+    assert llm.calls[-1][0][-1]["content"] == f"How much did I spend?\n\n({BRIEF_NOTE})"
+    assert "(Be very brief" in llm.calls[0][0][-1]["content"]  # with every question
 
 
 def test_language_rule_is_repeated_after_tool_results(seeded: Session) -> None:
