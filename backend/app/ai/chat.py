@@ -43,7 +43,9 @@ from app.ai.safety import Lang, detect_language, mask_pii, message, redact_secre
 from app.ai.sheets import report_parts
 from app.ai.suggestions import suggestions_for
 from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, run_tool
+from app.domain import KycStatus
 from app.models import ChatMessage, ToolCallLog
+from app.services.wallet_limits import kyc_status
 from app.sources.base import BillSource, TransactionSource
 
 log = logging.getLogger(__name__)
@@ -616,6 +618,7 @@ class ChatService:
         prefix = ""  # fixed text that always stays (the secret warning)
         self.dropped_sentences = 0
         self._no_data = False
+        self.ctx.offered.clear()  # buttons shown count against limits per message
         cards: list[dict[str, Any]] = []
         topics: set[str] = set()
         tool_texts: list[str] = []
@@ -692,9 +695,14 @@ class ChatService:
                 # The eval saw English replies to Romanized questions despite the system
                 # prompt; a reminder next to the question works better. Not stored.
                 user_turn += f"\n\n({_REPLY_IN[lang]})"
+            status = kyc_status(self.session, self.user_id)
+            kyc = None if status is None else status is KycStatus.VERIFIED
             messages: list[Message] = self._fit(
                 [
-                    {"role": "system", "content": system_prompt(self.today, lang)},
+                    {
+                        "role": "system",
+                        "content": system_prompt(self.today, lang, kyc_verified=kyc),
+                    },
                     *history,
                     {"role": "user", "content": user_turn},
                 ],

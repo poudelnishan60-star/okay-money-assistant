@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.api.deps import SessionDep, TxSourceDep, UserDep
 from app.api.schemas import CategoryInfo, MeOut
-from app.domain import NON_SPENDING, SUBCATEGORIES, Category
+from app.domain import NON_SPENDING, SUBCATEGORIES, Category, KycStatus
 from app.models import User
 
 router = APIRouter()
@@ -23,6 +23,7 @@ def get_me(session: SessionDep, user_id: UserDep, source: TxSourceDep) -> MeOut:
         name=user.name,
         balance_paisa=source.get_balance(user_id),
         balance_hidden=user.balance_hidden,
+        kyc_status=KycStatus(user.kyc_status),
     )
 
 

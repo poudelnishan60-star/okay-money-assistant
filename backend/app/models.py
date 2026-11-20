@@ -44,6 +44,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(20))
     balance_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    # verified | pending | not_started (KycStatus). Khalti's own KYC record later.
+    kyc_status: Mapped[str] = mapped_column(String(20), default="not_started")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now_npt)
 
 

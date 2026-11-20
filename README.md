@@ -43,6 +43,7 @@ app/sources/         TransactionSource / BillSource / DepositSource + Mock* impl
 app/api/             FastAPI routes, request/response schemas, dependencies
 app/services/        categorizer, recurring detector, budgets, goals, forecast, insights, bills
 app/ai/              LLM client, tools, cards, prompt, safety (masking), chat loop, classifier
+app/rules.py         Khalti's wallet rules as data: limits, balance cap, KYC, refunds
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
 app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
@@ -64,7 +65,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 
 | Method | Path | What |
 |---|---|---|
-| GET | `/me` | name, balance, balance-hidden flag |
+| GET | `/me` | name, balance, balance-hidden flag, KYC status (`verified` / `pending` / `not_started`) |
 | GET | `/categories` | categories, subcategories, which count as spending |
 | GET | `/transactions` | newest first; `period=7d/14d/30d/this_month` or `start`/`end`; filter by `category`, `merchant`, `type`, `direction`, `min_paisa`, `max_paisa`; `limit`/`offset` |
 | GET | `/transactions/{id}` | one transaction |
@@ -134,6 +135,18 @@ How it stays safe and correct:
   `POST /budgets` / `POST /goals` after the user taps Confirm.
 - It never moves money: payments become an `open_app_flow` card that opens Khalti's own
   screen; the user finishes with MPIN.
+- Khalti's rules (`app/rules.py`, from Khalti's Terms and Transaction Limits page; to be
+  checked against NRB's 2026 directive with Khalti compliance before launch): transaction
+  limits per transaction, day and month, the Rs. 50,000 overnight balance cap, KYC, security,
+  refund and complaint times. They are never in the system prompt (the grounding check only
+  accepts amounts from tool results): `get_wallet_rules(topic)` returns them, with the user's
+  own use today and this month and what is left, worked out from the wallet history.
+- Limits and KYC are checked in code before any button: `open_app_flow` gives no send-money
+  button for an amount over the per-transaction limit or what is left today or this month,
+  or under Rs. 10, and says which limit, what is left and by how much it is over. Buttons
+  already shown in the same message count as used, so "send 30,000 twice" doesn't pass the
+  daily limit. A user whose KYC isn't verified gets no money button at all, and the system
+  prompt says so.
 - Before anything goes to Groq: phone, account and reference numbers are masked, an
   MPIN/OTP/password typed into the chat is removed (and the user is warned), merchant names
   and notes are neutralized and wrapped in `<tool_result>` tags as data.
@@ -525,6 +538,9 @@ repository URL, enter `GROQ_API_KEY` and deploy. If the Render address differs f
 | 7 | App screens: insights, transactions, budgets, goals, bills, settings | done |
 | 8 | Notifications, polish, golden tests, 50-question eval | done |
 | 9 | Deploy the website and backend | done |
+| 10 | Wallet rules, limits and KYC | done |
+| 11 | Transaction status, support and security | to do |
+| 12 | Alerts, help articles, trust and evals | to do |
 
 The assistant ships as a **public website** (the Flutter web build) and merges into the
 Khalti app later; see "Public website first" in [CLAUDE.md](CLAUDE.md). It is an unofficial

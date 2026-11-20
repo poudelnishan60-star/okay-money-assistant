@@ -16,6 +16,7 @@ def test_me_and_unknown_user(client: TestClient) -> None:
         "name": "Anjali Thapa",
         "balance_paisa": 23_944_86,
         "balance_hidden": False,
+        "kyc_status": "verified",
     }
     assert client.get("/me", headers={"X-User-Id": "nobody"}).status_code == 404
 

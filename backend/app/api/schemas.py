@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.domain import Category, CategorySource, Direction, Transaction, TxnType
+from app.domain import Category, CategorySource, Direction, KycStatus, Transaction, TxnType
 from app.periods import NPT, CalendarSystem, Period
 from app.services.bills import BillStatus, BillView
 from app.services.budgets import BudgetLevel, BudgetStatus
@@ -44,6 +44,10 @@ class MeOut(BaseModel):
     name: str
     balance_paisa: int
     balance_hidden: bool = Field(description="If true, mask amounts until the user taps them.")
+    kyc_status: KycStatus = Field(
+        description="verified, pending (sent, being checked) or not_started. Paying, sending "
+        "and loading money need verified."
+    )
 
 
 class CategoryInfo(BaseModel):

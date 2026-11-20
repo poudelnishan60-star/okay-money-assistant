@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import Base, init_db, make_engine, make_session_factory
-from app.domain import Direction, TxnType
+from app.domain import Direction, KycStatus, TxnType
 from app.models import (
     AssistantSettings,
     Budget,
@@ -535,7 +535,15 @@ def seed_user(
     anchor = anchor or today_npt()
     gen, rows = generate(anchor, seed, _id_prefix(user_id))
 
-    session.add(User(id=user_id, name=DEMO_USER_NAME, phone=gen.user_phone, balance_hidden=False))
+    session.add(
+        User(
+            id=user_id,
+            name=DEMO_USER_NAME,
+            phone=gen.user_phone,
+            balance_hidden=False,
+            kyc_status=KycStatus.VERIFIED.value,
+        )
+    )
     session.flush()
 
     categorizer = Categorizer(session)  # rules + any cached LLM answers (no LLM calls here)

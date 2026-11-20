@@ -41,7 +41,11 @@ def init_db(engine: Engine) -> None:
 # Columns added after a table first shipped. create_all() makes new tables but never changes
 # existing ones; a local database from an older version gets the column here. (Postgres later
 # gets real migrations.)
-_ADDED_COLUMNS = {"chat_messages": {"attachments_json": "TEXT NOT NULL DEFAULT '[]'"}}
+_ADDED_COLUMNS = {
+    "chat_messages": {"attachments_json": "TEXT NOT NULL DEFAULT '[]'"},
+    # Every user in an older database is a copy of the demo user, who is verified.
+    "users": {"kyc_status": "VARCHAR(20) NOT NULL DEFAULT 'verified'"},
+}
 
 
 def _add_missing_columns(engine: Engine) -> None:

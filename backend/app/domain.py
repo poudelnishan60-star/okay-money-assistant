@@ -56,6 +56,12 @@ NON_SPENDING: frozenset[Category] = frozenset(
 )
 
 
+class KycStatus(StrEnum):
+    VERIFIED = "verified"
+    PENDING = "pending"  # sent, being checked
+    NOT_STARTED = "not_started"
+
+
 class CategorySource(StrEnum):
     USER = "user"  # user recategorized (possibly "apply to all from this merchant")
     SERVICE = "rule_service"  # service type, e.g. electricity bill

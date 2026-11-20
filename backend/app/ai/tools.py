@@ -45,7 +45,7 @@ from app.ai.cards import (
     money_flow,
 )
 from app.ai.safety import untrusted
-from app.domain import NON_SPENDING, Category, Direction, Transaction, TxnType
+from app.domain import NON_SPENDING, Category, Direction, KycStatus, Transaction, TxnType
 from app.models import Budget, FaqArticle, Goal
 from app.money import format_npr, to_paisa
 from app.periods import (
@@ -59,12 +59,31 @@ from app.periods import (
     previous_period,
     to_bs_string,
 )
+from app.rules import (
+    DEPOSIT_COUNT_NOTE,
+    DEPOSITS_PER_DAY,
+    ESCROW_MIN_PAISA,
+    FEES_NOTE,
+    FLOW_LIMITS,
+    KYC_RULES,
+    LAST_CHECKED,
+    LIMITS,
+    MIN_PAYMENT_PAISA,
+    NO_LIMIT_PAYMENTS,
+    OVERNIGHT_BALANCE_CAP_PAISA,
+    OVERNIGHT_CAP_RULE,
+    REFUND_RULES,
+    SECURITY_RULES,
+    SOURCE,
+    Limit,
+)
 from app.services.bills import list_bills
 from app.services.budgets import BudgetLevel, budget_statuses, evaluate_budget, spent_in_period
 from app.services.forecast import BalanceForecast, balance_forecast, month_end_forecast
 from app.services.goals import goal_progress
 from app.services.insights import BASELINE_DAYS, summarize, unusual_spending
 from app.services.user_settings import load_settings
+from app.services.wallet_limits import TRACKED, LimitUse, check_amount, kyc_status, usage
 from app.sources.base import BillSource, TransactionFilter, TransactionSource
 
 
@@ -75,6 +94,9 @@ class ToolContext:
     bills: BillSource
     user_id: str
     today: dt.date
+    # Amounts O-Kay already showed a send/load/withdraw button for in this message, by
+    # limit (rules.FLOW_LIMITS): they count against today's limit like money sent.
+    offered: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -903,7 +925,128 @@ def search_help_articles(ctx: ToolContext, args: HelpArgs) -> ToolResult:
     return ToolResult(data, [], {"help"})
 
 
+# --- get_wallet_rules ------------------------------------------------------------------------
+
+RuleTopic = Literal["limits", "balance_cap", "kyc", "security", "refunds", "fees", "all"]
+_RULE_TOPICS = ("limits", "balance_cap", "kyc", "security", "refunds", "fees")
+
+
+class WalletRulesArgs(BaseModel):
+    topic: RuleTopic = "limits"
+
+
+def _limit_rule(lim: Limit) -> str:
+    return (
+        f"{_rs(lim.per_txn_paisa)} per transaction, {_rs(lim.per_day_paisa)} a day, "
+        f"{_rs(lim.per_month_paisa)} a month"
+    )
+
+
+def _use(u: LimitUse) -> dict[str, str]:
+    return {
+        "used_today": _rs(u.used_today_paisa),
+        "left_today": _rs(u.left_today_paisa),
+        "used_this_month": _rs(u.used_month_paisa),
+        "left_this_month": _rs(u.left_month_paisa),
+    }
+
+
+def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
+    """Khalti's rules from app/rules.py (amounts formatted here, never from the prompt), with
+    the user's own usage worked out from the wallet history."""
+    topics = _RULE_TOPICS if args.topic == "all" else (args.topic,)
+    data: dict[str, Any] = {
+        "source": SOURCE,
+        "last_checked": f"{LAST_CHECKED:%d %b %Y}",
+        "for": "KYC-verified users",
+    }
+    use = usage(ctx.source, ctx.user_id, ctx.today, ctx.offered)
+    if "limits" in topics:
+        data["limits"] = {lim.label: _limit_rule(lim) for lim in LIMITS.values()}
+        data["minimum"] = (
+            f"{_rs(MIN_PAYMENT_PAISA)} for any transfer or payment "
+            f"({LIMITS['escrow'].label}: {_rs(ESCROW_MIN_PAISA)})"
+        )
+        data["no_limit"] = "No limit for " + "; ".join(NO_LIMIT_PAYMENTS)
+        data["your_usage"] = {LIMITS[k].label: _use(use.limits[k]) for k in TRACKED} | {
+            "month": f"{ctx.today:%B %Y} (AD)"
+        }
+        data["deposits_today"] = f"{use.deposits_today} of {DEPOSITS_PER_DAY} a day"
+        data["deposits_note"] = DEPOSIT_COUNT_NOTE
+    if "balance_cap" in topics:
+        over = use.over_overnight_cap_paisa
+        data["overnight_balance_cap"] = _rs(OVERNIGHT_BALANCE_CAP_PAISA)
+        data["cap_rule"] = OVERNIGHT_CAP_RULE
+        data["balance_now"] = _rs(use.balance_paisa)
+        data["over_overnight_cap"] = over > 0
+        if over:
+            data["over_by"] = _rs(over)
+    if "kyc" in topics:
+        status = kyc_status(ctx.session, ctx.user_id)
+        data["kyc_rules"] = list(KYC_RULES)
+        data["your_kyc"] = status.value if status else "unknown"
+    if "security" in topics:
+        data["security"] = list(SECURITY_RULES)
+    if "refunds" in topics:
+        data["refunds_and_complaints"] = list(REFUND_RULES)
+    if "fees" in topics:
+        data["fees"] = FEES_NOTE
+    return ToolResult(data, [], {"help"})
+
+
 # --- open_app_flow -------------------------------------------------------------------------
+
+# Every flow that pays, sends or loads money needs verified KYC first.
+_MONEY_FLOWS = frozenset({"bill_payment", "send_money", "autopay", "smart_deposit"})
+
+
+def _kyc_refusal(ctx: ToolContext) -> ToolResult | None:
+    status = kyc_status(ctx.session, ctx.user_id)
+    if status is None or status is KycStatus.VERIFIED:
+        return None
+    state = "sent and being checked" if status is KycStatus.PENDING else "not started"
+    return ToolResult(
+        {
+            "status": "NOT opened, no button is shown: the user's KYC is not verified "
+            f"({state}). They can't pay, send or load money until it is. Tell them so and "
+            "give the KYC steps from search_help_articles.",
+            "kyc": status.value,
+        },
+        [],
+        {"help"},
+    )
+
+
+def _limit_refusal(ctx: ToolContext, kind: str, amount_paisa: int) -> ToolResult | None:
+    use = usage(ctx.source, ctx.user_id, ctx.today, ctx.offered).limits[kind]
+    problem = check_amount(use, amount_paisa)
+    if problem is None:
+        return None
+    lim = use.limit
+    data: dict[str, Any] = {
+        "status": "NOT opened, no button is shown: the amount breaks a Khalti limit. Tell the "
+        "user which limit and how much is left. Never suggest splitting it, another wallet or "
+        "someone else's account to get around it.",
+        "amount": _rs(amount_paisa),
+    }
+    if problem.rule == "minimum":
+        data["limit"] = f"The minimum is {_rs(lim.min_paisa)}."
+        return ToolResult(data, [], {"help"})
+    data["limit"] = {
+        "per_transaction": f"{lim.label}: {_rs(lim.per_txn_paisa)} per transaction",
+        "per_day": f"{lim.label}: {_rs(lim.per_day_paisa)} a day",
+        "per_month": f"{lim.label}: {_rs(lim.per_month_paisa)} a month",
+    }[problem.rule]
+    # Seen live: the model worked out "Rs. 10,000 over the limit" itself, which the
+    # grounding check rightly refused. The difference comes from here instead.
+    data["over_by"] = _rs(amount_paisa - problem.allowed_paisa)
+    data |= _use(use)
+    data["most_in_one_transaction_now"] = _rs(use.most_now_paisa)
+    if ctx.offered.get(kind):
+        data["used_today_includes"] = (
+            f"{_rs(ctx.offered[kind])} for buttons already shown in this message"
+        )
+    return ToolResult(data, [], {"help"})
 
 
 class AppFlowArgs(BaseModel):
@@ -927,7 +1070,14 @@ _FLOW_TITLES = {
 
 
 def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
-    prefill = AppFlowPrefill(amount_paisa=_rupees_to_paisa(args.amount))
+    # Checked in code before any button: the model can't skip these.
+    if args.flow in _MONEY_FLOWS and (refused := _kyc_refusal(ctx)):
+        return refused
+    amount = _rupees_to_paisa(args.amount)
+    limit = FLOW_LIMITS.get(args.flow)
+    if limit and amount is not None and (refused := _limit_refusal(ctx, limit, amount)):
+        return refused
+    prefill = AppFlowPrefill(amount_paisa=amount)
     if args.flow in ("bill_payment", "autopay"):
         if args.flow == "bill_payment" and args.service is None:
             raise ToolError("bill_payment needs a service")
@@ -968,6 +1118,8 @@ def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
                 prefill.goal_name = g.name
                 prefill.monthly_amount_paisa = p.required_monthly_paisa
     card = OpenAppFlowCard(flow=args.flow, service=args.service, title=title, prefill=prefill)
+    if limit and amount is not None:
+        ctx.offered[limit] = ctx.offered.get(limit, 0) + amount
     data = {
         "status": "A button is shown under your answer; nothing has opened yet. Tell the user "
         "to tap it. NOTHING has been paid or sent: they finish in Khalti with their MPIN.",
@@ -1112,9 +1264,18 @@ TOOLS: dict[str, Tool] = {
             ),
         ),
         Tool(
+            "get_wallet_rules",
+            "Khalti's rules: transaction limits with the user's use today/this month and "
+            "what's left, overnight balance cap, KYC, security, refund and complaint times, "
+            "fees.",
+            WalletRulesArgs,
+            get_wallet_rules,
+            _obj({"topic": {"type": "string", "enum": list(RuleTopic.__args__)}}),
+        ),
+        Tool(
             "open_app_flow",
             "Button that opens Khalti's own screen pre-filled (pay bill, send money, Autopay, "
-            "Smart Deposit). Never moves money.",
+            "Smart Deposit). Never moves money. Refuses amounts over Khalti's limits.",
             AppFlowArgs,
             open_app_flow,
             _obj(

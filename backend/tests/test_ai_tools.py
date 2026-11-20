@@ -48,6 +48,7 @@ def test_tool_specs_are_valid_json_schema() -> None:
         "get_recurring_payments",
         "get_balance_forecast",
         "search_help_articles",
+        "get_wallet_rules",
         "open_app_flow",
     }
     json.dumps(specs)  # serializable
