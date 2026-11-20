@@ -476,9 +476,9 @@ class ChatService:
                 args = {k: v for k, v in args.items() if k != "category"} | {"group_by": "flow"}
                 arguments = json.dumps(args)
             elif call.name == "get_spending_summary" and args.get("group_by") == "flow":
-                # The flow view only for a question that asks for the flow. Seen live: for
-                # "where did my money go?" it took money out (with transfers and savings) for
-                # spending. Other questions get the categories.
+                # The flow view only for a question that asks for the flow. Seen live: the
+                # model chose it for "where did my money go?", which has its own category
+                # pie. Other questions get the categories.
                 args = args | {"group_by": "category"}
                 arguments = json.dumps(args)
             result = run_tool(self.ctx, call.name, args)

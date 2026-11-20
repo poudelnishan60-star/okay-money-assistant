@@ -121,8 +121,8 @@ How it stays safe and correct:
   (how-to steps, a receipt's items) keeps its content; a reminder next to every question
   ("be very brief; at most 4 short steps") keeps those short too.
 - The flow view is only for questions that ask for the flow: if the model asks for it for
-  another question ("where did my money go?"), it gets the categories instead (seen live:
-  money out, with transfers and savings, was called spending).
+  another question ("where did my money go?"), it gets the categories instead: that
+  question has its own category pie, and the diagram stays for questions about the flow.
 - For such a flow question the diagram is the answer: the model still picks the tool and the
   period (its spending lookups get the flow view), but its words are held back and one fixed
   line with no figures goes over the diagram ("Here's where your money came from and where
