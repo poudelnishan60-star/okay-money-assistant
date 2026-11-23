@@ -106,6 +106,9 @@ SECURITY_RULES = (
 )
 
 REFUND_HOURS = 24
+# NOT in the source: how long a pending transaction takes to go through or fail. Assumed
+# to be the refund time until Khalti confirms its own figure.
+PENDING_SETTLE_HOURS = 24
 COMPLAINT_REPLY_HOURS = 72
 CARD_DISPUTE_DAYS = 15
 REFUND_RULES = (

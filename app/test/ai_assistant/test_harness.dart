@@ -25,7 +25,7 @@ final fixtureNow = DateTime.utc(2026, 11, 9, 6, 15);
 const demoMe = Me(
   id: 'demo_user',
   name: 'Anjali Thapa',
-  balancePaisa: 2394486,
+  balancePaisa: 2194486,
   balanceHidden: false,
 );
 

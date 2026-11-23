@@ -65,6 +65,8 @@ class Txn {
     this.balanceAfterPaisa,
     this.subcategory,
     this.categorySource,
+    this.status = 'success',
+    this.reversalOf,
   });
 
   factory Txn.fromJson(Map<String, Object?> j) => Txn(
@@ -81,6 +83,8 @@ class Txn {
     category: j.str('category'),
     subcategory: j.strOrNull('subcategory'),
     categorySource: j.strOrNull('category_source'),
+    status: j.strOrNull('status') ?? 'success',
+    reversalOf: j.strOrNull('reversal_of'),
   );
 
   final String id;
@@ -100,6 +104,17 @@ class Txn {
   final String category;
   final String? subcategory;
   final String? categorySource;
+
+  /// success | pending | failed (money left, not back yet) | reversed (failed, money back)
+  final String status;
+
+  /// On money returned for a failed payment: that payment's id.
+  final String? reversalOf;
+
+  bool get isRefund => reversalOf != null;
+
+  /// Failed and not refunded yet, or still pending: the user may need help with it.
+  bool get needsHelp => status == 'failed' || status == 'pending';
 
   DateTime get day => DateTime.utc(occurredAt.year, occurredAt.month, occurredAt.day);
 }

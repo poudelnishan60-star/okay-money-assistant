@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../chat/chat_controller.dart';
 import '../core/api_client.dart';
 import '../core/clock.dart';
 import '../core/dates.dart';
@@ -8,6 +12,7 @@ import '../core/preferences.dart';
 import '../data/models.dart';
 import '../data/providers.dart';
 import '../data/repositories.dart';
+import '../routes.dart';
 import '../theme/okay_theme.dart';
 import '../widgets/widgets.dart';
 
@@ -222,6 +227,8 @@ class _TxnList extends StatelessWidget {
           nepalTime: t.occurredAt,
           amountPaisa: t.amountPaisa,
           isDebit: t.isDebit,
+          status: t.status,
+          isRefund: t.isRefund,
           onTap: () => onOpen(t),
         );
       },
@@ -254,6 +261,15 @@ class _TransactionSheetState extends ConsumerState<_TransactionSheet> {
   String? _error;
 
   bool get _changed => _category != widget.t.category || _sub != widget.t.subcategory;
+
+  /// "Get help": asks O-Kay about this transaction in the chat, which looks up its status.
+  void _askForHelp() {
+    final chat = ref.read(chatControllerProvider.notifier);
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    router.go(OkayRoutes.chat);
+    unawaited(chat.send(helpQuestion(widget.t)));
+  }
 
   Future<void> _save() async {
     setState(() {
@@ -313,6 +329,7 @@ class _TransactionSheetState extends ConsumerState<_TransactionSheet> {
             const SizedBox(height: OkaySpacing.lg),
             _Line('Merchant', t.merchant),
             _Line('When', '${formatDate(t.occurredAt, calendar)} · ${formatTime(t.occurredAt)}'),
+            if (t.isRefund || t.status != 'success') _StatusLine(t),
             if (t.reference != null) _Line('Reference', t.reference!),
             // A note typed by a person: shown as plain text, never interpreted.
             if (t.remarks != null && t.remarks!.isNotEmpty) _Line('Note', t.remarks!),
@@ -362,6 +379,14 @@ class _TransactionSheetState extends ConsumerState<_TransactionSheet> {
                 padding: const EdgeInsets.only(bottom: OkaySpacing.sm),
                 child: Text(_error!, style: OkayText.caption.copyWith(color: OkayColors.warning)),
               ),
+            if (t.needsHelp) ...[
+              OutlinedButton.icon(
+                onPressed: _askForHelp,
+                icon: const Icon(Icons.support_agent_outlined, size: 18),
+                label: const Text('Get help'),
+              ),
+              const SizedBox(height: OkaySpacing.sm),
+            ],
             FilledButton(
               onPressed: (_changed || _applyAll) && !_saving ? _save : null,
               child: _saving
@@ -376,6 +401,49 @@ class _TransactionSheetState extends ConsumerState<_TransactionSheet> {
       ),
     );
   }
+}
+
+/// The question "Get help" sends to O-Kay. The id lets it call get_transaction_status.
+String helpQuestion(Txn t) {
+  final what = t.isDebit ? 'payment to' : 'money from';
+  return 'What happened to my ${t.status} $what ${t.merchant} on '
+      '${formatDate(t.occurredAt, CalendarSystem.ad)}? Transaction ID: ${t.id}';
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine(this.t);
+  final Txn t;
+
+  String get _words {
+    if (t.isRefund) return 'Money returned for a failed payment.';
+    return switch (t.status) {
+      'pending' => 'Not completed yet. The money is held until it goes through or fails.',
+      'failed' => "The money left your wallet and hasn't come back yet.",
+      'reversed' => 'This payment failed, and the money came back.',
+      _ => '',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: OkaySpacing.sm),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(width: 92, child: Text('Status', style: OkayText.caption)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TransactionStatusBadge(t.status, isRefund: t.isRefund),
+              const SizedBox(height: 4),
+              Text(_words, style: OkayText.body.copyWith(fontSize: 15)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Line extends StatelessWidget {

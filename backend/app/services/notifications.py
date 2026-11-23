@@ -93,7 +93,9 @@ def budget_alerts(
     if not statuses:
         return []
     start = min(s.period.start for s in statuses)
-    txns = source.list_transactions(user_id, TransactionFilter(start=start, end=today))
+    txns = source.list_transactions(
+        user_id, TransactionFilter(start=start, end=today, counted_only=True)
+    )
     alerts = []
     for s in statuses:
         threshold = max(s.alerts_reached)
@@ -150,7 +152,11 @@ def unusual_alerts(
     period = month_period(today, calendar)
     txns = source.list_transactions(
         user_id,
-        TransactionFilter(start=period.start - dt.timedelta(days=BASELINE_DAYS), end=today),
+        TransactionFilter(
+            start=period.start - dt.timedelta(days=BASELINE_DAYS),
+            end=today,
+            counted_only=True,
+        ),
     )
     return [
         Alert(
@@ -181,7 +187,9 @@ def weekly_alert(source: TransactionSource, user_id: str, today: dt.date, weekda
     day = last_summary_day(today, weekday)
     week = Period(day - dt.timedelta(days=7), day - dt.timedelta(days=1), "week")
     before = Period(week.start - dt.timedelta(days=7), week.start - dt.timedelta(days=1), "")
-    txns = source.list_transactions(user_id, TransactionFilter(start=before.start, end=week.end))
+    txns = source.list_transactions(
+        user_id, TransactionFilter(start=before.start, end=week.end, counted_only=True)
+    )
     s = summarize(txns, week, before, today)
     top = next((c for c in s.by_category if c.spent_paisa > 0), None)
     return Alert(

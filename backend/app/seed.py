@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import Base, init_db, make_engine, make_session_factory
-from app.domain import Direction, KycStatus, TxnType
+from app.domain import Direction, KycStatus, TxnStatus, TxnType
 from app.models import (
     AssistantSettings,
     Budget,
@@ -90,6 +90,9 @@ class Draft:
     service: str | None = None
     counterparty_account: str | None = None
     remarks: str | None = None
+    status: TxnStatus = TxnStatus.SUCCESS
+    tag: str | None = None  # names a draft so another can point at it
+    reverses: str | None = None  # the money returned for the draft with this tag
 
 
 class _Generator:
@@ -437,6 +440,66 @@ class _Generator:
             remarks=INJECTION_REMARK,
         )
 
+    # -- transactions that didn't simply go through --------------------------------------
+    def statuses(self) -> None:
+        """A few transactions that aren't plain successes, at fixed times and amounts (no
+        random draws, so the rest of the data stays as it was):
+        - an NEA payment that failed and was reversed the next day (the user then paid
+          again, which is the normal monthly payment);
+        - a transfer to a friend still pending since yesterday evening;
+        - a mobile topup that failed 4 days ago and hasn't been refunded (overdue).
+        Money left the wallet for all three; only the NEA one has come back."""
+        nea = [
+            d
+            for d in self.drafts
+            if d.service == "electricity" and d.occurred_at.date() < self.last
+        ]
+        if nea:
+            paid = nea[-1]
+            paid_day = paid.occurred_at.date()
+            self._add(
+                occurred_at=paid.occurred_at - dt.timedelta(minutes=12),
+                type=TxnType.BILL_PAYMENT,
+                direction=Direction.DEBIT,
+                amount_paisa=paid.amount_paisa,
+                merchant=paid.merchant,
+                service="electricity",
+                counterparty_account=paid.counterparty_account,
+                status=TxnStatus.REVERSED,
+                tag="nea_failed",
+            )
+            self._add(
+                occurred_at=dt.datetime.combine(paid_day + dt.timedelta(days=1), dt.time(10, 5)),
+                type=TxnType.BILL_PAYMENT,
+                direction=Direction.CREDIT,
+                amount_paisa=paid.amount_paisa,
+                merchant=paid.merchant,
+                service="electricity",
+                remarks="Refund of failed payment",
+                reverses="nea_failed",
+            )
+        friend = "Sujan Tamang"
+        self._add(
+            occurred_at=dt.datetime.combine(self.last, dt.time(19, 40)),
+            type=TxnType.TRANSFER,
+            direction=Direction.DEBIT,
+            amount_paisa=1_500_00,
+            merchant=friend,
+            counterparty_account=self.friend_phones[friend],
+            remarks="futsal share",
+            status=TxnStatus.PENDING,
+        )
+        self._add(
+            occurred_at=dt.datetime.combine(self.last - dt.timedelta(days=3), dt.time(14, 20)),
+            type=TxnType.TOPUP,
+            direction=Direction.DEBIT,
+            amount_paisa=500_00,
+            merchant="Nepal Telecom",
+            service="mobile_topup",
+            counterparty_account=self.user_phone,
+            status=TxnStatus.FAILED,
+        )
+
     # -- balances, bank top-ups, ids ---------------------------------------------------
     def finalize(self, id_prefix: str = "txn") -> list[tuple[str, str, Draft, int]]:
         """Sort, insert bank loads so the wallet never goes below the buffer, then assign
@@ -488,6 +551,7 @@ def generate(
     gen.recurring()
     gen.everyday()
     gen.trip()
+    gen.statuses()
     return gen, gen.finalize(id_prefix)
 
 
@@ -548,9 +612,10 @@ def seed_user(
 
     categorizer = Categorizer(session)  # rules + any cached LLM answers (no LLM calls here)
     deposits_paisa = 0
+    tagged = {d.tag: txn_id for txn_id, _, d, _ in rows if d.tag}
     for txn_id, ref, d, balance_after in rows:
         cat = categorizer.categorize(user_id, d.type, d.service, d.merchant)
-        if d.type is TxnType.DEPOSIT:
+        if d.type is TxnType.DEPOSIT and d.status is TxnStatus.SUCCESS:
             deposits_paisa += d.amount_paisa
         session.add(
             TransactionRow(
@@ -570,6 +635,8 @@ def seed_user(
                 category=cat.category.value,
                 subcategory=cat.subcategory,
                 category_source=cat.source.value,
+                status=d.status.value,
+                reversal_of=tagged[d.reverses] if d.reverses else None,
             )
         )
 

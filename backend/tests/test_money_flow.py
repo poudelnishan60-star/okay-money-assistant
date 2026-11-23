@@ -41,8 +41,10 @@ def test_money_flow_matches_every_transaction_of_the_period(ctx: ToolContext) ->
 
     period = card.link.filters  # type: ignore[attr-defined]
     txns = ctx.source.list_transactions(USER, TransactionFilter())
-    inside = [
-        t for t in txns if period["start"] <= t.occurred_at.date().isoformat() <= period["end"]
+    inside = [  # failed, pending and reversed ones don't count
+        t
+        for t in txns
+        if t.counts and period["start"] <= t.occurred_at.date().isoformat() <= period["end"]
     ]
     credits = sum(t.amount_paisa for t in inside if not t.is_debit)
     debits = sum(t.amount_paisa for t in inside if t.is_debit)

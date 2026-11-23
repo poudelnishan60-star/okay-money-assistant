@@ -210,53 +210,63 @@
  },
  {
   "type": "transactions_preview",
-  "count": 11,
+  "count": 13,
   "total_debit_paisa": 824600,
   "total_credit_paisa": 2900000,
   "items": [
    {
-    "id": "txn_0154",
+    "id": "txn_0158",
     "date": "2026-11-08",
     "merchant": "Sasto Mitho Khaja Ghar",
     "amount_paisa": 19000,
     "direction": "debit",
-    "category": "Food & Dining"
+    "category": "Food & Dining",
+    "status": "success",
+    "refund": false
    },
    {
-    "id": "txn_0153",
+    "id": "txn_0157",
+    "date": "2026-11-08",
+    "merchant": "Sujan Tamang",
+    "amount_paisa": 150000,
+    "direction": "debit",
+    "category": "Transfers",
+    "status": "pending",
+    "refund": false
+   },
+   {
+    "id": "txn_0156",
     "date": "2026-11-08",
     "merchant": "Chalo Taxi",
     "amount_paisa": 15100,
     "direction": "debit",
-    "category": "Transport"
+    "category": "Transport",
+    "status": "success",
+    "refund": false
    },
    {
-    "id": "txn_0152",
+    "id": "txn_0155",
     "date": "2026-11-07",
     "merchant": "Mithai Mandir Sweets",
     "amount_paisa": 41000,
     "direction": "debit",
-    "category": "Food & Dining"
+    "category": "Food & Dining",
+    "status": "success",
+    "refund": false
    },
    {
-    "id": "txn_0151",
+    "id": "txn_0154",
     "date": "2026-11-06",
     "merchant": "Bikash Gurung",
     "amount_paisa": 150000,
     "direction": "credit",
-    "category": "Transfers"
-   },
-   {
-    "id": "txn_0150",
-    "date": "2026-11-06",
-    "merchant": "Sikshya Language Institute",
-    "amount_paisa": 350000,
-    "direction": "debit",
-    "category": "Education"
+    "category": "Transfers",
+    "status": "success",
+    "refund": false
    }
   ],
   "link": {
-   "count": 11,
+   "count": 13,
    "filters": {
     "start": "2026-11-03",
     "end": "2026-11-09"
@@ -302,9 +312,156 @@
    "biller_name": "Nepal Electricity Authority",
    "recipient_name": null,
    "goal_name": null,
-   "monthly_amount_paisa": null
+   "monthly_amount_paisa": null,
+   "total_paisa": null,
+   "split_between": null,
+   "shares": null,
+   "your_share_paisa": null,
+   "transaction_id": null,
+   "transaction_label": null,
+   "issue": null
   },
   "note": "You'll confirm in Khalti with your MPIN."
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "request_money",
+  "service": null,
+  "title": "Split the bill",
+  "prefill": {
+   "amount_paisa": 33333,
+   "biller_name": null,
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null,
+   "total_paisa": 100000,
+   "split_between": 3,
+   "shares": [
+    {
+     "name": "Sita",
+     "amount_paisa": 33333
+    },
+    {
+     "name": "Ram",
+     "amount_paisa": 33333
+    }
+   ],
+   "your_share_paisa": 33334,
+   "transaction_id": null,
+   "transaction_label": null,
+   "issue": null
+  },
+  "note": "You'll check and send the request in Khalti."
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "support",
+  "service": null,
+  "title": "Contact Khalti support",
+  "prefill": {
+   "amount_paisa": null,
+   "biller_name": null,
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null,
+   "total_paisa": null,
+   "split_between": null,
+   "shares": null,
+   "your_share_paisa": null,
+   "transaction_id": "txn_0150",
+   "transaction_label": "Nepal Telecom · Rs. 500 · 05 Nov 2026 · failed",
+   "issue": "Topup failed"
+  },
+  "note": "Opens Khalti support with this transaction attached."
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "block_wallet",
+  "service": null,
+  "title": "Block my wallet",
+  "prefill": {
+   "amount_paisa": null,
+   "biller_name": null,
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null,
+   "total_paisa": null,
+   "split_between": null,
+   "shares": null,
+   "your_share_paisa": null,
+   "transaction_id": null,
+   "transaction_label": null,
+   "issue": null
+  },
+  "note": "Opens Khalti's security screen; you confirm there."
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "load_money",
+  "service": null,
+  "title": "Load money from bank",
+  "prefill": {
+   "amount_paisa": 500000,
+   "biller_name": null,
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null,
+   "total_paisa": null,
+   "split_between": null,
+   "shares": null,
+   "your_share_paisa": null,
+   "transaction_id": null,
+   "transaction_label": null,
+   "issue": null
+  },
+  "note": "You'll confirm in Khalti with your MPIN."
+ },
+ {
+  "type": "transactions_preview",
+  "count": 1,
+  "total_debit_paisa": 50000,
+  "total_credit_paisa": 0,
+  "items": [
+   {
+    "id": "txn_0150",
+    "date": "2026-11-05",
+    "merchant": "Nepal Telecom",
+    "amount_paisa": 50000,
+    "direction": "debit",
+    "category": "Topup & Data",
+    "status": "failed",
+    "refund": false
+   }
+  ],
+  "link": {
+   "count": 1,
+   "filters": {
+    "start": "2026-11-05",
+    "end": "2026-11-05",
+    "merchant": "Nepal Telecom"
+   }
+  }
+ },
+ {
+  "type": "open_app_flow",
+  "flow": "support",
+  "service": null,
+  "title": "Contact Khalti support",
+  "prefill": {
+   "amount_paisa": null,
+   "biller_name": null,
+   "recipient_name": null,
+   "goal_name": null,
+   "monthly_amount_paisa": null,
+   "total_paisa": null,
+   "split_between": null,
+   "shares": null,
+   "your_share_paisa": null,
+   "transaction_id": "txn_0150",
+   "transaction_label": "Nepal Telecom · Rs. 500 · 05 Nov 2026 · failed",
+   "issue": null
+  },
+  "note": "Opens Khalti support with this transaction attached."
  },
  {
   "type": "money_flow",

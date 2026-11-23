@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.domain import Category, CategorySource, Direction, Transaction, TxnType
+from app.domain import Category, CategorySource, Direction, Transaction, TxnStatus, TxnType
 from app.models import TransactionRow
 from app.sources.base import (
     SmartDepositPlan,
@@ -35,6 +35,8 @@ def row_to_domain(row: TransactionRow) -> Transaction:
         category=Category(row.category),
         subcategory=row.subcategory,
         category_source=CategorySource(row.category_source),
+        status=TxnStatus(row.status),
+        reversal_of=row.reversal_of,
     )
 
 
@@ -64,6 +66,13 @@ class MockTransactionSource:
             q = q.where(TransactionRow.amount_paisa >= f.min_paisa)
         if f.max_paisa is not None:
             q = q.where(TransactionRow.amount_paisa <= f.max_paisa)
+        if f.status is not None:
+            q = q.where(TransactionRow.status == f.status.value)
+        if f.counted_only:
+            q = q.where(
+                TransactionRow.status == TxnStatus.SUCCESS.value,
+                TransactionRow.reversal_of.is_(None),
+            )
         q = q.order_by(TransactionRow.occurred_at, TransactionRow.id)
         return [row_to_domain(r) for r in self.session.scalars(q)]
 
@@ -125,7 +134,9 @@ class MockBillSource:
         from app.services.recurring import detect_recurring
 
         series = detect_recurring(
-            self.transactions.list_transactions(user_id, TransactionFilter(end=today)),
+            self.transactions.list_transactions(
+                user_id, TransactionFilter(end=today, counted_only=True)
+            ),
             as_of=today,
         )
         earliest = today - dt.timedelta(days=self.OVERDUE_GRACE_DAYS)
@@ -163,7 +174,7 @@ class MockDepositSource:
         from app.services.recurring import detect_recurring
 
         deposits = self.transactions.list_transactions(
-            user_id, TransactionFilter(type=TxnType.DEPOSIT, end=today)
+            user_id, TransactionFilter(type=TxnType.DEPOSIT, end=today, counted_only=True)
         )
         if not deposits:
             return []

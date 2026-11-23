@@ -166,7 +166,8 @@ def detect_recurring(
     """Recurring series in `transactions` (debits and credits), soonest next_due first."""
     groups: dict[str, list[Transaction]] = defaultdict(list)
     for txn in transactions:
-        groups[series_key(txn)].append(txn)
+        if txn.counts:  # a failed or reversed payment isn't part of a series
+            groups[series_key(txn)].append(txn)
     if not groups:
         return []
     if as_of is None:

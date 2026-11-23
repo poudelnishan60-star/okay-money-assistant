@@ -268,21 +268,21 @@
   {
    "kind": "month_end_balance",
    "severity": "positive",
-   "message": "Projected balance on 16 Nov: Rs. 18,382.46.",
+   "message": "Projected balance on 16 Nov: Rs. 16,382.46.",
    "data": {
     "horizon_end": "2026-11-16",
-    "projected_end_balance_paisa": 1838246
+    "projected_end_balance_paisa": 1638246
    }
   }
  ],
  "forecast": {
   "as_of": "2026-11-09",
   "horizon_end": "2026-11-16",
-  "current_balance_paisa": 2394486,
+  "current_balance_paisa": 2194486,
   "avg_daily_spend_paisa": 56039,
   "lookback_days": 30,
-  "projected_end_balance_paisa": 1838246,
-  "lowest_balance_paisa": 1838246,
+  "projected_end_balance_paisa": 1638246,
+  "lowest_balance_paisa": 1638246,
   "lowest_date": "2026-11-16",
   "threshold_paisa": 100000,
   "below_threshold": false,
@@ -304,31 +304,31 @@
   "points": [
    {
     "date": "2026-11-10",
-    "balance_paisa": 2288547
+    "balance_paisa": 2088547
    },
    {
     "date": "2026-11-11",
-    "balance_paisa": 2232508
+    "balance_paisa": 2032508
    },
    {
     "date": "2026-11-12",
-    "balance_paisa": 2176469
+    "balance_paisa": 1976469
    },
    {
     "date": "2026-11-13",
-    "balance_paisa": 2120430
+    "balance_paisa": 1920430
    },
    {
     "date": "2026-11-14",
-    "balance_paisa": 1950324
+    "balance_paisa": 1750324
    },
    {
     "date": "2026-11-15",
-    "balance_paisa": 1894285
+    "balance_paisa": 1694285
    },
    {
     "date": "2026-11-16",
-    "balance_paisa": 1838246
+    "balance_paisa": 1638246
    }
   ]
  }

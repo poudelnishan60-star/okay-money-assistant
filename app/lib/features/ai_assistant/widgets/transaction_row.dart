@@ -44,7 +44,45 @@ import 'amount_text.dart';
   };
 }
 
+/// Words and colour for a transaction that didn't simply go through; null when it did.
+/// Always shown as words, never by colour alone. Colours keep 4.5:1 on the dark surfaces.
+({String label, Color color})? transactionStatusVisual(String status, {bool isRefund = false}) {
+  if (isRefund) return (label: 'Refund', color: OkayColors.positive);
+  return switch (status) {
+    'pending' => (label: 'Pending', color: OkayColors.warning),
+    'failed' => (label: 'Failed', color: OkayChatColors.dangerText),
+    'reversed' => (label: 'Failed · refunded', color: OkayColors.textSecondary),
+    _ => null,
+  };
+}
+
+/// A small outlined label: "Pending", "Failed", "Failed · refunded", "Refund".
+class TransactionStatusBadge extends StatelessWidget {
+  const TransactionStatusBadge(this.status, {super.key, this.isRefund = false});
+
+  final String status;
+  final bool isRefund;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = transactionStatusVisual(status, isRefund: isRefund);
+    if (v == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: v.color),
+        borderRadius: const BorderRadius.all(Radius.circular(999)),
+      ),
+      child: Text(
+        v.label,
+        style: OkayText.caption.copyWith(color: v.color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
 /// One transaction: type icon, title, 'merchant | reference', time, amount with arrow.
+/// A failed, pending or reversed one (or a refund) also gets its status in words.
 class TransactionRow extends StatelessWidget {
   const TransactionRow({
     super.key,
@@ -55,6 +93,8 @@ class TransactionRow extends StatelessWidget {
     required this.amountPaisa,
     required this.isDebit,
     this.reference,
+    this.status = 'success',
+    this.isRefund = false,
     this.onTap,
   });
 
@@ -65,6 +105,8 @@ class TransactionRow extends StatelessWidget {
   final DateTime nepalTime;
   final int amountPaisa;
   final bool isDebit;
+  final String status;
+  final bool isRefund;
   final VoidCallback? onTap;
 
   @override
@@ -98,7 +140,16 @@ class TransactionRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(sub, style: OkayText.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text(formatTime(nepalTime), style: OkayText.caption),
+                  Wrap(
+                    spacing: OkaySpacing.sm,
+                    runSpacing: 2,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(formatTime(nepalTime), style: OkayText.caption),
+                      if (isRefund || status != 'success')
+                        TransactionStatusBadge(status, isRefund: isRefund),
+                    ],
+                  ),
                 ],
               ),
             ),

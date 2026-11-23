@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.domain import Category, CategorySource, Direction, Transaction, TxnType
+from app.domain import Category, CategorySource, Direction, Transaction, TxnStatus, TxnType
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +22,10 @@ class TransactionFilter:
     direction: Direction | None = None
     min_paisa: int | None = None
     max_paisa: int | None = None
+    status: TxnStatus | None = None
+    # Only transactions that count in reports (Transaction.counts): spending, budgets,
+    # forecasts, insights and alerts ask for this; the transaction list doesn't.
+    counted_only: bool = False
 
 
 class TransactionSource(Protocol):

@@ -119,7 +119,9 @@ def budget_statuses(
     periods = {b.id: month_period(today, CalendarSystem(b.calendar)) for b in budgets}
     earliest = min(p.start for p in periods.values())
     latest = max(p.end for p in periods.values())
-    txns = source.list_transactions(user_id, TransactionFilter(start=earliest, end=latest))
+    txns = source.list_transactions(
+        user_id, TransactionFilter(start=earliest, end=latest, counted_only=True)
+    )
 
     statuses = []
     for b in budgets:

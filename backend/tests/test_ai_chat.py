@@ -233,8 +233,8 @@ def test_each_visitor_gets_a_private_copy(make_client) -> None:
     b = c.post("/sessions").json()["session_id"]
     assert a != b and a.startswith("v_") and len(a) > 20
     ha, hb = {"X-User-Id": a}, {"X-User-Id": b}
-    assert c.get("/me", headers=ha).json()["balance_paisa"] == 23_944_86
-    assert c.get("/transactions", headers=ha).json()["total"] == 154
+    assert c.get("/me", headers=ha).json()["balance_paisa"] == 21_944_86
+    assert c.get("/transactions", headers=ha).json()["total"] == 158
 
     c.post("/budgets", headers=ha, json={"category": "Food & Dining", "limit_paisa": 600000})
     assert len(c.get("/budgets", headers=ha).json()) == 5
@@ -320,7 +320,7 @@ def test_spending_only_filter(client: TestClient) -> None:
 
 
 def test_check_answer_rules() -> None:
-    from app.ai.chat import check_answer
+    from app.ai.chat import check_answer, drop_ungrounded
 
     grounded = '<tool_result>{"spent":"Rs. 1,270","usual":"Rs. 1,140.67"}</tool_result> 6000'
     assert check_answer("You spent Rs. 1,270 (usual Rs 1140.67).", [], grounded) is None
@@ -332,6 +332,16 @@ def test_check_answer_rules() -> None:
     assert "button" in check_answer("Tap the Pay button below.", [], grounded)
     assert check_answer("Tap the button below.", [{"type": "open_app_flow"}], grounded) is None
     assert check_answer("I can't confirm that number.", [], grounded) is None
+    # Seen live: a tool call typed into the answer instead of made.
+    leaked = 'Refund is overdue. **open_app_flow** {flow: "support", transaction_id: "txn_0148"}'
+    assert "tool call written as text" in check_answer(leaked, [], grounded)
+    assert drop_ungrounded(leaked, [], grounded) == ("Refund is overdue.", 1)
+    assert check_answer("Your money flow is below.", [{"type": "money_flow"}], grounded) is None
+    # Seen live: O-Kay claiming it blocks the wallet; only the user can, in Khalti.
+    block = [{"type": "open_app_flow"}]
+    for claim in ("Your wallet is blocked.", "I'll block your wallet first.", "I have blocked it."):
+        assert "can't block" in check_answer(claim, block, grounded), claim
+    assert check_answer("Tap Block my wallet to block it in Khalti.", block, grounded) is None
 
 
 def test_invented_action_is_taken_back_and_redone(seeded: Session) -> None:

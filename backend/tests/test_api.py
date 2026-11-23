@@ -14,7 +14,7 @@ def test_me_and_unknown_user(client: TestClient) -> None:
     assert me == {
         "id": "demo_user",
         "name": "Anjali Thapa",
-        "balance_paisa": 23_944_86,
+        "balance_paisa": 21_944_86,
         "balance_hidden": False,
         "kyc_status": "verified",
     }
@@ -48,7 +48,7 @@ def test_operation_ids_are_readable(client: TestClient) -> None:
 
 def test_list_transactions_newest_first_and_paged(client: TestClient) -> None:
     page = client.get("/transactions").json()
-    assert page["total"] == 154 and page["limit"] == 50 and len(page["items"]) == 50
+    assert page["total"] == 158 and page["limit"] == 50 and len(page["items"]) == 50
     times = [i["occurred_at"] for i in page["items"]]
     assert times == sorted(times, reverse=True)
     assert times[0].endswith("+05:45")
@@ -81,7 +81,7 @@ def test_transaction_filters_and_totals(client: TestClient) -> None:
     momo = client.get("/transactions", params={"merchant": "momo"}).json()
     assert all("Momo" in i["merchant"] for i in momo["items"])
     bills = client.get("/transactions", params={"type": "bill_payment"}).json()
-    assert bills["total"] == 12
+    assert bills["total"] == 14  # 12 paid, a failed NEA payment and its refund
     big = client.get("/transactions", params={"min_paisa": 10_000_00, "limit": 200}).json()
     assert all(i["amount_paisa"] >= 10_000_00 for i in big["items"])
     assert client.get("/transactions", params={"category": "Nope"}).status_code == 422
@@ -129,7 +129,9 @@ def _spending(client: TestClient, start: str, end: str) -> int:
     items = client.get(
         "/transactions", params={"start": start, "end": end, "direction": "debit", "limit": 200}
     ).json()["items"]
-    return sum(i["amount_paisa"] for i in items if cats[i["category"]])
+    # Spending counts only completed payments: not a failed, pending or reversed one.
+    done = [i for i in items if i["status"] == "success" and not i["reversal_of"]]
+    return sum(i["amount_paisa"] for i in done if cats[i["category"]])
 
 
 def test_summary_current_month_matches_the_transactions(client: TestClient) -> None:
@@ -194,7 +196,7 @@ def test_dashboard_past_month_flags_festival_shopping(client: TestClient) -> Non
 def test_dashboard_current_month_has_forecast(client: TestClient) -> None:
     d = client.get("/insights/dashboard").json()
     f = d["forecast"]
-    assert f["horizon_end"] == "2026-11-30" and f["current_balance_paisa"] == 23_944_86
+    assert f["horizon_end"] == "2026-11-30" and f["current_balance_paisa"] == 21_944_86
     kinds = [h["kind"] for h in d["highlights"]]
     assert ("low_balance" in kinds) != ("month_end_balance" in kinds)
 

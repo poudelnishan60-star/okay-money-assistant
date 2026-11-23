@@ -48,7 +48,7 @@ void main() {
       expect(find.textContaining('Education is your biggest category'), findsOneWidget);
       expect(find.textContaining('Balance on 30 Nov'), findsOneWidget);
       // projected month-end balance (also the lowest point: they coincide on 30 Nov)
-      expect(find.text('Rs. 8,286'), findsWidgets);
+      expect(find.text('Rs. 6,286'), findsWidgets);
       await scrollTo(t, find.text('Top merchants'));
       expect(find.text('By category'), findsOneWidget);
       expect(find.text('Day by day'), findsOneWidget);
@@ -83,7 +83,7 @@ void main() {
       final api = await open(t, OkayRoutes.transactions);
       expect(api.requests.last, contains('period=30d'));
       expect(find.text('Closing Balance'), findsWidgets);
-      expect(find.textContaining('154 transactions'), findsOneWidget);
+      expect(find.textContaining('158 transactions'), findsOneWidget);
       await t.tap(find.text('7 days'));
       await t.pumpAndSettle();
       expect(api.requests.last, contains('period=7d'));

@@ -45,6 +45,10 @@ _ADDED_COLUMNS = {
     "chat_messages": {"attachments_json": "TEXT NOT NULL DEFAULT '[]'"},
     # Every user in an older database is a copy of the demo user, who is verified.
     "users": {"kyc_status": "VARCHAR(20) NOT NULL DEFAULT 'verified'"},
+    "transactions": {
+        "status": "VARCHAR(10) NOT NULL DEFAULT 'success'",
+        "reversal_of": "VARCHAR(40)",
+    },
 }
 
 

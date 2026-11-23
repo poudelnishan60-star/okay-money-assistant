@@ -22,6 +22,7 @@ from app.ai.tools import ToolContext, run_tool  # noqa: E402
 from app.api.deps import get_today  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.models import TransactionRow  # noqa: E402
 from app.seed import seed_database  # noqa: E402
 from app.sources.mock import MockBillSource, MockTransactionSource  # noqa: E402
 
@@ -107,6 +108,7 @@ def main() -> None:
             src = MockTransactionSource(s)
             ctx = ToolContext(s, src, MockBillSource(src), "demo_user", ANCHOR)
             cards: list[dict[str, object]] = []
+            failed = s.query(TransactionRow).filter_by(status="failed").one().id
             for tool, args in [
                 ("get_spending_summary", {"period": "month", "month": "2026-10"}),
                 ("get_budgets", {}),
@@ -115,6 +117,23 @@ def main() -> None:
                 ("get_transactions", {"period": "last_7_days"}),
                 ("upsert_budget", {"category": "Food & Dining", "limit_amount": 6000}),
                 ("open_app_flow", {"flow": "bill_payment", "service": "electricity"}),
+                # Step 11's flows (after the bill payment, which tests pick first).
+                (
+                    "open_app_flow",
+                    {
+                        "flow": "request_money",
+                        "amount": 1000,
+                        "split_between": 3,
+                        "recipient_names": ["Sita", "Ram"],
+                    },
+                ),
+                (
+                    "open_app_flow",
+                    {"flow": "support", "transaction_id": failed, "issue": "Topup failed"},
+                ),
+                ("open_app_flow", {"flow": "block_wallet"}),
+                ("open_app_flow", {"flow": "load_money", "amount": 5000}),
+                ("get_transaction_status", {"transaction_id": failed}),
             ]:
                 cards += [c.model_dump(mode="json") for c in run_tool(ctx, tool, args).cards]
             # The money-flow card (its spending summary is already above).

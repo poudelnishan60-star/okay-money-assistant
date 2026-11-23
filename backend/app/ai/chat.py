@@ -45,6 +45,7 @@ from app.ai.suggestions import suggestions_for
 from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, run_tool
 from app.domain import KycStatus
 from app.models import ChatMessage, ToolCallLog
+from app.periods import now_npt
 from app.services.wallet_limits import kyc_status
 from app.sources.base import BillSource, TransactionSource
 
@@ -75,6 +76,20 @@ _CONFIRM_CLAIM = re.compile(
 )
 _BUTTON_CLAIM = re.compile(
     r"button below|tap the [^.]{0,40}button|I(?:'ve| have) opened|tala ko button|तलको बटन",
+    re.IGNORECASE,
+)
+# A tool call written into the answer as text (seen live: '**open_app_flow** {flow:
+# "support", transaction_id: ...}' instead of calling it).
+_TOOL_TEXT = re.compile(
+    r"\b(?:get_[a-z_]+|upsert_(?:budget|goal)|open_app_flow|search_help_articles|"
+    r"transaction_id)\b"
+)
+# O-Kay saying it blocks the wallet (seen live: "Your wallet is blocked", "I'll block your
+# wallet first"). Only the user can, in Khalti's security screen.
+_BLOCK_CLAIM = re.compile(
+    r"\bI(?:'ll| will|'ve| have)\s+(?:now\s+)?block(?:ed)?\b"
+    r"|\b(?:wallet|account) (?:is|has been|was) (?:now )?blocked\b"
+    r"|\bblocked your (?:wallet|account)\b",
     re.IGNORECASE,
 )
 
@@ -125,6 +140,16 @@ def check_answer(
         return (
             "missing button: you mentioned a button or an opened screen, but none was "
             "shown. Call open_app_flow, or don't mention it."
+        )
+    if _TOOL_TEXT.search(text):
+        return (
+            "tool call written as text: never write tool names or arguments in the answer. "
+            "Call the tool instead, or leave it out."
+        )
+    if _BLOCK_CLAIM.search(text):
+        return (
+            "invented action: you can't block the wallet. Say the user blocks it in Khalti's "
+            "screen by tapping the Block my wallet button."
         )
     return None
 
@@ -192,6 +217,8 @@ def drop_ungrounded(text: str, cards: list[dict[str, Any]], grounded: str) -> tu
             any(_norm(a) not in allowed for a in _AMOUNT.findall(sentence))
             or bool(_CONFIRM_CLAIM.search(sentence) and "confirm_action" not in shown)
             or bool(_BUTTON_CLAIM.search(sentence) and "open_app_flow" not in shown)
+            or bool(_TOOL_TEXT.search(sentence))
+            or bool(_BLOCK_CLAIM.search(sentence))
         )
 
     dropped = 0
@@ -399,7 +426,11 @@ class ChatService:
         self.max_tool_rounds = max_tool_rounds
         self.files = files  # what was read from this visitor's files, for follow-ups
         self.token_budget = token_budget
-        self.ctx = ToolContext(session, source, bills, user_id, today)
+        now = now_npt()
+        # The real clock only when "today" is really today (tests and evals pin the date).
+        self.ctx = ToolContext(
+            session, source, bills, user_id, today, now=now if now.date() == today else None
+        )
         self._reply_note: str | None = None  # language reminder after tool results
         self._max_tokens: int | None = None  # longer answers about files
         # Sentences taken out of the last answer because they still failed the grounding

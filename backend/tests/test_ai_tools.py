@@ -41,6 +41,7 @@ def test_tool_specs_are_valid_json_schema() -> None:
     assert {s["function"]["name"] for s in specs} == {
         "get_spending_summary",
         "get_transactions",
+        "get_transaction_status",
         "get_budgets",
         "upsert_budget",
         "get_goals",
@@ -260,7 +261,7 @@ def test_summary_names_the_biggest_category(ctx: ToolContext) -> None:
 def test_forecast_with_days_also_gives_the_month_end(ctx: ToolContext) -> None:
     data = run_tool(ctx, "get_balance_forecast", {"days": 30}).data
     assert data["by_month_end"]["until"] == "2026-11-30"
-    assert data["by_month_end"]["projected_balance"] == "Rs. 8,286"
+    assert data["by_month_end"]["projected_balance"] == "Rs. 6,286"
     assert data["asked_period"]["days"] == 30 and data["asked_period"]["until"] == "2026-12-09"
     assert list(data)[:4] == ["today", "balance_now", "warning_line", "by_month_end"]
 

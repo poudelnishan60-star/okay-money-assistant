@@ -55,6 +55,13 @@ void main() {
         'TransactionsPreviewCard',
         'ConfirmActionCard',
         'OpenAppFlowCard',
+        // Step 11: split a bill, support, block the wallet, load money, a transaction's status.
+        'OpenAppFlowCard',
+        'OpenAppFlowCard',
+        'OpenAppFlowCard',
+        'OpenAppFlowCard',
+        'TransactionsPreviewCard',
+        'OpenAppFlowCard', // the refund is overdue: the support button comes with the status
         'MoneyFlowCard',
         'FileReportCard',
       ]);
@@ -66,6 +73,22 @@ void main() {
       expect(confirm.request.body['limit_paisa'], 600000);
       final flow = cards[7] as OpenAppFlowCard;
       expect((flow.flow, flow.service, flow.amountPaisa), ('bill_payment', 'electricity', 114067));
+
+      // The backend split Rs. 1,000 between 3 in paisa: the leftover paisa is the user's.
+      final split = cards[8] as OpenAppFlowCard;
+      expect(split.flow, 'request_money');
+      expect((split.totalPaisa, split.splitBetween, split.yourSharePaisa), (100000, 3, 33334));
+      expect(split.shares, [('Sita', 33333), ('Ram', 33333)]);
+      final support = cards[9] as OpenAppFlowCard;
+      expect(support.flow, 'support');
+      expect(support.transactionLabel, 'Nepal Telecom · Rs. 500 · 05 Nov 2026 · failed');
+      expect(support.issue, 'Topup failed');
+      expect((cards[10] as OpenAppFlowCard).flow, 'block_wallet');
+      expect((cards[11] as OpenAppFlowCard).flow, 'load_money');
+      final status = cards[12] as TransactionsPreviewCard;
+      expect(status.items.single.status, 'failed');
+      final overdue = cards[13] as OpenAppFlowCard;
+      expect((overdue.flow, overdue.transactionId), ('support', support.transactionId));
     });
 
     test('an unknown card type is skipped, not a crash', () {

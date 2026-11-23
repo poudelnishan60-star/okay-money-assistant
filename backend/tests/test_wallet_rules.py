@@ -148,7 +148,7 @@ def test_usage_this_month_matches_the_transactions(seeded: Session) -> None:
     assert use.limits["bank_to_wallet"].used_month_paisa == loaded
     assert use.limits["merchant_payment"].used_month_paisa == paid
     assert use.limits["wallet_to_bank"].used_month_paisa == 0
-    assert use.balance_paisa == 23_944_86 and use.over_overnight_cap_paisa == 0
+    assert use.balance_paisa == 21_944_86 and use.over_overnight_cap_paisa == 0
 
 
 def test_todays_transfers_and_deposits_count(seeded: Session) -> None:
@@ -216,13 +216,13 @@ def test_wallet_rules_give_the_limits_and_what_is_left(ctx: ToolContext) -> None
 def test_balance_cap_says_when_the_wallet_is_over_it(ctx: ToolContext) -> None:
     under = run_tool(ctx, "get_wallet_rules", {"topic": "balance_cap"}).data
     assert under["overnight_balance_cap"] == "Rs. 50,000"
-    assert under["balance_now"] == "Rs. 23,944.86" and under["over_overnight_cap"] is False
+    assert under["balance_now"] == "Rs. 21,944.86" and under["over_overnight_cap"] is False
     assert "over_by" not in under and "before the day ends" in under["cap_rule"]
 
     _add(ctx.session, 30_000, direction=Direction.CREDIT, type=TxnType.REMITTANCE)
     over = run_tool(ctx, "get_wallet_rules", {"topic": "balance_cap"}).data
-    assert over["balance_now"] == "Rs. 53,944.86"
-    assert over["over_overnight_cap"] is True and over["over_by"] == "Rs. 3,944.86"
+    assert over["balance_now"] == "Rs. 51,944.86"
+    assert over["over_overnight_cap"] is True and over["over_by"] == "Rs. 1,944.86"
 
 
 def test_the_other_topics(ctx: ToolContext) -> None:

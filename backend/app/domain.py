@@ -56,6 +56,13 @@ NON_SPENDING: frozenset[Category] = frozenset(
 )
 
 
+class TxnStatus(StrEnum):
+    SUCCESS = "success"
+    PENDING = "pending"  # not settled yet; the money is held
+    FAILED = "failed"  # money left the wallet, nothing reached the other side
+    REVERSED = "reversed"  # failed, and the money came back (see reversal_of)
+
+
 class KycStatus(StrEnum):
     VERIFIED = "verified"
     PENDING = "pending"  # sent, being checked
@@ -90,6 +97,8 @@ class Transaction:
     category: Category = Category.OTHER
     subcategory: str | None = None
     category_source: CategorySource = CategorySource.DEFAULT
+    status: TxnStatus = TxnStatus.SUCCESS
+    reversal_of: str | None = None  # on the money returned: the failed transaction
 
     @property
     def is_debit(self) -> bool:
@@ -100,5 +109,12 @@ class Transaction:
         return -self.amount_paisa if self.is_debit else self.amount_paisa
 
     @property
+    def counts(self) -> bool:
+        """Counted in spending, budgets, forecasts and insights: only a completed
+        transaction. A failed or pending one isn't, and a reversed payment and the money
+        returned for it cancel out, so neither is."""
+        return self.status is TxnStatus.SUCCESS and self.reversal_of is None
+
+    @property
     def is_spending(self) -> bool:
-        return self.is_debit and self.category not in NON_SPENDING
+        return self.is_debit and self.category not in NON_SPENDING and self.counts

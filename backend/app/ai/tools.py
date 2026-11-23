@@ -38,6 +38,7 @@ from app.ai.cards import (
     MoneyFlow,
     MoneyFlowCard,
     OpenAppFlowCard,
+    RequestShare,
     SpendingSummaryCard,
     TransactionItem,
     TransactionsLink,
@@ -45,7 +46,15 @@ from app.ai.cards import (
     money_flow,
 )
 from app.ai.safety import untrusted
-from app.domain import NON_SPENDING, Category, Direction, KycStatus, Transaction, TxnType
+from app.domain import (
+    NON_SPENDING,
+    Category,
+    Direction,
+    KycStatus,
+    Transaction,
+    TxnStatus,
+    TxnType,
+)
 from app.models import Budget, FaqArticle, Goal
 from app.money import format_npr, to_paisa
 from app.periods import (
@@ -60,6 +69,7 @@ from app.periods import (
     to_bs_string,
 )
 from app.rules import (
+    COMPLAINT_REPLY_HOURS,
     DEPOSIT_COUNT_NOTE,
     DEPOSITS_PER_DAY,
     ESCROW_MIN_PAISA,
@@ -72,6 +82,8 @@ from app.rules import (
     NO_LIMIT_PAYMENTS,
     OVERNIGHT_BALANCE_CAP_PAISA,
     OVERNIGHT_CAP_RULE,
+    PENDING_SETTLE_HOURS,
+    REFUND_HOURS,
     REFUND_RULES,
     SECURITY_RULES,
     SOURCE,
@@ -97,6 +109,12 @@ class ToolContext:
     # Amounts O-Kay already showed a send/load/withdraw button for in this message, by
     # limit (rules.FLOW_LIMITS): they count against today's limit like money sent.
     offered: dict[str, int] = field(default_factory=dict)
+    # The time now (Nepal), for "is a refund overdue?". None: noon on `today`, so tests and
+    # evals with a pinned date always get the same answer.
+    now: dt.datetime | None = None
+
+    def clock(self) -> dt.datetime:
+        return self.now or dt.datetime.combine(self.today, dt.time(12))
 
 
 @dataclass
@@ -220,7 +238,7 @@ def _money_flow(txns: list[Transaction], start: dt.date, end: dt.date) -> MoneyF
     spent: dict[str, int] = defaultdict(int)
     moved: dict[str, int] = defaultdict(int)
     for t in txns:
-        if not start <= t.occurred_at.date() <= end:
+        if not t.counts or not start <= t.occurred_at.date() <= end:
             continue
         if not t.is_debit:
             came[_IN_LABELS.get(t.category, t.category.value)] += t.amount_paisa
@@ -287,7 +305,8 @@ def get_spending_summary(ctx: ToolContext, args: SpendingSummaryArgs) -> ToolRes
         return empty
     start = min(previous.start, current.start - dt.timedelta(days=BASELINE_DAYS))
     txns = ctx.source.list_transactions(
-        ctx.user_id, TransactionFilter(start=start, end=min(current.end, ctx.today))
+        ctx.user_id,
+        TransactionFilter(start=start, end=min(current.end, ctx.today), counted_only=True),
     )
     s = summarize(txns, current, previous, ctx.today)
     compared_with = (
@@ -475,10 +494,28 @@ class TransactionsArgs(PeriodArgs):
     direction: Literal["debit", "credit"] | None = None
     min_amount: float | None = Field(None, ge=0)
     max_amount: float | None = Field(None, ge=0)
+    status: TxnStatus | None = None
 
 
 def _txn_title(t: Transaction) -> str:
     return t.subcategory or t.category.value
+
+
+def _txn_line(t: Transaction) -> dict[str, Any]:
+    line: dict[str, Any] = {
+        "id": t.id,
+        "date": t.occurred_at.date().isoformat(),
+        "merchant": untrusted(t.merchant),
+        "what": _txn_title(t),
+        "amount": _rs(t.amount_paisa),
+        "direction": "out" if t.is_debit else "in",
+        "note": untrusted(t.remarks, 60),
+    }
+    if t.status is not TxnStatus.SUCCESS:
+        line["status"] = t.status.value
+    if t.reversal_of:
+        line["refund_of"] = t.reversal_of
+    return line
 
 
 def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
@@ -494,44 +531,31 @@ def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
         direction=Direction(args.direction) if args.direction else None,
         min_paisa=_rupees_to_paisa(args.min_amount),
         max_paisa=_rupees_to_paisa(args.max_amount),
+        status=args.status,
     )
     txns = list(reversed(ctx.source.list_transactions(ctx.user_id, flt)))  # newest first
-    debit = sum(t.amount_paisa for t in txns if t.is_debit)
-    credit = sum(t.amount_paisa for t in txns if not t.is_debit)
-    data = {
+    # Totals count completed transactions only; the list shows every one with its status.
+    debit = sum(t.amount_paisa for t in txns if t.is_debit and t.counts)
+    credit = sum(t.amount_paisa for t in txns if not t.is_debit and t.counts)
+    data: dict[str, Any] = {
         "period": current.label,
         "count": len(txns),
         "total_paid_out": _rs(debit),
         "total_received": _rs(credit),
-        "latest": [
-            {
-                "date": t.occurred_at.date().isoformat(),
-                "merchant": untrusted(t.merchant),
-                "what": _txn_title(t),
-                "amount": _rs(t.amount_paisa),
-                "direction": "out" if t.is_debit else "in",
-                "note": untrusted(t.remarks, 60),
-            }
-            for t in txns[:10]
-        ],
+        "latest": [_txn_line(t) for t in txns[:10]],
     }
+    if not_done := sum(1 for t in txns if not t.counts):
+        data["not_in_totals"] = (
+            f"{not_done} failed, pending, reversed or refunded (status on each; "
+            "get_transaction_status for details)"
+        )
     if len(txns) > 10:
         data["more_not_listed"] = len(txns) - 10
     card = TransactionsPreviewCard(
         count=len(txns),
         total_debit_paisa=debit,
         total_credit_paisa=credit,
-        items=[
-            TransactionItem(
-                id=t.id,
-                date=t.occurred_at.date(),
-                merchant=t.merchant,
-                amount_paisa=t.amount_paisa,
-                direction=t.direction.value,
-                category=t.category.value,
-            )
-            for t in txns[:5]
-        ],
+        items=[_txn_item(t) for t in txns[:5]],
         link=_link(
             current,
             ctx.today,
@@ -545,6 +569,104 @@ def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
         ),
     )
     return ToolResult(data, [card], {"transactions"})
+
+
+# --- get_transaction_status -------------------------------------------------------------------
+
+
+class TxnStatusArgs(BaseModel):
+    transaction_id: str = Field(min_length=1, max_length=60)
+
+
+def _when(t: dt.datetime) -> str:
+    return f"{t:%a %d %b %Y, %H:%M}"
+
+
+def _txn_item(t: Transaction) -> TransactionItem:
+    return TransactionItem(
+        id=t.id,
+        date=t.occurred_at.date(),
+        merchant=t.merchant,
+        amount_paisa=t.amount_paisa,
+        direction=t.direction.value,
+        category=t.category.value,
+        status=t.status.value,
+        refund=t.reversal_of is not None,
+    )
+
+
+def get_transaction_status(ctx: ToolContext, args: TxnStatusArgs) -> ToolResult:
+    """Where one transaction stands, and whether the time Khalti gives for it has passed.
+    Times come from app/rules.py; "now" from the context."""
+    t = ctx.source.get_transaction(ctx.user_id, args.transaction_id.strip())
+    if t is None:
+        raise ToolError("no transaction with that id: find it with get_transactions")
+    data: dict[str, Any] = {
+        "transaction_id": t.id,
+        "status": t.status.value,
+        "what": _txn_title(t),
+        "merchant": untrusted(t.merchant),
+        "amount": _rs(t.amount_paisa),
+        "direction": "out" if t.is_debit else "in",
+        "when": _when(t.occurred_at),
+    }
+    shown = [t]
+    due: dt.datetime | None = None
+    if t.reversal_of:
+        data["meaning"] = "Money returned for a failed payment."
+        data["refund_of"] = t.reversal_of
+    elif t.status is TxnStatus.SUCCESS:
+        data["meaning"] = "Completed."
+    elif t.status is TxnStatus.PENDING:
+        due = t.occurred_at + dt.timedelta(hours=PENDING_SETTLE_HOURS)
+        data["meaning"] = "Not completed yet; the money is held until it goes through or fails."
+        data["expected_by"] = _when(due)
+    elif t.status is TxnStatus.FAILED:
+        due = t.occurred_at + dt.timedelta(hours=REFUND_HOURS)
+        data["meaning"] = "Failed: the money left the wallet and hasn't come back yet."
+        data["refund_expected_by"] = _when(due)
+        data["refund_rule"] = REFUND_RULES[0]
+    else:  # reversed
+        data["meaning"] = "Failed, and the money came back."
+        after = ctx.source.list_transactions(
+            ctx.user_id, TransactionFilter(start=t.occurred_at.date())
+        )
+        back = next((r for r in after if r.reversal_of == t.id), None)
+        if back is not None:
+            data["money_returned"] = {
+                "amount": _rs(back.amount_paisa),
+                "when": _when(back.occurred_at),
+            }
+            shown.append(back)
+    cards: list[BaseModel] = []
+    if due is not None:
+        data["overdue"] = ctx.clock() > due
+        if data["overdue"]:
+            # Seen live: told to "offer open_app_flow flow=support", the model wrote that as
+            # text instead of calling it. The support button comes from here instead.
+            cards.append(_support_card(t, None))
+            data["support"] = (
+                "The expected time has passed. A 'Contact Khalti support' button with this "
+                "transaction attached is shown under your answer: tell the user to tap it. "
+                f"Khalti answers complaints within {COMPLAINT_REPLY_HOURS} hours."
+            )
+    debit = sum(x.amount_paisa for x in shown if x.is_debit)
+    card = TransactionsPreviewCard(
+        count=len(shown),
+        total_debit_paisa=debit,
+        total_credit_paisa=sum(x.amount_paisa for x in shown) - debit,
+        items=[_txn_item(x) for x in shown],
+        link=TransactionsLink(
+            count=len(shown),
+            filters={
+                "start": t.occurred_at.date().isoformat(),
+                "end": shown[-1].occurred_at.date().isoformat(),
+                "merchant": t.merchant,
+            },
+        ),
+    )
+    topics = {"transactions", "app_flow"} if cards else {"transactions"}
+    return ToolResult(data, [card, *cards], topics)
 
 
 # --- budgets ------------------------------------------------------------------------------
@@ -635,7 +757,7 @@ def upsert_budget(ctx: ToolContext, args: UpsertBudgetArgs) -> ToolResult:
     )
     existing = ctx.session.scalar(q)
     txns = ctx.source.list_transactions(
-        ctx.user_id, TransactionFilter(start=period.start, end=ctx.today)
+        ctx.user_id, TransactionFilter(start=period.start, end=ctx.today, counted_only=True)
     )
     spent = spent_in_period(txns, period, category)
     status = evaluate_budget(
@@ -996,8 +1118,37 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
 
 # --- open_app_flow -------------------------------------------------------------------------
 
-# Every flow that pays, sends or loads money needs verified KYC first.
-_MONEY_FLOWS = frozenset({"bill_payment", "send_money", "autopay", "smart_deposit"})
+Flow = Literal[
+    "bill_payment",
+    "send_money",
+    "autopay",
+    "smart_deposit",
+    "load_money",
+    "withdraw_to_bank",
+    "request_money",
+    "support",
+    "block_wallet",
+]
+# Every flow that pays, sends, requests or loads money needs verified KYC first. Support and
+# blocking the wallet never do: a user with a lost phone must always reach them.
+_MONEY_FLOWS = frozenset(
+    {
+        "bill_payment",
+        "send_money",
+        "autopay",
+        "smart_deposit",
+        "load_money",
+        "withdraw_to_bank",
+        "request_money",
+    }
+)
+
+
+def split_shares(total_paisa: int, people: int) -> tuple[int, int]:
+    """A bill split between `people` (the requester included), in whole paisa: what each
+    of the others pays, and the requester's own share, which takes any leftover paisa."""
+    each = total_paisa // people
+    return each, total_paisa - each * (people - 1)
 
 
 def _kyc_refusal(ctx: ToolContext) -> ToolResult | None:
@@ -1050,13 +1201,29 @@ def _limit_refusal(ctx: ToolContext, kind: str, amount_paisa: int) -> ToolResult
 
 
 class AppFlowArgs(BaseModel):
-    flow: Literal["bill_payment", "send_money", "autopay", "smart_deposit"]
+    flow: Flow
     service: (
         Literal["electricity", "khanepani", "internet", "tv", "data_pack", "mobile_topup"] | None
     ) = None
     amount: float | None = Field(None, gt=0)
     recipient_name: str | None = Field(None, max_length=80)
     goal_id: int | None = None
+    # request_money: amount is the total; split_between counts the requester too.
+    split_between: int | None = Field(None, ge=2, le=20)
+    recipient_names: list[str] | None = Field(None, max_length=19)
+    # support
+    transaction_id: str | None = Field(None, max_length=60)
+    issue: str | None = Field(None, max_length=200)
+
+    @field_validator("recipient_names")
+    @classmethod
+    def _short_names(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        names = [n.strip() for n in v if n.strip()]
+        if any(len(n) > 80 for n in names):
+            raise ValueError("names are at most 80 characters")
+        return names or None
 
 
 _FLOW_TITLES = {
@@ -1104,6 +1271,42 @@ def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
     elif args.flow == "send_money":
         prefill.recipient_name = args.recipient_name
         title = f"Send money{' to ' + args.recipient_name if args.recipient_name else ''}"
+    elif args.flow == "request_money":
+        return _request_money(ctx, args, amount)
+    elif args.flow == "support":
+        return _support(ctx, args)
+    elif args.flow == "block_wallet":
+        return _flow_result(
+            OpenAppFlowCard(
+                flow="block_wallet",
+                title="Block my wallet",
+                prefill=prefill,
+                note="Opens Khalti's security screen; you confirm there.",
+            ),
+            {
+                # Seen live: "Your wallet is blocked" before the user had tapped anything.
+                "wallet": "NOT blocked yet: the user blocks it in Khalti's screen after "
+                "tapping the button. Never say it is blocked.",
+                "next_step": "Then give the reporting steps from search_help_articles.",
+                "report_rule": SECURITY_RULES[1],
+            },
+            money=False,
+        )
+    elif args.flow in ("load_money", "withdraw_to_bank"):
+        title = "Load money from bank" if args.flow == "load_money" else "Withdraw to bank"
+        extra: dict[str, Any] = {}
+        balance = ctx.source.get_balance(ctx.user_id)
+        if args.flow == "load_money" and amount and balance + amount > OVERNIGHT_BALANCE_CAP_PAISA:
+            extra["cap_note"] = (
+                f"After loading, the balance would be {_rs(balance + amount)}, above the "
+                f"{_rs(OVERNIGHT_BALANCE_CAP_PAISA)} overnight cap: "
+                + OVERNIGHT_CAP_RULE[0].lower()
+                + OVERNIGHT_CAP_RULE[1:]
+            )
+        card = OpenAppFlowCard(flow=args.flow, title=title, prefill=prefill)
+        if limit and amount is not None:
+            ctx.offered[limit] = ctx.offered.get(limit, 0) + amount
+        return _flow_result(card, extra)
     else:
         title = "Automate with Smart Deposit"
         if args.goal_id is not None:
@@ -1120,13 +1323,107 @@ def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
     card = OpenAppFlowCard(flow=args.flow, service=args.service, title=title, prefill=prefill)
     if limit and amount is not None:
         ctx.offered[limit] = ctx.offered.get(limit, 0) + amount
-    data = {
-        "status": "A button is shown under your answer; nothing has opened yet. Tell the user "
-        "to tap it. NOTHING has been paid or sent: they finish in Khalti with their MPIN.",
-        "button": title,
-        "prefilled_amount": _rs(prefill.amount_paisa) if prefill.amount_paisa else None,
-    }
-    return ToolResult(data, [card], {"app_flow"})
+    return _flow_result(card, {})
+
+
+def _flow_result(card: OpenAppFlowCard, extra: dict[str, Any], *, money: bool = True) -> ToolResult:
+    status = "A button is shown under your answer; nothing has opened yet. Tell the user to tap it."
+    if money:
+        status += " NOTHING has been paid or sent: they finish in Khalti with their MPIN."
+    data: dict[str, Any] = {"status": status, "button": card.title}
+    if card.prefill.amount_paisa:
+        data["prefilled_amount"] = _rs(card.prefill.amount_paisa)
+    return ToolResult(data | extra, [card], {"app_flow"})
+
+
+def _request_money(ctx: ToolContext, args: AppFlowArgs, total: int | None) -> ToolResult:
+    """Request money, or split a bill: the shares are worked out here, never by the model."""
+    names = args.recipient_names or ([args.recipient_name] if args.recipient_name else [])
+    people = args.split_between
+    if people is None:  # no split: the amount from each person named
+        prefill = AppFlowPrefill(amount_paisa=total, recipient_name=names[0] if names else None)
+        if len(names) > 1 and total is not None:
+            prefill.recipient_name = None
+            prefill.shares = [RequestShare(name=n, amount_paisa=total) for n in names]
+        title = f"Request money{' from ' + names[0] if len(names) == 1 else ''}"
+        return _flow_result(
+            OpenAppFlowCard(flow="request_money", title=title, prefill=prefill, note=_ASK_NOTE),
+            {"requests_to": [untrusted(n) for n in names]} if names else {},
+            money=False,
+        )
+    if total is None:
+        raise ToolError("request_money with split_between needs amount (the total)")
+    if len(names) > people - 1:
+        raise ToolError(f"{len(names)} names but only {people - 1} others to split with")
+    each, mine = split_shares(total, people)
+    if each < MIN_PAYMENT_PAISA:
+        return ToolResult(
+            {
+                "status": "NOT opened, no button is shown: each share would be under the minimum.",
+                "each_share": _rs(each),
+                "limit": f"The minimum is {_rs(MIN_PAYMENT_PAISA)}.",
+            },
+            [],
+            {"help"},
+        )
+    others = [names[i] if i < len(names) else f"Person {i + 1}" for i in range(people - 1)]
+    shares = [RequestShare(name=n, amount_paisa=each) for n in others]
+    prefill = AppFlowPrefill(
+        amount_paisa=each,
+        total_paisa=total,
+        split_between=people,
+        shares=shares,
+        your_share_paisa=mine,
+    )
+    card = OpenAppFlowCard(
+        flow="request_money", title="Split the bill", prefill=prefill, note=_ASK_NOTE
+    )
+    return _flow_result(
+        card,
+        {
+            "total": _rs(total),
+            "split_between": f"{people} people, you included",
+            "each_other_person_pays": _rs(each),
+            "your_share": _rs(mine),
+            "requests_to": [untrusted(n) for n in others],
+        },
+        money=False,
+    )
+
+
+_ASK_NOTE = "You'll check and send the request in Khalti."
+
+
+def _support_card(t: Transaction | None, issue: str | None) -> OpenAppFlowCard:
+    prefill = AppFlowPrefill(issue=issue.strip() if issue else None)
+    note = "Opens Khalti support."
+    if t is not None:
+        prefill.transaction_id = t.id
+        prefill.transaction_label = (
+            f"{t.merchant} · {_rs(t.amount_paisa)} · {t.occurred_at:%d %b %Y} · {t.status.value}"
+        )
+        note = "Opens Khalti support with this transaction attached."
+    return OpenAppFlowCard(
+        flow="support", title="Contact Khalti support", prefill=prefill, note=note
+    )
+
+
+def _support(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
+    t = None
+    if args.transaction_id:
+        t = ctx.source.get_transaction(ctx.user_id, args.transaction_id.strip())
+        if t is None:
+            raise ToolError("no transaction with that id: find it with get_transactions")
+    card = _support_card(t, args.issue)
+    prefill = card.prefill
+    return _flow_result(
+        card,
+        {
+            "complaint_time": f"Khalti answers complaints within {COMPLAINT_REPLY_HOURS} hours.",
+            "transaction_attached": prefill.transaction_id,
+        },
+        money=False,
+    )
 
 
 # --- registry and JSON schemas for the model ------------------------------------------------
@@ -1183,8 +1480,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_transactions",
-            "Transactions for a period: count, totals, latest ten. type remittance = money "
-            "from abroad; transfer = to/from people.",
+            "Transactions for a period: count, totals, latest ten with ids. type remittance "
+            "= money from abroad; transfer = to/from people. status finds failed/pending/reversed.",
             TransactionsArgs,
             get_transactions,
             _obj(
@@ -1196,8 +1493,17 @@ TOOLS: dict[str, Tool] = {
                     "direction": {"type": "string", "enum": ["debit", "credit"]},
                     "min_amount": {"type": "number"},
                     "max_amount": {"type": "number"},
+                    "status": {"type": "string", "enum": [s.value for s in TxnStatus]},
                 }
             ),
+        ),
+        Tool(
+            "get_transaction_status",
+            "One transaction's status (failed, pending, reversed), refund and expected "
+            "time, and whether it is overdue.",
+            TxnStatusArgs,
+            get_transaction_status,
+            _obj({"transaction_id": {"type": "string"}}, ["transaction_id"]),
         ),
         Tool("get_budgets", "Monthly budgets: limit, spent, left.", NoArgs, get_budgets, _obj({})),
         Tool(
@@ -1274,20 +1580,22 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "open_app_flow",
-            "Button that opens Khalti's own screen pre-filled (pay bill, send money, Autopay, "
-            "Smart Deposit). Never moves money. Refuses amounts over Khalti's limits.",
+            "Button that opens Khalti's own screen pre-filled: pay bill, send/request/load "
+            "money, withdraw to bank, Autopay, Smart Deposit, support, block wallet. Never "
+            "moves money. Refuses amounts over Khalti's limits.",
             AppFlowArgs,
             open_app_flow,
             _obj(
                 {
-                    "flow": {
-                        "type": "string",
-                        "enum": ["bill_payment", "send_money", "autopay", "smart_deposit"],
-                    },
+                    "flow": {"type": "string", "enum": list(Flow.__args__)},
                     "service": {"type": "string", "enum": SERVICES},
                     "amount": {"type": "number"},
                     "recipient_name": {"type": "string"},
                     "goal_id": {"type": "integer"},
+                    "split_between": {"type": "integer", "description": "people, you too"},
+                    "recipient_names": {"type": "array", "items": {"type": "string"}},
+                    "transaction_id": {"type": "string"},
+                    "issue": {"type": "string"},
                 },
                 ["flow"],
             ),

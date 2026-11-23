@@ -48,6 +48,45 @@ class MockHostAppBridge implements HostAppBridge {
   }
 
   @override
+  Future<void> openLoadMoney({int? amountPaisa}) {
+    calls.add('openLoadMoney');
+    return _show('Load Money', {'From': 'Your bank', 'Amount': _amount(amountPaisa)});
+  }
+
+  @override
+  Future<void> openWithdrawToBank({int? amountPaisa}) {
+    calls.add('openWithdrawToBank');
+    return _show('Withdraw to Bank', {'Amount': _amount(amountPaisa)});
+  }
+
+  @override
+  Future<void> openRequestMoney(RequestMoneyPrefill prefill) {
+    calls.add('openRequestMoney');
+    return _show('Request Money', {
+      'From': prefill.recipientName,
+      'Amount': _amount(prefill.amountPaisa),
+      for (final r in prefill.requests) r.name: _amount(r.amountPaisa),
+      'Bill': _amount(prefill.totalPaisa),
+      'Your share': _amount(prefill.yourSharePaisa),
+    });
+  }
+
+  @override
+  Future<void> openSupport(SupportPrefill prefill) {
+    calls.add('openSupport${prefill.transactionId == null ? '' : ':${prefill.transactionId}'}');
+    return _show('Khalti Support', {
+      'Transaction': prefill.transactionLabel,
+      'Problem': prefill.issue,
+    });
+  }
+
+  @override
+  Future<void> openWalletSecurity() {
+    calls.add('openWalletSecurity');
+    return _show('Security: Block Wallet', const {});
+  }
+
+  @override
   Future<bool> authenticate({required String reason}) async {
     calls.add('authenticate');
     final context = navigatorKey.currentContext;

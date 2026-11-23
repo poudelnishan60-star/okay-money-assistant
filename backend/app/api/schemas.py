@@ -13,7 +13,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.domain import Category, CategorySource, Direction, KycStatus, Transaction, TxnType
+from app.domain import (
+    Category,
+    CategorySource,
+    Direction,
+    KycStatus,
+    Transaction,
+    TxnStatus,
+    TxnType,
+)
 from app.periods import NPT, CalendarSystem, Period
 from app.services.bills import BillStatus, BillView
 from app.services.budgets import BudgetLevel, BudgetStatus
@@ -74,6 +82,13 @@ class TransactionOut(BaseModel):
     category: Category
     subcategory: str | None
     category_source: CategorySource
+    status: TxnStatus = Field(
+        description="success, pending, failed (money left the wallet, not yet back) or "
+        "reversed (failed, and the money came back)."
+    )
+    reversal_of: str | None = Field(
+        description="On money returned for a failed transaction: that transaction's id."
+    )
 
     @classmethod
     def of(cls, t: Transaction) -> TransactionOut:
@@ -92,6 +107,8 @@ class TransactionOut(BaseModel):
             category=t.category,
             subcategory=t.subcategory,
             category_source=t.category_source,
+            status=t.status,
+            reversal_of=t.reversal_of,
         )
 
 

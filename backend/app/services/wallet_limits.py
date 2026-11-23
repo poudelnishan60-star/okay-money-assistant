@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.domain import Direction, KycStatus, Transaction, TxnType
+from app.domain import Direction, KycStatus, Transaction, TxnStatus, TxnType
 from app.models import User
 from app.rules import (
     BANK_LOAD_SERVICE,
@@ -33,7 +33,11 @@ _BANK_SERVICES = frozenset({BANK_LOAD_SERVICE, BANK_WITHDRAW_SERVICE})
 
 
 def limit_kind(t: Transaction) -> str | None:
-    """Which limit a transaction counts against (None: no limit, or none tracked here)."""
+    """Which limit a transaction counts against (None: no limit, or none tracked here).
+    A pending one counts (the money is held); a failed or reversed one and money
+    returned for it don't."""
+    if t.status in (TxnStatus.FAILED, TxnStatus.REVERSED) or t.reversal_of:
+        return None
     if t.type is TxnType.TRANSFER:
         if t.direction is Direction.CREDIT:
             return "bank_to_wallet" if t.service == BANK_LOAD_SERVICE else None
@@ -98,7 +102,7 @@ def usage(
     deposits = 0
     for t in txns:
         on_day = t.occurred_at.date() == today
-        if on_day and t.direction is Direction.CREDIT:
+        if on_day and t.direction is Direction.CREDIT and not t.reversal_of:
             deposits += 1
         kind = limit_kind(t)
         if kind is None:

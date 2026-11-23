@@ -148,7 +148,7 @@ def test_source_filters(source: MockTransactionSource) -> None:
     assert momo and all("momo" in t.merchant.lower() for t in momo)
 
     bills = source.list_transactions(USER, TransactionFilter(type=TxnType.BILL_PAYMENT))
-    assert len(bills) == 12
+    assert len(bills) == 14  # 12 paid, a failed NEA payment and its refund
 
     credits = source.list_transactions(USER, TransactionFilter(direction=Direction.CREDIT))
     assert credits and all(not t.is_debit for t in credits)

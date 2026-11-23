@@ -32,7 +32,10 @@ uvicorn app.main:app --reload
 The seed is reproducible: a fixed random seed plus the anchor date decide every row. By default
 the 90 days of history end yesterday (Nepal time); `python -m app.seed --anchor 2026-11-09`
 pins it (the tests use that date). Merchants are invented and amounts are labelled estimates of
-typical Kathmandu prices; see the docstring in `backend/app/seed.py`.
+typical Kathmandu prices; see the docstring in `backend/app/seed.py`. Four transactions didn't
+simply go through: an NEA payment that failed and was refunded the next day (then paid again),
+a transfer still pending since the last evening, and a mobile topup that failed 4 days before
+the end and hasn't been refunded.
 
 Backend layout:
 
@@ -67,7 +70,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 |---|---|---|
 | GET | `/me` | name, balance, balance-hidden flag, KYC status (`verified` / `pending` / `not_started`) |
 | GET | `/categories` | categories, subcategories, which count as spending |
-| GET | `/transactions` | newest first; `period=7d/14d/30d/this_month` or `start`/`end`; filter by `category`, `merchant`, `type`, `direction`, `min_paisa`, `max_paisa`; `limit`/`offset` |
+| GET | `/transactions` | newest first; `period=7d/14d/30d/this_month` or `start`/`end`; filter by `category`, `merchant`, `type`, `direction`, `min_paisa`, `max_paisa`; `limit`/`offset`; each has a `status` (`success` / `pending` / `failed` / `reversed`) and, on a refund, `reversal_of` |
 | GET | `/transactions/{id}` | one transaction |
 | PATCH | `/transactions/{id}/category` | recategorize; `apply_to_merchant` for all from that merchant |
 | GET | `/insights/summary` | `period=month/week/custom`, `month=YYYY-MM`, `calendar=AD/BS`: totals, % change, categories, daily bars, top merchants |
@@ -147,6 +150,22 @@ How it stays safe and correct:
   already shown in the same message count as used, so "send 30,000 twice" doesn't pass the
   daily limit. A user whose KYC isn't verified gets no money button at all, and the system
   prompt says so.
+- Transaction status: success, pending (the money is held), failed (it left the wallet and
+  hasn't come back) or reversed (failed, then refunded; the refund row points back with
+  `reversal_of`). Spending, budgets, forecasts, insights, bills and alerts count completed
+  transactions only, and a reversed payment and its refund not at all. The services skip the
+  others themselves, whoever calls them.
+- `get_transaction_status(transaction_id)` says where a payment stands, the money returned
+  if any, the time Khalti gives (`app/rules.py`: refunds 24 hours; pending 24 hours, an
+  assumption until Khalti confirms) and whether it has passed. When it has, the support
+  button comes with the answer, built in code with the transaction attached.
+  `get_transactions` lists ids and statuses (and filters by status) so the model can find
+  the payment.
+- More `open_app_flow` buttons, none of which moves money: load money and withdraw to bank
+  (limit-checked; loading past the overnight cap adds a note), request money or split a bill
+  (the shares are worked out in code in whole paisa, the leftover paisa on the requester),
+  support (with a transaction attached) and block the wallet. Support and blocking work
+  without KYC, so a user with a lost phone can always reach them.
 - Before anything goes to Groq: phone, account and reference numbers are masked, an
   MPIN/OTP/password typed into the chat is removed (and the user is warned), merchant names
   and notes are neutralized and wrapped in `<tool_result>` tags as data.
@@ -158,7 +177,10 @@ How it stays safe and correct:
 - Tool calls are logged (`tool_call_log`, masked arguments); raw prompts are not.
 - A code check backs the "never invents numbers or actions" rule: every "Rs." amount in an
   answer must appear in a tool result (this turn or earlier in the chat), and "tap Confirm" /
-  "the button below" need that card. If not, the server sends a `reset` event (the app drops the
+  "the button below" need that card. Two more checks came from live answers: a tool call typed
+  into the answer as text (`open_app_flow {flow: "support"}`), and O-Kay saying it blocked or
+  will block the wallet (only the user can, in Khalti). If a check fails, the server sends a
+  `reset` event (the app drops the
   text) and the model gets one corrective round that must call a tool. If the redo still
   fails, the sentences that fail it (a sum the model added up itself, say) are taken out and
   the rest is sent again after another `reset`; if nothing is left, the answer is "I don't
@@ -375,6 +397,9 @@ it out. Because the tilt bends slice sizes, the legend always gives the exact sh
 amount. Charts sweep or grow in once, and not at all with reduced motion; at large text the
 amounts move under their labels. Budgets/goals are saved only when the user taps Confirm; payments open the host app's own
 flow via `HostAppBridge`. With amounts hidden, those in the answer text are masked too.
+The bridge also opens load money, withdraw to bank, request money (a split bill shows each
+person's share and yours), Khalti support (with the transaction attached) and the security
+screen to block the wallet; the mock shows a "would open X" sheet for each.
 
 **Files and photos.** The + in the input opens a sheet with Photo (gallery or camera) and
 Document (PDF, Excel .xlsx, CSV), and a note that files go to O-Kay's AI service and aren't
@@ -428,7 +453,9 @@ Money Insights links on to Transactions, Budgets, Goals and Bills.
   category opens its transactions.
 - **Transactions**: period chips (7 / 14 / 30 days, this month, custom range), grouped by day
   with the closing balance, paging. The detail sheet changes the category, optionally for every
-  transaction from that merchant.
+  transaction from that merchant. A pending, failed or reversed transaction (or a refund) says
+  so in words as well as colour, on its row and in the sheet; a failed or pending one has
+  "Get help", which asks O-Kay about it in the chat (with its id, so it looks up the status).
 - **Budgets**: bars with words as well as colour (on track / near limit / over), "about Rs. X a
   day for N days"; a sheet to create, edit or delete one (AD or BS month).
 - **Goals**: progress ring, target, deadline, "needs Rs. X/month", "Automate with Smart
@@ -539,7 +566,7 @@ repository URL, enter `GROQ_API_KEY` and deploy. If the Render address differs f
 | 8 | Notifications, polish, golden tests, 50-question eval | done |
 | 9 | Deploy the website and backend | done |
 | 10 | Wallet rules, limits and KYC | done |
-| 11 | Transaction status, support and security | to do |
+| 11 | Transaction status, support and security | done |
 | 12 | Alerts, help articles, trust and evals | to do |
 
 The assistant ships as a **public website** (the Flutter web build) and merges into the

@@ -68,6 +68,10 @@ class TransactionRow(Base):
     category: Mapped[str] = mapped_column(String(40), index=True)
     subcategory: Mapped[str | None] = mapped_column(String(40))
     category_source: Mapped[str] = mapped_column(String(20))
+    # success | pending | failed | reversed (TxnStatus)
+    status: Mapped[str] = mapped_column(String(10), default="success")
+    # On the money returned for a failed transaction: that transaction's id.
+    reversal_of: Mapped[str | None] = mapped_column(String(40), index=True)
 
 
 class MerchantCategoryCache(Base):

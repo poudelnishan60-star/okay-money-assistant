@@ -98,6 +98,8 @@ class TransactionItem(BaseModel):
     amount_paisa: int
     direction: str
     category: str
+    status: str = "success"  # success | pending | failed | reversed
+    refund: bool = False  # money returned for a failed payment
 
 
 class TransactionsPreviewCard(BaseModel):
@@ -131,12 +133,26 @@ class ConfirmActionCard(BaseModel):
     confirm_label: str = "Confirm"
 
 
+class RequestShare(BaseModel):
+    name: str
+    amount_paisa: int
+
+
 class AppFlowPrefill(BaseModel):
     amount_paisa: int | None = None
     biller_name: str | None = None
     recipient_name: str | None = None
     goal_name: str | None = None
     monthly_amount_paisa: int | None = None
+    # request_money: a bill split in code (whole paisa; leftover on the requester)
+    total_paisa: int | None = None
+    split_between: int | None = None
+    shares: list[RequestShare] | None = None
+    your_share_paisa: int | None = None
+    # support: the transaction to attach, and the user's problem in a few words
+    transaction_id: str | None = None
+    transaction_label: str | None = None
+    issue: str | None = None
 
 
 class OpenAppFlowCard(BaseModel):
@@ -144,7 +160,17 @@ class OpenAppFlowCard(BaseModel):
     money; the user finishes in the app with MPIN / biometric."""
 
     type: Literal["open_app_flow"] = "open_app_flow"
-    flow: Literal["bill_payment", "send_money", "autopay", "smart_deposit"]
+    flow: Literal[
+        "bill_payment",
+        "send_money",
+        "autopay",
+        "smart_deposit",
+        "load_money",
+        "withdraw_to_bank",
+        "request_money",
+        "support",
+        "block_wallet",
+    ]
     service: str | None = None
     title: str
     prefill: AppFlowPrefill

@@ -70,7 +70,9 @@ def _history(
     """Everything summary + unusual-spend need, in one query."""
     start = min(previous.start, current.start - dt.timedelta(days=BASELINE_DAYS))
     end = min(current.end, today)
-    return source.list_transactions(user_id, TransactionFilter(start=start, end=end))
+    return source.list_transactions(
+        user_id, TransactionFilter(start=start, end=end, counted_only=True)
+    )
 
 
 def _warning_line(session: Session, user_id: str, threshold_paisa: int | None) -> int:

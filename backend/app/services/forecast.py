@@ -84,6 +84,7 @@ def forecast_balance(
     lookback_days: int = LOOKBACK_DAYS,
 ) -> BalanceForecast:
     """Pure forecast from a transaction history. Projects as_of+1 .. horizon_end."""
+    history = [t for t in history if t.counts]
     if horizon_end < as_of:
         raise ValueError("horizon_end is before as_of")
     series = detect_recurring(history, as_of=as_of)
@@ -158,7 +159,7 @@ def balance_forecast(
     """Forecast for the next `days` days (backs the get_balance_forecast tool)."""
     if days < 1:
         raise ValueError("days must be >= 1")
-    history = source.list_transactions(user_id, TransactionFilter(end=today))
+    history = source.list_transactions(user_id, TransactionFilter(end=today, counted_only=True))
     return forecast_balance(
         history,
         source.get_balance(user_id),
@@ -176,7 +177,7 @@ def month_end_forecast(
     *,
     threshold_paisa: int = LOW_BALANCE_THRESHOLD_PAISA,
 ) -> BalanceForecast:
-    history = source.list_transactions(user_id, TransactionFilter(end=today))
+    history = source.list_transactions(user_id, TransactionFilter(end=today, counted_only=True))
     return forecast_balance(
         history,
         source.get_balance(user_id),

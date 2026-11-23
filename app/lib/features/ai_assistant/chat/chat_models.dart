@@ -244,8 +244,10 @@ class TransactionItem {
     this.merchant,
     this.amountPaisa,
     this.isDebit,
-    this.category,
-  );
+    this.category, {
+    this.status = 'success',
+    this.isRefund = false,
+  });
 
   final String id;
   final DateTime date;
@@ -253,6 +255,12 @@ class TransactionItem {
   final int amountPaisa;
   final bool isDebit;
   final String category;
+
+  /// success | pending | failed | reversed
+  final String status;
+
+  /// Money returned for a failed payment.
+  final bool isRefund;
 }
 
 class TransactionsPreviewCard extends ChatCard {
@@ -277,6 +285,8 @@ class TransactionsPreviewCard extends ChatCard {
           i.integer('amount_paisa'),
           i.str('direction') == 'debit',
           i.str('category'),
+          status: i.strOrNull('status') ?? 'success',
+          isRefund: i['refund'] == true,
         ),
     ],
     link: TransactionsLink.fromJson(j.obj('link')),
@@ -337,10 +347,18 @@ class OpenAppFlowCard extends ChatCard {
     this.recipientName,
     this.goalName,
     this.monthlyAmountPaisa,
+    this.totalPaisa,
+    this.splitBetween,
+    this.shares = const [],
+    this.yourSharePaisa,
+    this.transactionId,
+    this.transactionLabel,
+    this.issue,
   });
 
   factory OpenAppFlowCard.fromJson(Map<String, Object?> j) {
     final p = j.obj('prefill');
+    final shares = (p['shares'] as List<Object?>?)?.cast<Map<String, Object?>>() ?? const [];
     return OpenAppFlowCard(
       flow: j.str('flow'),
       service: j.strOrNull('service'),
@@ -351,10 +369,19 @@ class OpenAppFlowCard extends ChatCard {
       recipientName: p.strOrNull('recipient_name'),
       goalName: p.strOrNull('goal_name'),
       monthlyAmountPaisa: p.intOrNull('monthly_amount_paisa'),
+      totalPaisa: p.intOrNull('total_paisa'),
+      splitBetween: p.intOrNull('split_between'),
+      shares: [for (final s in shares) (s.str('name'), s.integer('amount_paisa'))],
+      yourSharePaisa: p.intOrNull('your_share_paisa'),
+      transactionId: p.strOrNull('transaction_id'),
+      transactionLabel: p.strOrNull('transaction_label'),
+      issue: p.strOrNull('issue'),
     );
   }
 
-  final String flow; // bill_payment | send_money | autopay | smart_deposit
+  /// bill_payment | send_money | autopay | smart_deposit | load_money | withdraw_to_bank |
+  /// request_money | support | block_wallet
+  final String flow;
   final String? service;
   final String title;
   final String note;
@@ -363,6 +390,17 @@ class OpenAppFlowCard extends ChatCard {
   final String? recipientName;
   final String? goalName;
   final int? monthlyAmountPaisa;
+
+  /// request_money: a bill split in code (the user's share takes any leftover paisa).
+  final int? totalPaisa;
+  final int? splitBetween;
+  final List<(String name, int paisa)> shares;
+  final int? yourSharePaisa;
+
+  /// support: the transaction attached, and the problem in a few words.
+  final String? transactionId;
+  final String? transactionLabel;
+  final String? issue;
 }
 
 /// One side of a money-flow diagram. [kind]: 'in', 'out' (spent, or money out of a file),

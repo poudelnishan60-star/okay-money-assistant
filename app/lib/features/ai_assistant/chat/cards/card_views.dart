@@ -605,6 +605,11 @@ class _TransactionsPreview extends ConsumerWidget {
                         '${formatShortDate(t.date, calendar)} · ${t.category}',
                         style: OkayText.caption,
                       ),
+                      if (t.isRefund || t.status != 'success')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: TransactionStatusBadge(t.status, isRefund: t.isRefund),
+                        ),
                     ],
                   ),
                 ),
@@ -739,6 +744,25 @@ class _OpenAppFlow extends ConsumerWidget {
         SendMoneyPrefill(recipientName: card.recipientName, amountPaisa: card.amountPaisa),
       ),
       'autopay' => bridge.openAutopay(service: card.service),
+      'load_money' => bridge.openLoadMoney(amountPaisa: card.amountPaisa),
+      'withdraw_to_bank' => bridge.openWithdrawToBank(amountPaisa: card.amountPaisa),
+      'request_money' => bridge.openRequestMoney(
+        RequestMoneyPrefill(
+          recipientName: card.recipientName,
+          amountPaisa: card.shares.isEmpty ? card.amountPaisa : null,
+          requests: [for (final (name, paisa) in card.shares) RequestShare(name, paisa)],
+          totalPaisa: card.totalPaisa,
+          yourSharePaisa: card.yourSharePaisa,
+        ),
+      ),
+      'support' => bridge.openSupport(
+        SupportPrefill(
+          transactionId: card.transactionId,
+          transactionLabel: card.transactionLabel,
+          issue: card.issue,
+        ),
+      ),
+      'block_wallet' => bridge.openWalletSecurity(),
       _ => bridge.openSmartDeposit(
         prefill: SmartDepositPrefill(
           goalName: card.goalName,
@@ -746,23 +770,34 @@ class _OpenAppFlow extends ConsumerWidget {
         ),
       ),
     };
+    Widget amount(int paisa) => AmountText(paisa, style: OkayText.amount.copyWith(fontSize: 14));
+    Widget words(String text) => Text(text, style: OkayText.body, textAlign: TextAlign.end);
+    final split = card.shares.isNotEmpty && card.totalPaisa != null;
     final lines = <(String, Widget)>[
-      if (card.billerName != null)
-        ('Biller', Text(card.billerName!, style: OkayText.body, textAlign: TextAlign.end)),
+      if (card.billerName != null) ('Biller', words(card.billerName!)),
       if (card.recipientName != null)
-        ('To', Text(card.recipientName!, style: OkayText.body, textAlign: TextAlign.end)),
-      if (card.goalName != null)
-        ('Goal', Text(card.goalName!, style: OkayText.body, textAlign: TextAlign.end)),
-      if (card.amountPaisa != null)
-        ('Amount', AmountText(card.amountPaisa!, style: OkayText.amount.copyWith(fontSize: 14))),
-      if (card.monthlyAmountPaisa != null)
-        (
-          'Every month',
-          AmountText(card.monthlyAmountPaisa!, style: OkayText.amount.copyWith(fontSize: 14)),
-        ),
+        (card.flow == 'request_money' ? 'From' : 'To', words(card.recipientName!)),
+      if (card.goalName != null) ('Goal', words(card.goalName!)),
+      if (split) ...[
+        ('Bill', amount(card.totalPaisa!)),
+        ('Split between', words('${card.splitBetween} people, you too')),
+      ],
+      // Each person asked to pay, with their share (worked out by the backend in paisa).
+      for (final (name, paisa) in card.shares) (name, amount(paisa)),
+      if (split && card.yourSharePaisa != null) ('Your share', amount(card.yourSharePaisa!)),
+      if (card.amountPaisa != null && card.shares.isEmpty) ('Amount', amount(card.amountPaisa!)),
+      if (card.monthlyAmountPaisa != null) ('Every month', amount(card.monthlyAmountPaisa!)),
+      if (card.transactionLabel != null) ('Transaction', words(card.transactionLabel!)),
+      if (card.issue != null) ('Problem', words(card.issue!)),
     ];
+    final (frameIcon, buttonIcon) = switch (card.flow) {
+      'support' => (Icons.support_agent_outlined, Icons.support_agent_outlined),
+      'block_wallet' => (Icons.shield_outlined, Icons.block_outlined),
+      'request_money' => (Icons.call_split_rounded, Icons.open_in_new_rounded),
+      _ => (Icons.open_in_new_rounded, Icons.lock_outline),
+    };
     return _Frame(
-      icon: Icons.open_in_new_rounded,
+      icon: frameIcon,
       title: card.title,
       children: [
         for (final (label, value) in lines) _DetailRow(label, value),
@@ -771,7 +806,7 @@ class _OpenAppFlow extends ConsumerWidget {
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: open,
-            icon: const Icon(Icons.lock_outline, size: 18),
+            icon: Icon(buttonIcon, size: 18),
             label: Text(card.title),
           ),
         ),

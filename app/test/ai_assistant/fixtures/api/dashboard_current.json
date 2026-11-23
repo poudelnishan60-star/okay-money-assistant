@@ -198,21 +198,21 @@
   {
    "kind": "month_end_balance",
    "severity": "positive",
-   "message": "Projected balance on 30 Nov: Rs. 8,286.",
+   "message": "Projected balance on 30 Nov: Rs. 6,286.",
    "data": {
     "horizon_end": "2026-11-30",
-    "projected_end_balance_paisa": 828600
+    "projected_end_balance_paisa": 628600
    }
   }
  ],
  "forecast": {
   "as_of": "2026-11-09",
   "horizon_end": "2026-11-30",
-  "current_balance_paisa": 2394486,
+  "current_balance_paisa": 2194486,
   "avg_daily_spend_paisa": 56039,
   "lookback_days": 30,
-  "projected_end_balance_paisa": 828600,
-  "lowest_balance_paisa": 828600,
+  "projected_end_balance_paisa": 628600,
+  "lowest_balance_paisa": 628600,
   "lowest_date": "2026-11-30",
   "threshold_paisa": 100000,
   "below_threshold": false,
@@ -252,87 +252,87 @@
   "points": [
    {
     "date": "2026-11-10",
-    "balance_paisa": 2288547
+    "balance_paisa": 2088547
    },
    {
     "date": "2026-11-11",
-    "balance_paisa": 2232508
+    "balance_paisa": 2032508
    },
    {
     "date": "2026-11-12",
-    "balance_paisa": 2176469
+    "balance_paisa": 1976469
    },
    {
     "date": "2026-11-13",
-    "balance_paisa": 2120430
+    "balance_paisa": 1920430
    },
    {
     "date": "2026-11-14",
-    "balance_paisa": 1950324
+    "balance_paisa": 1750324
    },
    {
     "date": "2026-11-15",
-    "balance_paisa": 1894285
+    "balance_paisa": 1694285
    },
    {
     "date": "2026-11-16",
-    "balance_paisa": 1838246
+    "balance_paisa": 1638246
    },
    {
     "date": "2026-11-17",
-    "balance_paisa": 1782207
+    "balance_paisa": 1582207
    },
    {
     "date": "2026-11-18",
-    "balance_paisa": 1676068
+    "balance_paisa": 1476068
    },
    {
     "date": "2026-11-19",
-    "balance_paisa": 1620029
+    "balance_paisa": 1420029
    },
    {
     "date": "2026-11-20",
-    "balance_paisa": 1563990
+    "balance_paisa": 1363990
    },
    {
     "date": "2026-11-21",
-    "balance_paisa": 1377951
+    "balance_paisa": 1177951
    },
    {
     "date": "2026-11-22",
-    "balance_paisa": 1321912
+    "balance_paisa": 1121912
    },
    {
     "date": "2026-11-23",
-    "balance_paisa": 1265873
+    "balance_paisa": 1065873
    },
    {
     "date": "2026-11-24",
-    "balance_paisa": 1164834
+    "balance_paisa": 964834
    },
    {
     "date": "2026-11-25",
-    "balance_paisa": 1108795
+    "balance_paisa": 908795
    },
    {
     "date": "2026-11-26",
-    "balance_paisa": 1052756
+    "balance_paisa": 852756
    },
    {
     "date": "2026-11-27",
-    "balance_paisa": 996717
+    "balance_paisa": 796717
    },
    {
     "date": "2026-11-28",
-    "balance_paisa": 940678
+    "balance_paisa": 740678
    },
    {
     "date": "2026-11-29",
-    "balance_paisa": 884639
+    "balance_paisa": 684639
    },
    {
     "date": "2026-11-30",
-    "balance_paisa": 828600
+    "balance_paisa": 628600
    }
   ]
  }
