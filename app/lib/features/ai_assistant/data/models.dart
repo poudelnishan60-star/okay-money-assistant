@@ -593,6 +593,9 @@ class AssistantSettings {
     this.weeklySummary = true,
     this.weeklySummaryDay = 'sunday',
     this.lowBalanceThresholdPaisa = 100000,
+    this.overnightCapAlerts = true,
+    this.limitNearAlerts = true,
+    this.readTransactions = true,
   });
 
   factory AssistantSettings.fromJson(Map<String, Object?> j) {
@@ -606,6 +609,9 @@ class AssistantSettings {
       weeklySummary: a.boolean('weekly_summary'),
       weeklySummaryDay: j.str('weekly_summary_day'),
       lowBalanceThresholdPaisa: j.integer('low_balance_threshold_paisa'),
+      overnightCapAlerts: a['overnight_cap'] as bool? ?? true,
+      limitNearAlerts: a['limit_near'] as bool? ?? true,
+      readTransactions: j['read_transactions'] as bool? ?? true,
     );
   }
 
@@ -618,6 +624,15 @@ class AssistantSettings {
   final String weeklySummaryDay;
   final int lowBalanceThresholdPaisa;
 
+  /// The balance is above Khalti's overnight cap.
+  final bool overnightCapAlerts;
+
+  /// 80% of the day's wallet-to-wallet limit is used.
+  final bool limitNearAlerts;
+
+  /// "Let O-Kay read my transactions". Off: O-Kay answers help questions only.
+  final bool readTransactions;
+
   Map<String, Object?> toJson() => {
     'language': language,
     'calendar': calendar,
@@ -626,9 +641,12 @@ class AssistantSettings {
       'bills': billAlerts,
       'unusual': unusualAlerts,
       'weekly_summary': weeklySummary,
+      'overnight_cap': overnightCapAlerts,
+      'limit_near': limitNearAlerts,
     },
     'weekly_summary_day': weeklySummaryDay,
     'low_balance_threshold_paisa': lowBalanceThresholdPaisa,
+    'read_transactions': readTransactions,
   };
 
   AssistantSettings copyWith({
@@ -640,6 +658,9 @@ class AssistantSettings {
     bool? weeklySummary,
     String? weeklySummaryDay,
     int? lowBalanceThresholdPaisa,
+    bool? overnightCapAlerts,
+    bool? limitNearAlerts,
+    bool? readTransactions,
   }) => AssistantSettings(
     language: language ?? this.language,
     calendar: calendar ?? this.calendar,
@@ -649,6 +670,9 @@ class AssistantSettings {
     weeklySummary: weeklySummary ?? this.weeklySummary,
     weeklySummaryDay: weeklySummaryDay ?? this.weeklySummaryDay,
     lowBalanceThresholdPaisa: lowBalanceThresholdPaisa ?? this.lowBalanceThresholdPaisa,
+    overnightCapAlerts: overnightCapAlerts ?? this.overnightCapAlerts,
+    limitNearAlerts: limitNearAlerts ?? this.limitNearAlerts,
+    readTransactions: readTransactions ?? this.readTransactions,
   );
 }
 

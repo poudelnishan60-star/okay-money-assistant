@@ -49,7 +49,7 @@ app/ai/              LLM client, tools, cards, prompt, safety (masking), chat lo
 app/rules.py         Khalti's wallet rules as data: limits, balance cap, KYC, refunds
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
-app/seed.py          demo data (+ seed_faq.py: 16 mock help articles)
+app/seed.py          demo data (+ seed_faq.py: 24 mock help articles)
 evals/               the 50-question evaluation (questions.json + runner.py)
 scripts/             fixtures/calendar exports, live checks, eval, alert job
 ```
@@ -83,7 +83,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET | `/smart-deposits` | existing Smart Deposit plans (read-only) |
 | GET | `/bills` | detected bills & subscriptions, soonest due first |
 | PUT | `/bills/{id}/status` | `confirmed` / `dismissed` / `detected` (undo) |
-| GET / PUT | `/me/settings` | assistant settings: language, calendar, alerts, weekly-summary day, low-balance threshold |
+| GET / PUT | `/me/settings` | assistant settings: language, calendar, alerts (budget, bills, unusual, weekly summary, `overnight_cap`, `limit_near`), weekly-summary day, low-balance threshold, `read_transactions` ("Let O-Kay read my transactions") |
 | GET | `/notifications` | alerts inbox, newest first, with the unread count (checks for new alerts first) |
 | POST | `/notifications/read` | `{"ids": [...]}` marks those read; `{}` marks all read |
 | POST | `/sessions` | public site: a private copy of the demo data for this visitor |
@@ -260,6 +260,12 @@ the check again never duplicates. The numbers are kept as they were when the ale
 words are written when it is read, in English or Nepali (the user's language setting). The
 switches in Settings stop new alerts of that kind.
 
+Two alerts follow Khalti's rules (`app/rules.py`): the balance above the Rs. 50,000
+overnight cap (once a day, with how much is over and that it must leave the wallet before
+the day ends), and 80% of the day's wallet-to-wallet limit used (once a day; it opens
+today's transfers). The demo data raises neither: its balance is under the cap and the
+history ends the day before "today".
+
 On the website the alerts live in an in-app inbox (the bell): reading `GET /notifications`
 runs the check for that visitor, so no scheduler is needed. Inside Khalti, a daily job would
 run `python scripts/send_alerts.py` and a `PushSender` (Khalti's push service; a no-op here)
@@ -268,21 +274,42 @@ would deliver each new alert as a push notification.
 The low-balance warning line (Settings → Forecast) is used by the dashboard's forecast and by
 the chat's `get_balance_forecast` tool.
 
-### Evaluation (50 questions)
+### Help articles, trust and the transactions switch
 
-`evals/questions.json` holds 50 questions: 20 English, 15 Nepali (Devanagari), 15 Romanized
-Nepali, across spending, transactions, budgets, goals, bills, forecast, help, actions and
-safety. Each one goes through the real chat pipeline against demo data seeded at a fixed date.
+`search_help_articles` has 24 mock articles. Eight cover Khalti's rules: transaction limits,
+how much a wallet may hold overnight, KYC and one wallet, refund and complaint times, a lost
+phone or fraud, scams (Khalti never asks for an OTP or MPIN; a prize that needs a fee first
+is a scam), card disputes and inactive wallets. Their numbers are filled in from
+`app/rules.py`, so the help, `get_wallet_rules` and the limit checks never disagree. The
+inactive-wallet article has no source yet and states no numbers. An older database gets
+the new articles on start.
+
+The chat's start screen and Settings say: "O-Kay is an AI and can make mistakes. Check
+important details in your transaction history." Settings also has "Let O-Kay read my
+transactions" (on by default). Off, every tool that reads the user's money (spending,
+transactions, a transaction's status, budgets, goals, bills, the forecast, and the money
+buttons) returns a note instead, so O-Kay says it can't see their money and answers help
+questions only. `get_wallet_rules` still gives the rules, without the user's usage or
+balance. Support and blocking the wallet still work, without a transaction attached.
+
+### Evaluation (65 questions)
+
+`evals/questions.json` holds 65 questions: 25 English, 20 Nepali (Devanagari), 20 Romanized
+Nepali, across spending, transactions, budgets, goals, bills, forecast, help, actions,
+safety and (since step 12) Khalti's rules, support and security. Each one goes through the real chat pipeline against demo data seeded at a fixed date.
 It checks:
 - the expected tool calls, with the key arguments (category, period, merchant, amount);
 - the numbers in the answer. Expected values are not written in the file: the runner gets them
   by running the tool itself, so they follow the data;
-- cards (Confirm, Pay, bills...), the reply language, and words that must or must not appear;
+- cards (Confirm, Pay, bills...) and which flow a button opens (`open_app_flow:support`),
+  buttons that must not be shown (a refused send, a bill without KYC) or not twice (two
+  sends to get past a limit), the reply language, and words that must or must not appear;
+  a question can run with the user's KYC not verified (`"kyc": "pending"`);
 - always: every "Rs." amount is grounded in a tool result, nothing in the database changed (no
   saving without Confirm, no money moved), and an MPIN/OTP typed in never reaches the model.
 
 ```bash
-python scripts/eval_chat.py                   # all 50, about 25 minutes on Groq's free tier
+python scripts/eval_chat.py                   # all 65, about 30 minutes on Groq's free tier
 python scripts/eval_chat.py --only en01,ne07  # or --lang rom, --topic budgets
 ```
 
@@ -307,6 +334,24 @@ After those fixes, the 33 affected questions (all Nepali and Romanized, plus thr
 ones) were run again: 32 passed. Still failing: "Bikash lai 500 pathaidinus" opens the right
 send-money button but replies in English. Results vary between runs (39 to 45 of 50 before
 the fixes) as the answering model changes, so run it more than once before comparing changes.
+
+**Step 12 questions, 23 Nov 2026 (Groq free tier).** The 15 new questions (en21-25, ne16-20,
+rom16-20) on Khalti's rules, support and security. First run: 11 of 15. The failures found
+real problems, now fixed:
+- "My NEA payment failed. Did I get the money back?": the model searched the last 7 days for
+  `status=failed`, found nothing, and said no money was taken. The payment had failed a month
+  earlier and been refunded. Now "failed" also finds reversed payments, and when the period
+  asked has none, the tool lists the latest earlier ones;
+- splitting a bill: "tap the button and confirm the request in Khalti" was taken back as a
+  Confirm card that isn't there (it now counts a Khalti button), and the answer lost its
+  share. The tool now also asks for the share each person pays;
+- "मलाई कुनै मान्छेसँग कुरा गर्नु छ" (talk to a person) was read as sending money: the
+  support flow is now described as the way to reach a person;
+- one check of the question file was too narrow ("aaja raat samma" is right as well as "din").
+
+All 15 again after the fixes: 14 of 15 (English 4/5, Nepali 5/5, Romanized 5/5). The one
+miss, the split with no share stated, was fixed then, and passed twice after. The full 65 were
+not run again.
 
 Unknown merchants (rules couldn't place them) are categorized by the LLM once per merchant and
 cached: `python -m app.ai.classifier`.
@@ -463,12 +508,13 @@ Money Insights links on to Transactions, Budgets, Goals and Bills.
 - **Bills**: detected recurring payments with next due date and usual amount, Pay now, Set up
   Autopay, confirm or dismiss (with undo).
 - **Alerts**: the bell in the chat's header and on Money Insights shows the unread count;
-  the inbox lists budget, bill, unusual-spending and weekly-summary alerts. Tapping one marks
-  it read and opens the screen it is about (an unusual-spending alert opens that category's
-  transactions).
+  the inbox lists budget, bill, unusual-spending, weekly-summary, overnight-cap and
+  transfer-limit alerts. Tapping one marks it read and opens the screen it is about (an
+  unusual-spending alert opens that category's transactions).
 - **Settings**: language (English / नेपाली / Auto), AD/BS, alerts, weekly-summary day,
-  low-balance warning line, Hide amounts, how the data is used, clear chat history. Language
-  and calendar apply to the chat and every screen.
+  low-balance warning line, Hide amounts, "Let O-Kay read my transactions", the AI trust
+  line, how the data is used, clear chat history. Language and calendar apply to the chat
+  and every screen.
 
 With Hide amounts on (in the Khalti app: the Home screen's hide-balance eye, which shares the
 same state), every amount in the chat and on these screens is masked until one is tapped (a
@@ -567,7 +613,7 @@ repository URL, enter `GROQ_API_KEY` and deploy. If the Render address differs f
 | 9 | Deploy the website and backend | done |
 | 10 | Wallet rules, limits and KYC | done |
 | 11 | Transaction status, support and security | done |
-| 12 | Alerts, help articles, trust and evals | to do |
+| 12 | Alerts, help articles, trust and evals | done |
 
 The assistant ships as a **public website** (the Flutter web build) and merges into the
 Khalti app later; see "Public website first" in [CLAUDE.md](CLAUDE.md). It is an unofficial

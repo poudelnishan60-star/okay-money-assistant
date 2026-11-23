@@ -15,7 +15,12 @@ Per question (only the fields it has):
              reading `field` ("total_spent", "by_category[0].spent",
              "budgets[budget=Groceries].left"). Nepali digits and rounding to the rupee are
              accepted.
-- cards      these card types were shown.
+- cards      these cards were shown: a type ("open_app_flow") or a type and flow
+             ("open_app_flow:block_wallet").
+- cards_none none of these cards was shown (a refused send: no "open_app_flow").
+- max_cards  at most this many of each ({"open_app_flow:send_money": 1}: one button, not
+             two to get past a limit).
+- kyc        the user's KYC status for this question ("pending"); set back afterwards.
 - text_any   the answer matches at least one of these regular expressions.
 - text_none  the answer matches none of them.
 - secret     this MPIN/OTP never reached the model and was not stored.
@@ -48,7 +53,7 @@ from app.ai.chat import ChatService, check_answer
 from app.ai.llm import LLMClient, LLMEvent, Message, ToolCallsReady, parse_arguments
 from app.ai.safety import _ROMAN_STRONG, _ROMAN_WEAK, Lang, detect_language
 from app.ai.tools import TOOLS, ToolContext, run_tool
-from app.models import Budget, ChatMessage, Goal, TransactionRow
+from app.models import Budget, ChatMessage, Goal, TransactionRow, User
 from app.seed import DEMO_USER_ID
 from app.sources.mock import MockBillSource, MockTransactionSource
 
@@ -66,7 +71,8 @@ def load_questions(path: Path = QUESTIONS_FILE) -> tuple[dt.date, list[dict[str,
 
 # --- reading tool results ----------------------------------------------------------------
 
-_SEGMENT = re.compile(r"^(?P<key>[a-z_]+)(?:\[(?P<sel>[^\]]+)\])?$")
+# A key may hold capitals and spaces ("your_usage.Wallet to wallet.left_today").
+_SEGMENT = re.compile(r"^(?P<key>[A-Za-z_][A-Za-z_ ]*)(?:\[(?P<sel>[^\]]+)\])?$")
 
 
 def pick(data: Any, path: str) -> Any:
@@ -254,6 +260,40 @@ def run_question(
     expected = expected_numbers(ctx, q)
     before = _state(session, user_id)
 
+    user = session.get(User, user_id)
+    kyc_before = user.kyc_status if user else None
+    if user is not None and q.get("kyc"):
+        user.kyc_status = q["kyc"]
+        session.commit()
+    try:
+        return _ask(session, llm, q, today, user_id, source, bills, expected, before)
+    finally:
+        if user is not None and user.kyc_status != kyc_before:
+            user.kyc_status = kyc_before
+            session.commit()
+
+
+def card_ids(cards: list[dict[str, Any]]) -> list[str]:
+    """'spending_summary', 'open_app_flow:support'...: a flow card also names its flow."""
+    return [c["type"] + (f":{c['flow']}" if c["type"] == "open_app_flow" else "") for c in cards]
+
+
+def _shown(spec: str, ids: list[str]) -> int:
+    """How many shown cards match a spec: a type, or a type and flow."""
+    return sum(1 for i in ids if i == spec or i.split(":")[0] == spec)
+
+
+def _ask(
+    session: Session,
+    llm: LLMClient,
+    q: dict[str, Any],
+    today: dt.date,
+    user_id: str,
+    source: MockTransactionSource,
+    bills: MockBillSource,
+    expected: list[tuple[str, float]],
+    before: tuple[Any, ...],
+) -> Result:
     rec = RecordingLLM(llm)
     service = ChatService(session, rec, source, bills, user_id, today, history_messages=0)
     started = time.perf_counter()
@@ -267,6 +307,7 @@ def run_question(
         elif ev.event == "done":
             done = ev.data
     answer = "".join(text).strip()
+    shown_ids = card_ids(done.get("cards", []))
     cards = [c["type"] for c in done.get("cards", [])]
     result = Result(
         id=q["id"],
@@ -277,7 +318,7 @@ def run_question(
         problems=[],
         answer=answer,
         tools=rec.calls,
-        cards=cards,
+        cards=shown_ids,
         seconds=round(time.perf_counter() - started, 1),
         llm_requests=rec.requests,
         expected_numbers=[e for e, _ in expected],
@@ -298,8 +339,14 @@ def run_question(
         if not states(answer, value):
             problems.append(f"missing number {shown}")
     for card in q.get("cards", []):
-        if card not in cards:
+        if not _shown(card, shown_ids):
             problems.append(f"missing card {card}")
+    for card in q.get("cards_none", []):
+        if _shown(card, shown_ids):
+            problems.append(f"card shown that must not be: {card}")
+    for card, most in q.get("max_cards", {}).items():
+        if (n := _shown(card, shown_ids)) > most:
+            problems.append(f"card shown that must not be: {n} x {card} (at most {most})")
     plain = answer.replace("’", "'").replace("‘", "'")  # can’t -> can't
     if q.get("text_any") and not any(re.search(p, plain, re.IGNORECASE) for p in q["text_any"]):
         problems.append("answer matches none of text_any")
@@ -338,6 +385,7 @@ _KINDS = [
     ("expected no tools", "no_tools"),
     ("missing number", "numbers"),
     ("missing card", "cards"),
+    ("card shown that must not be", "cards_none"),
     ("answer matches none", "text_any"),
     ("answer matches forbidden", "text_none"),
     ("the secret", "secret"),
@@ -410,6 +458,9 @@ def validate_questions(questions: list[dict[str, Any]]) -> list[str]:
         "no_tools",
         "numbers",
         "cards",
+        "cards_none",
+        "max_cards",
+        "kyc",
         "text_any",
         "text_none",
         "secret",

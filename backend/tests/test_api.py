@@ -338,9 +338,17 @@ def test_settings_defaults_update_and_isolation(client: TestClient) -> None:
     assert defaults == {
         "language": "auto",
         "calendar": "AD",
-        "alerts": {"budget": True, "bills": True, "unusual": True, "weekly_summary": True},
+        "alerts": {
+            "budget": True,
+            "bills": True,
+            "unusual": True,
+            "weekly_summary": True,
+            "overnight_cap": True,
+            "limit_near": True,
+        },
         "weekly_summary_day": "sunday",
         "low_balance_threshold_paisa": 100000,
+        "read_transactions": True,
     }
     changed = {
         **defaults,

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.llm import LLMBusyError
 from app.ai.tools import ToolContext
+from app.models import User
 from app.sources.mock import MockBillSource, MockTransactionSource
 from evals.runner import (
     call_matches,
@@ -29,16 +30,23 @@ from tests.fake_llm import FakeLLM, call, say
 
 ANCHOR_FROM_FILE, QUESTIONS = load_questions()
 BY_ID = {q["id"]: q for q in QUESTIONS}
+# Added in step 12: Khalti's rules, support and security.
+STEP_12 = (
+    {f"en{i}" for i in range(21, 26)}
+    | {f"ne{i}" for i in range(16, 21)}
+    | {f"rom{i}" for i in range(16, 21)}
+)
 
 
 def test_question_file() -> None:
     assert ANCHOR_FROM_FILE == ANCHOR
-    assert len(QUESTIONS) == 50
-    assert Counter(q["lang"] for q in QUESTIONS) == {"en": 20, "ne": 15, "rom": 15}
+    assert len(QUESTIONS) == 65
+    assert Counter(q["lang"] for q in QUESTIONS) == {"en": 25, "ne": 20, "rom": 20}
     assert validate_questions(QUESTIONS) == []
     # Every question checks something beyond the global checks.
     for q in QUESTIONS:
-        assert q.get("tools") or q.get("no_tools") or q.get("text_any"), q["id"]
+        checks = ("tools", "no_tools", "text_any", "cards_none", "max_cards")
+        assert any(q.get(c) for c in checks), q["id"]
 
 
 def test_every_expected_number_resolves(seeded: Session) -> None:
@@ -173,3 +181,62 @@ def test_scorer_details_from_the_live_runs() -> None:
         "rom",
     )
     assert not language_ok("Tap the Send money button and confirm Rs. 500 in Khalti.", "rom")
+
+
+# --- step 12: Khalti's rules, support and security ----------------------------------------------
+
+
+def test_the_step_12_questions(seeded: Session) -> None:
+    new = [q for q in QUESTIONS if q["id"] in STEP_12]
+    assert Counter(q["lang"] for q in new) == {"en": 5, "ne": 5, "rom": 5}
+    src = MockTransactionSource(seeded)
+    ctx = ToolContext(seeded, src, MockBillSource(src), USER, ANCHOR)
+    assert expected_numbers(ctx, BY_ID["en21"]) == [("Rs. 50,000", 50000.0)]
+    assert expected_numbers(ctx, BY_ID["en25"]) == [("Rs. 500", 500.0)]
+
+
+def test_a_card_can_name_its_flow(seeded: Session) -> None:
+    block = {"flow": "block_wallet"}
+    good = FakeLLM(call(("open_app_flow", block)), say("तलको बटन थिचेर वालेट ब्लक गर्नुहोस्।"))
+    r = run_question(seeded, good, BY_ID["ne17"], ANCHOR)
+    assert (r.status, r.problems) == ("pass", [])
+    assert r.cards == ["open_app_flow:block_wallet"]
+    support = {"flow": "support"}
+    wrong = FakeLLM(call(("open_app_flow", support)), say("तलको बटन थिच्नुहोस्।"))
+    r = run_question(seeded, wrong, BY_ID["ne17"], ANCHOR)
+    assert "missing card open_app_flow:block_wallet" in r.problems
+
+
+def test_a_refused_send_shows_no_button(seeded: Session) -> None:
+    send = {"flow": "send_money", "amount": 60000, "recipient_name": "Sita"}
+    llm = FakeLLM(
+        call(("open_app_flow", send)),
+        say("Rs. 60,000 is over the wallet-to-wallet limit; you can send Rs. 50,000 today."),
+    )
+    r = run_question(seeded, llm, BY_ID["en22"], ANCHOR)
+    assert (r.status, r.problems) == ("pass", [])
+    assert r.cards == []
+
+
+def test_two_buttons_to_get_past_the_limit_are_not_shown(seeded: Session) -> None:
+    # The model tries it in one round: the code refuses the second button.
+    send = {"flow": "send_money", "amount": 30000, "recipient_name": "Sita"}
+    llm = FakeLLM(
+        call(("open_app_flow", send), ("open_app_flow", send)),
+        say("Aaja wallet bata Rs. 50,000 samma matra pathauna milcha, tala ko button thichnus."),
+    )
+    r = run_question(seeded, llm, BY_ID["rom17"], ANCHOR)
+    assert r.cards == ["open_app_flow:send_money"]
+    assert (r.status, r.problems) == ("pass", [])
+
+
+def test_a_question_can_run_without_kyc(seeded: Session) -> None:
+    bill = {"flow": "bill_payment", "service": "electricity"}
+    llm = FakeLLM(
+        call(("open_app_flow", bill)),
+        say("Tapai ko KYC verify bhayeko chaina, pahila KYC garnus ani bill tirna milcha."),
+    )
+    r = run_question(seeded, llm, BY_ID["rom18"], ANCHOR)
+    assert (r.status, r.problems) == ("pass", [])
+    assert r.cards == []  # no Pay button without KYC
+    assert seeded.get(User, USER).kyc_status == "verified"  # set back afterwards

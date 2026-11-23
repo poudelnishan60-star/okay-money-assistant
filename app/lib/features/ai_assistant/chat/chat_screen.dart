@@ -447,6 +447,11 @@ class _EmptyState extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: OkaySpacing.lg),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: gridWidth),
+                child: const AiTrustNote(textAlign: TextAlign.center),
+              ),
               // The block sits a little above centre, as in the Khalti app.
               const SizedBox(height: OkaySpacing.xl),
             ],

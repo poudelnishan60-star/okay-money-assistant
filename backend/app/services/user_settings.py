@@ -1,6 +1,6 @@
-"""Per-user assistant settings: reply language, calendar, alerts, weekly-summary day and the
-low-balance warning line. Missing row = defaults. Shared by the API, the chat tools and the
-alert generator."""
+"""Per-user assistant settings: reply language, calendar, alerts, weekly-summary day, the
+low-balance warning line and whether O-Kay may read the user's transactions. Missing row =
+defaults. Shared by the API, the chat tools and the alert generator."""
 
 from __future__ import annotations
 
@@ -30,6 +30,8 @@ class AlertSettings(BaseModel):
     bills: bool = Field(True, description="A bill is due in 3 days")
     unusual: bool = Field(True, description="A category at 2x its usual spend")
     weekly_summary: bool = True
+    overnight_cap: bool = Field(True, description="Balance above the overnight cap")
+    limit_near: bool = Field(True, description="80% of today's wallet-to-wallet limit used")
 
 
 class UserSettings(BaseModel):
@@ -39,6 +41,11 @@ class UserSettings(BaseModel):
     calendar: Literal["AD", "BS"] = "AD"
     alerts: AlertSettings = AlertSettings()
     weekly_summary_day: Weekday = "sunday"  # Nepal's week starts on Sunday
+    read_transactions: bool = Field(
+        True,
+        description="Let O-Kay read my transactions. Off: O-Kay answers help questions "
+        "only; its tools don't read the user's money.",
+    )
     low_balance_threshold_paisa: int = Field(
         LOW_BALANCE_THRESHOLD_PAISA,
         ge=0,

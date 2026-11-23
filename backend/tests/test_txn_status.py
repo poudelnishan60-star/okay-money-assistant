@@ -136,6 +136,22 @@ def test_a_reversed_payment_shows_the_money_returned(ctx: ToolContext) -> None:
         run_tool(ctx, "get_transaction_status", {"transaction_id": "txn_9999"})
 
 
+def test_failed_finds_reversed_and_earlier_ones(ctx: ToolContext) -> None:
+    # Seen live: status=failed for the last 7 days of bill payments found nothing, and the
+    # model said no money was taken, while the failed NEA payment a month earlier was refunded.
+    args = {"period": "last_7_days", "status": "failed", "type": "bill_payment"}
+    d = run_tool(ctx, "get_transactions", args).data
+    assert d["count"] == 0
+    (earlier,) = d["none_in_this_period_but_earlier"]
+    assert earlier["status"] == "reversed" and earlier["id"] == _one(ctx, TxnStatus.REVERSED).id
+    # Over the whole period asked, "failed" finds both the failed and the reversed one.
+    nov_oct = {"period": "custom", "start": "2026-10-01", "end": "2026-11-09", "status": "failed"}
+    statuses = {
+        line["status"] for line in run_tool(ctx, "get_transactions", nov_oct).data["latest"]
+    }
+    assert statuses == {"failed", "reversed"}
+
+
 def test_get_transactions_finds_problem_payments_by_status(ctx: ToolContext) -> None:
     r = run_tool(ctx, "get_transactions", {"period": "last_30_days", "status": "failed"})
     (line,) = r.data["latest"]

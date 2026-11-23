@@ -46,6 +46,7 @@ from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, 
 from app.domain import KycStatus
 from app.models import ChatMessage, ToolCallLog
 from app.periods import now_npt
+from app.services.user_settings import load_settings
 from app.services.wallet_limits import kyc_status
 from app.sources.base import BillSource, TransactionSource
 
@@ -74,6 +75,10 @@ _CONFIRM_CLAIM = re.compile(
     r"|confirm(?:\*\*)?\W+(?:\w+\W+){0,2}?(?:thich\w*|थिच\w*)",
     re.IGNORECASE,
 )
+# "Tap Confirm" needs a card the user confirms on: O-Kay's Confirm card, or a button that opens
+# Khalti's own screen, where they confirm (seen live: "tap the button and confirm the request
+# in Khalti" with a split-the-bill button was taken back, and the shares went with it).
+_CONFIRM_CARDS = frozenset({"confirm_action", "open_app_flow"})
 _BUTTON_CLAIM = re.compile(
     r"button below|tap the [^.]{0,40}button|I(?:'ve| have) opened|tala ko button|तलको बटन",
     re.IGNORECASE,
@@ -131,7 +136,7 @@ def check_answer(
             "right tool and use only the amounts it returns."
         )
     shown = {c.get("type") for c in cards}
-    if _CONFIRM_CLAIM.search(text) and "confirm_action" not in shown:
+    if _CONFIRM_CLAIM.search(text) and not shown & _CONFIRM_CARDS:
         return (
             "missing confirm card: you told the user to tap Confirm, but no Confirm card "
             "was shown. Call upsert_budget or upsert_goal, or don't mention Confirm."
@@ -215,7 +220,7 @@ def drop_ungrounded(text: str, cards: list[dict[str, Any]], grounded: str) -> tu
     def fails(sentence: str) -> bool:
         return (
             any(_norm(a) not in allowed for a in _AMOUNT.findall(sentence))
-            or bool(_CONFIRM_CLAIM.search(sentence) and "confirm_action" not in shown)
+            or bool(_CONFIRM_CLAIM.search(sentence) and not shown & _CONFIRM_CARDS)
             or bool(_BUTTON_CLAIM.search(sentence) and "open_app_flow" not in shown)
             or bool(_TOOL_TEXT.search(sentence))
             or bool(_BLOCK_CLAIM.search(sentence))
@@ -650,6 +655,8 @@ class ChatService:
         self.dropped_sentences = 0
         self._no_data = False
         self.ctx.offered.clear()  # buttons shown count against limits per message
+        # Settings, "Let O-Kay read my transactions": off, the money tools return a note.
+        self.ctx.can_read_money = load_settings(self.session, self.user_id).read_transactions
         cards: list[dict[str, Any]] = []
         topics: set[str] = set()
         tool_texts: list[str] = []

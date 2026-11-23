@@ -1,5 +1,7 @@
 """Alerts (spec "Notifications"): a budget at 80% and 100%, a bill due within 3 days, unusual
-spending, and a weekly summary on the day the user picks.
+spending, and a weekly summary on the day the user picks. Step 12 added Khalti's rules: the
+balance above the overnight cap (once a day) and 80% of the day's wallet-to-wallet limit
+used (app/rules.py).
 
 How it works
 - `sync_notifications` computes every alert that applies today from the same services the
@@ -31,13 +33,16 @@ from app.domain import Category
 from app.models import Notification
 from app.money import format_npr
 from app.periods import CalendarSystem, Period, month_period, now_npt
+from app.rules import OVERNIGHT_BALANCE_CAP_PAISA
 from app.services.bills import list_bills
 from app.services.budgets import budget_statuses, spent_in_period
 from app.services.insights import BASELINE_DAYS, summarize, unusual_spending
 from app.services.user_settings import WEEKDAYS, UserSettings, load_settings
+from app.services.wallet_limits import usage
 from app.sources.base import BillSource, TransactionFilter, TransactionSource
 
 BILL_DUE_DAYS = 3  # spec: "bill due in 3 days"
+LIMIT_NEAR_PERCENT = 80  # of the day's wallet-to-wallet limit
 INBOX_LIMIT = 50
 
 
@@ -46,6 +51,8 @@ class Kind(StrEnum):
     BILL = "bill"
     UNUSUAL = "unusual"
     WEEKLY = "weekly_summary"
+    OVERNIGHT_CAP = "overnight_cap"
+    LIMIT_NEAR = "limit_near"
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,6 +216,44 @@ def weekly_alert(source: TransactionSource, user_id: str, today: dt.date, weekda
     )
 
 
+def overnight_cap_alert(source: TransactionSource, user_id: str, today: dt.date) -> Alert | None:
+    """The balance is above the overnight cap: the extra must leave the wallet before the
+    day ends. Once a day."""
+    balance = source.get_balance(user_id)
+    if balance <= OVERNIGHT_BALANCE_CAP_PAISA:
+        return None
+    return Alert(
+        key=f"overnight_cap:{today}",
+        kind=Kind.OVERNIGHT_CAP,
+        day=today,
+        params={
+            "balance_paisa": balance,
+            "cap_paisa": OVERNIGHT_BALANCE_CAP_PAISA,
+            "over_paisa": balance - OVERNIGHT_BALANCE_CAP_PAISA,
+        },
+    )
+
+
+def limit_near_alert(source: TransactionSource, user_id: str, today: dt.date) -> Alert | None:
+    """80% (or more) of the day's wallet-to-wallet limit used. Once a day."""
+    use = usage(source, user_id, today).limits["wallet_to_wallet"]
+    limit = use.limit.per_day_paisa
+    if use.used_today_paisa * 100 < limit * LIMIT_NEAR_PERCENT:
+        return None
+    return Alert(
+        key=f"limit_near:wallet_to_wallet:{today}",
+        kind=Kind.LIMIT_NEAR,
+        day=today,
+        params={
+            "used_paisa": use.used_today_paisa,
+            "limit_paisa": limit,
+            "left_paisa": use.left_today_paisa,
+            "percent": LIMIT_NEAR_PERCENT,
+            "day": today.isoformat(),
+        },
+    )
+
+
 def find_alerts(
     session: Session,
     source: TransactionSource,
@@ -227,6 +272,10 @@ def find_alerts(
         alerts += unusual_alerts(source, user_id, today, CalendarSystem(settings.calendar))
     if on.weekly_summary:
         alerts.append(weekly_alert(source, user_id, today, settings.weekly_summary_day))
+    if on.overnight_cap and (cap := overnight_cap_alert(source, user_id, today)):
+        alerts.append(cap)
+    if on.limit_near and (near := limit_near_alert(source, user_id, today)):
+        alerts.append(near)
     return alerts
 
 
@@ -349,6 +398,10 @@ def render(n: Notification, language: str, today: dt.date) -> tuple[str, str]:
             return _unusual_words(p, ne)
         case Kind.WEEKLY:
             return _weekly_words(p, ne)
+        case Kind.OVERNIGHT_CAP:
+            return _cap_words(p, ne)
+        case Kind.LIMIT_NEAR:
+            return _limit_words(p, ne)
     return n.kind, ""
 
 
@@ -426,6 +479,42 @@ def _weekly_words(p: dict[str, Any], ne: bool) -> tuple[str, str]:
     return title, " ".join(parts) or "No spending last week."
 
 
+def _cap_words(p: dict[str, Any], ne: bool) -> tuple[str, str]:
+    cap, balance, over = (
+        _rs(p["cap_paisa"], ne),
+        _rs(p["balance_paisa"], ne),
+        _rs(p["over_paisa"], ne),
+    )
+    if ne:
+        return (
+            f"ब्यालेन्स {cap} भन्दा बढी",
+            f"तपाईंको ब्यालेन्स {balance} छ, रातभर राख्न मिल्ने सीमाभन्दा {over} बढी। "
+            "दिन सकिनुअघि बढी रकम वालेटबाट सार्नुहोस्।",
+        )
+    return (
+        f"Balance above {cap}",
+        f"Your balance is {balance}, {over} over the overnight cap. Move the extra out of "
+        "the wallet before the day ends.",
+    )
+
+
+def _limit_words(p: dict[str, Any], ne: bool) -> tuple[str, str]:
+    used, limit, left = (
+        _rs(p["used_paisa"], ne),
+        _rs(p["limit_paisa"], ne),
+        _rs(p["left_paisa"], ne),
+    )
+    if ne:
+        return (
+            f"आजको वालेट ट्रान्सफर सीमाको {p['percent']}% प्रयोग भयो",
+            f"आज अरू वालेटमा {limit} मध्ये {used} पठाइयो; {left} बाँकी।",
+        )
+    return (
+        f"{p['percent']}% of today's transfer limit used",
+        f"{used} of {limit} sent to other wallets today; {left} left.",
+    )
+
+
 def link_for(n: Notification) -> dict[str, Any]:
     """Where tapping the alert goes in the app: a screen plus its filters."""
     p = json.loads(n.params_json)
@@ -442,6 +531,16 @@ def link_for(n: Notification) -> dict[str, Any]:
                     "start": p["start"],
                     "end": p["end"],
                     "spending_only": "true",
+                },
+            }
+        case Kind.LIMIT_NEAR:  # today's transfers
+            return {
+                "screen": "transactions",
+                "params": {
+                    "start": p["day"],
+                    "end": p["day"],
+                    "type": "transfer",
+                    "direction": "debit",
                 },
             }
     return {"screen": "insights", "params": {}}

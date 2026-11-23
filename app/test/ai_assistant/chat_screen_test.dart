@@ -27,6 +27,13 @@ void main() {
       expect(find.text(chip), findsOneWidget);
     }
     expect(find.text('Ask O-Kay'), findsOneWidget); // input hint
+    expect(
+      find.text(
+        'O-Kay is an AI and can make mistakes. Check important details in your transaction '
+        'history.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a quick start sends the question and streams the answer with cards', (t) async {

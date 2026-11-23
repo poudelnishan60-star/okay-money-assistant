@@ -113,6 +113,8 @@ IconData _icon(String kind) => switch (kind) {
   'budget' => Icons.pie_chart_outline_rounded,
   'bill' => Icons.event_repeat_outlined,
   'unusual' => Icons.trending_up_rounded,
+  'overnight_cap' => Icons.account_balance_wallet_outlined,
+  'limit_near' => Icons.swap_horiz_rounded,
   _ => Icons.insights_outlined,
 };
 

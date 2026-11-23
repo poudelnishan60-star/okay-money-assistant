@@ -119,10 +119,22 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            _Toggle(
+              title: 'Balance above the overnight limit',
+              subtitle: 'When your wallet holds more than Khalti allows overnight',
+              value: s.overnightCapAlerts,
+              onChanged: (v) => save(s.copyWith(overnightCapAlerts: v)),
+            ),
+            _Toggle(
+              title: 'Transfer limit almost used',
+              subtitle: "When 80% of today's wallet-to-wallet limit is used",
+              value: s.limitNearAlerts,
+              onChanged: (v) => save(s.copyWith(limitNearAlerts: v)),
+            ),
             MenuRow(
               icon: Icons.notifications_none_outlined,
               title: 'See your alerts',
-              subtitle: 'Budget, bill, unusual-spending and weekly alerts',
+              subtitle: 'Budget, bill, spending, weekly and limit alerts',
               onTap: () => context.push(OkayRoutes.alerts),
             ),
             const _Heading('Forecast'),
@@ -143,6 +155,23 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) => ref.read(amountPrivacyProvider.notifier).setHiddenByUser(v),
             ),
             const _Heading('Your data'),
+            _Toggle(
+              title: 'Let O-Kay read my transactions',
+              subtitle: s.readTransactions
+                  ? 'O-Kay answers questions about your money'
+                  : 'Off: O-Kay answers help questions only',
+              value: s.readTransactions,
+              onChanged: (v) => save(s.copyWith(readTransactions: v)),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                OkaySpacing.gutter,
+                OkaySpacing.xs,
+                OkaySpacing.gutter,
+                OkaySpacing.md,
+              ),
+              child: AiTrustNote(),
+            ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: OkaySpacing.gutter),
               child: OkayCard(child: _DataExplainer()),

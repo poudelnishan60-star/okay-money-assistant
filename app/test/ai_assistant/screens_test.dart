@@ -287,6 +287,26 @@ void main() {
       await t.pumpAndSettle();
       expect(chat.cleared, isTrue);
     });
+
+    testWidgets('limit alerts, the transactions switch and the trust line (step 12)', (t) async {
+      final api = await open(t, OkayRoutes.settings);
+      await scrollTo(t, find.text('Balance above the overnight limit'));
+      await t.tap(find.text('Balance above the overnight limit'));
+      await t.pumpAndSettle();
+      expect((api.settings['alerts']! as Map)['overnight_cap'], isFalse);
+      await scrollTo(t, find.text('Transfer limit almost used'));
+      await t.tap(find.text('Transfer limit almost used'));
+      await t.pumpAndSettle();
+      expect((api.settings['alerts']! as Map)['limit_near'], isFalse);
+
+      await scrollTo(t, find.text('Let O-Kay read my transactions'));
+      expect(find.textContaining('O-Kay is an AI and can make mistakes.'), findsOneWidget);
+      expect(find.text('O-Kay answers questions about your money'), findsOneWidget);
+      await t.tap(find.text('Let O-Kay read my transactions'));
+      await t.pumpAndSettle();
+      expect(api.settings['read_transactions'], isFalse);
+      expect(find.text('Off: O-Kay answers help questions only'), findsOneWidget);
+    });
   });
 }
 

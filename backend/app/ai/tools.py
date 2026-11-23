@@ -13,7 +13,7 @@ import datetime as dt
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -112,6 +112,8 @@ class ToolContext:
     # The time now (Nepal), for "is a refund overdue?". None: noon on `today`, so tests and
     # evals with a pinned date always get the same answer.
     now: dt.datetime | None = None
+    # Settings, "Let O-Kay read my transactions": off means the money tools return a note.
+    can_read_money: bool = True
 
     def clock(self) -> dt.datetime:
         return self.now or dt.datetime.combine(self.today, dt.time(12))
@@ -531,9 +533,17 @@ def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
         direction=Direction(args.direction) if args.direction else None,
         min_paisa=_rupees_to_paisa(args.min_amount),
         max_paisa=_rupees_to_paisa(args.max_amount),
-        status=args.status,
     )
-    txns = list(reversed(ctx.source.list_transactions(ctx.user_id, flt)))  # newest first
+    # A reversed payment failed too (then came back): "failed" finds both. Seen live: asked
+    # about a failed NEA payment, status=failed missed the reversed one.
+    wanted = {args.status} if args.status else None
+    if args.status is TxnStatus.FAILED:
+        wanted = {TxnStatus.FAILED, TxnStatus.REVERSED}
+    txns = [
+        t
+        for t in reversed(ctx.source.list_transactions(ctx.user_id, flt))  # newest first
+        if wanted is None or t.status in wanted
+    ]
     # Totals count completed transactions only; the list shows every one with its status.
     debit = sum(t.amount_paisa for t in txns if t.is_debit and t.counts)
     credit = sum(t.amount_paisa for t in txns if not t.is_debit and t.counts)
@@ -551,6 +561,17 @@ def get_transactions(ctx: ToolContext, args: TransactionsArgs) -> ToolResult:
         )
     if len(txns) > 10:
         data["more_not_listed"] = len(txns) - 10
+    if wanted and not txns:
+        # Seen live: nothing failed in the last 7 days, and the model said no money was
+        # taken, while a failed payment a month earlier had been refunded. Show earlier ones.
+        before = replace(flt, start=None, end=current.start - dt.timedelta(days=1))
+        earlier = [
+            t
+            for t in reversed(ctx.source.list_transactions(ctx.user_id, before))
+            if t.status in wanted
+        ]
+        if earlier:
+            data["none_in_this_period_but_earlier"] = [_txn_line(t) for t in earlier[:3]]
     card = TransactionsPreviewCard(
         count=len(txns),
         total_debit_paisa=debit,
@@ -1082,7 +1103,10 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
         "last_checked": f"{LAST_CHECKED:%d %b %Y}",
         "for": "KYC-verified users",
     }
-    use = usage(ctx.source, ctx.user_id, ctx.today, ctx.offered)
+    # The rules are help; the user's own usage and balance are their money (Settings switch).
+    use = usage(ctx.source, ctx.user_id, ctx.today, ctx.offered) if ctx.can_read_money else None
+    if use is None and {"limits", "balance_cap"} & set(topics):
+        data["your_usage"] = NO_MONEY_ACCESS["note"]
     if "limits" in topics:
         data["limits"] = {lim.label: _limit_rule(lim) for lim in LIMITS.values()}
         data["minimum"] = (
@@ -1090,19 +1114,22 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
             f"({LIMITS['escrow'].label}: {_rs(ESCROW_MIN_PAISA)})"
         )
         data["no_limit"] = "No limit for " + "; ".join(NO_LIMIT_PAYMENTS)
-        data["your_usage"] = {LIMITS[k].label: _use(use.limits[k]) for k in TRACKED} | {
-            "month": f"{ctx.today:%B %Y} (AD)"
-        }
-        data["deposits_today"] = f"{use.deposits_today} of {DEPOSITS_PER_DAY} a day"
+        if use is not None:
+            data["your_usage"] = {LIMITS[k].label: _use(use.limits[k]) for k in TRACKED} | {
+                "month": f"{ctx.today:%B %Y} (AD)"
+            }
+            data["deposits_today"] = f"{use.deposits_today} of {DEPOSITS_PER_DAY} a day"
+        data["deposits_per_day"] = f"{DEPOSITS_PER_DAY} deposits into a personal wallet a day"
         data["deposits_note"] = DEPOSIT_COUNT_NOTE
     if "balance_cap" in topics:
-        over = use.over_overnight_cap_paisa
         data["overnight_balance_cap"] = _rs(OVERNIGHT_BALANCE_CAP_PAISA)
         data["cap_rule"] = OVERNIGHT_CAP_RULE
-        data["balance_now"] = _rs(use.balance_paisa)
-        data["over_overnight_cap"] = over > 0
-        if over:
-            data["over_by"] = _rs(over)
+        if use is not None:
+            over = use.over_overnight_cap_paisa
+            data["balance_now"] = _rs(use.balance_paisa)
+            data["over_overnight_cap"] = over > 0
+            if over:
+                data["over_by"] = _rs(over)
     if "kyc" in topics:
         status = kyc_status(ctx.session, ctx.user_id)
         data["kyc_rules"] = list(KYC_RULES)
@@ -1386,6 +1413,8 @@ def _request_money(ctx: ToolContext, args: AppFlowArgs, total: int | None) -> To
             "each_other_person_pays": _rs(each),
             "your_share": _rs(mine),
             "requests_to": [untrusted(n) for n in others],
+            # Seen live: "tap Split the bill" with no figure. The share is the key figure.
+            "say": "Give the share each person pays, then tell the user to tap the button.",
         },
         money=False,
     )
@@ -1410,7 +1439,7 @@ def _support_card(t: Transaction | None, issue: str | None) -> OpenAppFlowCard:
 
 def _support(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
     t = None
-    if args.transaction_id:
+    if args.transaction_id and ctx.can_read_money:  # attaching one reads the history
         t = ctx.source.get_transaction(ctx.user_id, args.transaction_id.strip())
         if t is None:
             raise ToolError("no transaction with that id: find it with get_transactions")
@@ -1581,8 +1610,8 @@ TOOLS: dict[str, Tool] = {
         Tool(
             "open_app_flow",
             "Button that opens Khalti's own screen pre-filled: pay bill, send/request/load "
-            "money, withdraw to bank, Autopay, Smart Deposit, support, block wallet. Never "
-            "moves money. Refuses amounts over Khalti's limits.",
+            "money, withdraw to bank, Autopay, Smart Deposit, support (to reach a person), "
+            "block wallet. Never moves money. Refuses amounts over Khalti's limits.",
             AppFlowArgs,
             open_app_flow,
             _obj(
@@ -1626,7 +1655,39 @@ def run_tool(ctx: ToolContext, name: str, arguments: dict[str, Any]) -> ToolResu
             f"{'.'.join(str(p) for p in e['loc']) or 'arguments'}: {e['msg']}" for e in exc.errors()
         )
         raise ToolError(f"invalid arguments: {problems}") from exc
+    if not ctx.can_read_money and _reads_money(name, args):
+        return ToolResult(dict(NO_MONEY_ACCESS), [], {"help"})
     return tool.run(ctx, args)
+
+
+# Tools that read the user's money. With "Let O-Kay read my transactions" off in Settings they
+# return NO_MONEY_ACCESS instead, and O-Kay answers help questions only. get_wallet_rules
+# still gives the rules (without the user's usage); support and blocking the wallet still
+# work, so a user with a lost phone always reaches them.
+MONEY_TOOLS = frozenset(
+    {
+        "get_spending_summary",
+        "get_transactions",
+        "get_transaction_status",
+        "get_budgets",
+        "upsert_budget",
+        "get_goals",
+        "upsert_goal",
+        "get_recurring_payments",
+        "get_balance_forecast",
+    }
+)
+NO_MONEY_ACCESS = {
+    "note": "The user turned off 'Let O-Kay read my transactions' in Settings, so O-Kay "
+    "can't see their money now. Say so, and that they can turn it back on in Settings. "
+    "Answer only help questions."
+}
+
+
+def _reads_money(name: str, args: BaseModel) -> bool:
+    if name == "open_app_flow":
+        return getattr(args, "flow", None) not in ("support", "block_wallet")
+    return name in MONEY_TOOLS
 
 
 def today_line(today: dt.date) -> str:

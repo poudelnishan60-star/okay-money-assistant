@@ -32,6 +32,19 @@ class OkayCard extends StatelessWidget {
   }
 }
 
+/// The trust line on the chat's start screen and in Settings.
+const aiTrustText =
+    'O-Kay is an AI and can make mistakes. Check important details in your transaction history.';
+
+class AiTrustNote extends StatelessWidget {
+  const AiTrustNote({super.key, this.textAlign = TextAlign.start});
+  final TextAlign textAlign;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(aiTrustText, style: OkayText.caption, textAlign: textAlign);
+}
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader(this.title, {super.key, this.actionLabel, this.onAction});
 

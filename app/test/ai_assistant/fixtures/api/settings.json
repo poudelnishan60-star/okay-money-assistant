@@ -5,8 +5,11 @@
   "budget": true,
   "bills": true,
   "unusual": true,
-  "weekly_summary": true
+  "weekly_summary": true,
+  "overnight_cap": true,
+  "limit_near": true
  },
  "weekly_summary_day": "sunday",
+ "read_transactions": true,
  "low_balance_threshold_paisa": 100000
 }

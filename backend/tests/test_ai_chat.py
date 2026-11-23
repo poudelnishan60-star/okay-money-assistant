@@ -331,6 +331,9 @@ def test_check_answer_rules() -> None:
     assert check_answer("Tap Confirm to save it.", [{"type": "confirm_action"}], grounded) is None
     assert "button" in check_answer("Tap the Pay button below.", [], grounded)
     assert check_answer("Tap the button below.", [{"type": "open_app_flow"}], grounded) is None
+    # With a Khalti button, "confirm" means confirming there (seen live, splitting a bill).
+    flow = [{"type": "open_app_flow"}]
+    assert check_answer("Tap the button and confirm the request in Khalti.", flow, grounded) is None
     assert check_answer("I can't confirm that number.", [], grounded) is None
     # Seen live: a tool call typed into the answer instead of made.
     leaked = 'Refund is overdue. **open_app_flow** {flow: "support", transaction_id: "txn_0148"}'

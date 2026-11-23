@@ -581,9 +581,12 @@ def _clear(session: Session) -> None:
 
 
 def ensure_faq(session: Session) -> None:
-    """Help articles are shared by everyone; add them once."""
-    if session.scalar(select(FaqArticle.id).limit(1)) is None:
-        session.add_all(FaqArticle(question=q, answer=a, tags=t) for q, a, t in FAQ_ARTICLES)
+    """Help articles are shared by everyone; add any that are missing (an older database
+    gets the ones added since)."""
+    have = set(session.scalars(select(FaqArticle.question)))
+    session.add_all(
+        FaqArticle(question=q, answer=a, tags=t) for q, a, t in FAQ_ARTICLES if q not in have
+    )
 
 
 def seed_user(
