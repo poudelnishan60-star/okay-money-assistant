@@ -1,15 +1,21 @@
 """Mock help articles for search_help_articles.
 
-MOCK CONTENT for the prototype only. Replace with Khalti's official help articles before
-launch. The how-to articles are generic and have no numbers. The articles on Khalti's
+The how-to articles are MOCK CONTENT for the prototype, generic and without numbers;
+replace them with Khalti's official help articles before launch. The company articles
+(what Khalti is, the IME Pay merger, who runs it, services, Super Wallet, contacts,
+cardless cash, businesses, awards...) come from the fact sheet "Khalti by IME: Company
+Fact Sheet" (24 Nov 2026). The articles on Khalti's
 rules (limits, the overnight balance cap, KYC and one wallet, refunds and complaints,
 fraud or a lost phone, scams, card disputes) take every number from app/rules.py, so the
 help, the get_wallet_rules tool and the limit checks never disagree. No fee amounts: fees
-are shown in the Khalti app. The inactive-wallet article has no source yet (see there).
+are shown in the Khalti app.
 """
 
 from app.money import format_npr
 from app.rules import (
+    ACCOUNT_RULES,
+    CARDLESS_ATM_PER_DAY_PAISA,
+    CARDLESS_ATM_PER_MONTH_PAISA,
     ESCROW_MIN_PAISA,
     FRAUD_WRITTEN_REPORT_HOURS,
     KYC_RULES,
@@ -85,12 +91,165 @@ RULE_ARTICLES: list[tuple[str, str, str]] = [
         "card dispute chargeback visa mastercard wrong charge merchant",
     ),
     (
-        # NOT from the source: it has no rule for inactive wallets, so no numbers here.
-        # Check with Khalti compliance before launch.
         "My wallet hasn't been used for a long time. Is it still active?",
-        "A wallet that hasn't been used for a long time may be marked inactive. To use it "
-        "again, contact Khalti support; you may be asked to verify your KYC again.",
+        ACCOUNT_RULES[0],
         "inactive dormant unused old wallet reactivate closed",
+    ),
+]
+
+# Facts about Khalti from the fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026; its
+# sources: khalti.com/about, /info/*, docs.khalti.com, the App Store and Nepali news). Left out
+# on purpose: fee amounts (the app shows them; decided 24 Nov 2026) and the developer test
+# accounts' MPIN and OTP (O-Kay never states an MPIN or OTP).
+COMPANY_ARTICLES: list[tuple[str, str, str]] = [
+    (
+        "What is Khalti by IME?",
+        "Khalti is Nepal's largest digital wallet. Since July 2025 it has run as Khalti by IME "
+        "under IME Khalti Limited, after merging with IME Pay, licensed by Nepal Rastra Bank as "
+        "a payment service provider. It has 12.7 million registered users (about 5 million "
+        'verified). It launched on 26 January 2017 at CAN Infotech; "Khalti" is Nepali for '
+        '"pocket". Registered office: Panipokhari-03, Kathmandu. You can sign up only in the '
+        "app, not on the website.",
+        "khalti ime company about what is who owns licence license nrb users pocket sign up "
+        "register website",
+    ),
+    (
+        "What happened to IME Pay?",
+        "IME Pay and Khalti merged: an MoU in February 2025, Nepal Rastra Bank's final approval "
+        "on 19 June 2025 (the first merger in Nepal's digital payments), and joint operation as "
+        "Khalti by IME from 17 July 2025 (2082/04/01). The IME Pay app closed on Kartik 30, "
+        "2082, and accounts that hadn't moved to Khalti stopped working. IME Pay users kept "
+        "their balance, interest and reward points; Daami Points now combine both apps' rewards.",
+        "ime pay imepay merger merge closed moved migrate old account daami points",
+    ),
+    (
+        "Who founded Khalti?",
+        "Amit Agrawal, Arbin Sah, Dhruva Adhikari and Manish Modi. Three of them had started "
+        "Janaki Technology in 2007 and Sparrow SMS in 2010. The app was finished in 15 days, in "
+        "two rented rooms in Pulchowk, for the CAN fair in January 2017. Before the merger "
+        "Sparrow Pay ran Khalti from Bakhundole, Lalitpur; WorldLink and Triveni Group invested "
+        "later.",
+        "founder founders founded history started who made sparrow",
+    ),
+    (
+        "Who runs Khalti?",
+        "Chairman: Krishna Prasad Sharma. Acting CEO: Ashish Gautam (as Khalti's About page "
+        "lists; before him Binay Khadka, then Praveen Regmi from 17 November 2025). Chief "
+        "Product Officer Sanjeev Chandra Neupane, Chief Technology Officer Subit Raj Pokharel, "
+        "Chief Operating Officer Puspa Raj Nyaupane, Chief Financial Officer Ajit Bagale, Chief "
+        "Risk Officer Ujjwal Das Shrestha. Directors: Sachin Dhakal, Amit Agrawal, Dhruba "
+        "Adhikari, Dibakar Paudel, Manish Modi and Sitaram Thapa.",
+        "ceo chairman leadership management director directors board who runs head boss",
+    ),
+    (
+        "What can I do with Khalti?",
+        "Top up NTC and Ncell and buy data packs; pay electricity (NEA, BPC, community), water, "
+        "landline, TV and internet bills; book domestic flights, hotels, movie and event "
+        "tickets; pay school and college fees, Lok Sewa, IRD, DOFE, SSF, traffic fines and "
+        "municipal tax; pay insurance, EMIs and credit card bills and renew DEMAT/MeroShare and "
+        "your bluebook; receive money from abroad (WorldRemit, Remitly); Scan & Pay with Khalti "
+        "QR; send, request and move money to and from banks; earn interest with Super Wallet "
+        "and save with Smart Deposit; collect Daami Points; get prepaid and virtual Visa cards.",
+        "services features what can i do offer pay bills recharge book tickets insurance emi",
+    ),
+    (
+        "What is Super Wallet?",
+        "Super Wallet pays interest on your wallet balance through Global IME Bank: 2.75% a "
+        "year in May 2026 (the App Store says 3%). Interest is worked out daily and paid "
+        "monthly, and the rate can change each month. It has been open to all KYC-verified "
+        "users since May 2026.",
+        "super wallet interest balance rate earn byaj ब्याज",
+    ),
+    (
+        "How do I contact Khalti?",
+        "Support: support@khalti.com, landline 01-5970017, toll-free (NTC) 16600158888, "
+        "WhatsApp/Viber +977 9801165561. Grievance officer: Anil Tharu, +977 9801856460, "
+        "grievance@khalti.com (24/7). If Khalti doesn't resolve a complaint, you can complain "
+        "to Nepal Rastra Bank at gunaso.nrb.org.np. Businesses: merchant@khalti.com. O-Kay can "
+        "also open Khalti support with a transaction attached.",
+        "contact support phone number email customer care call helpline grievance complaint "
+        "person talk human",
+    ),
+    (
+        "Can I withdraw cash without a card?",
+        "Yes, at Nabil Bank ATMs, with an OTP instead of a card (since January 2026): up to "
+        f"{format_npr(CARDLESS_ATM_PER_DAY_PAISA)} a day and "
+        f"{format_npr(CARDLESS_ATM_PER_MONTH_PAISA)} a month. The steps are shown in the "
+        "Khalti app; this article doesn't list them.",
+        "cash withdraw withdrawal atm cardless without card nabil otp paisa jhikne",
+    ),
+    (
+        "Can freelancers receive payments from abroad?",
+        "Yes. Since April 2026 freelancers can receive payments from abroad straight into the "
+        "wallet, through a system built with Stripe. Money from abroad also comes through "
+        "WorldRemit and Remitly.",
+        "freelancer freelance abroad stripe foreign payment international receive",
+    ),
+    (
+        "What's new at Khalti?",
+        "August 2026: Khalti joined IRD's Taxpayer Incentive Gift Programme 2083: payments over "
+        "Rs. 100 are entered into daily and fortnightly prize draws. May 2026: Super Wallet "
+        "opened to all KYC-verified users, and Khalti Stock Hub launched at Khalti Jatra 2083. "
+        "April 2026: freelancers can receive payments from abroad (Stripe). January 2026: cash "
+        "from Nabil Bank ATMs without a card.",
+        "new latest recent update updates 2026 stock hub draw taxpayer ird jatra",
+    ),
+    (
+        "Does Khalti work for businesses?",
+        "Yes: Payment Gateway, Khalti Pasal, Bazaar, school fee payment, corporate and agent "
+        "services, international remittance and Daami QR (QR payments that give customers "
+        "instant rewards and give the business information about its buyers). The gateway has "
+        "web checkout, SDKs for Android, Flutter and iOS, and WooCommerce and WHMCS plugins, "
+        "and accepts the Khalti wallet, partner banks' e-banking and mobile banking, SCT/VISA "
+        "cards and connectIPS. Developers: docs.khalti.com (test at dev.khalti.com, live at "
+        "khalti.com/api/v2). Contact: merchant@khalti.com.",
+        "business merchant payment gateway api developer integrate website sdk qr shop seller",
+    ),
+    (
+        "How big is Khalti?",
+        "12.7 million registered users (about 5 million verified), 10 million+ transactions a "
+        "month, 50+ bank and financial institution partners (another Khalti page says 60+) and "
+        "100,000+ POS and agent points. Its main competitor is eSewa, estimated at about 80% "
+        "of the market.",
+        "users how many size big transactions partners banks esewa market",
+    ),
+    (
+        "What awards has Khalti won?",
+        "NCHL's award for the payment service provider processing the most digital "
+        "transactions (2023 and 2024), NRB recognition for digital transactions (2024), the "
+        "WITSA Global Innovation & Tech Excellence Award (2022) and the Google Business Group "
+        "Stories Search Contest (global winner, 2017); also the United Nations Fintech "
+        "Innovation Fund. IME Pay won the Digital Services ICT Award (2024), the HRM Award for "
+        "Corporate Excellence in FinTech (2023) and the Visa Excellence in Fintech Partnership "
+        "Award (2023).",
+        "award awards prize recognition won achievement",
+    ),
+    (
+        "Is Khalti safe?",
+        "Khalti is licensed by Nepal Rastra Bank and holds ISO 27001:2013, plus PCI DSS and "
+        f"AMTIVO badges. {SECURITY_RULES[0]} {SECURITY_RULES[2]}",
+        "safe secure security certified iso pci trust trustworthy",
+    ),
+    (
+        "What are Khalti's terms for my account?",
+        " ".join(ACCOUNT_RULES) + " " + KYC_RULES[1],
+        "terms conditions legal law court rights block close hold account",
+    ),
+    (
+        "What are Khalti Membership and Khalti Pro?",
+        "Paid loyalty plans, since February 2023. Membership gives 2% cashback on your own "
+        "top-ups, double points and 8 free bank transfers a month. The price is shown in the "
+        "app.",
+        "membership pro loyalty plan cashback points premium",
+    ),
+    (
+        "Is Khalti hiring?",
+        "Send job applications to vacancy@khalti.com. Management trainees rotate through "
+        "fintech operations, business strategy and growth, customer experience, product and "
+        "service management, and risk and compliance. 2026 job posts were for risk and "
+        "compliance, security testing, software development, social media and IT "
+        "infrastructure.",
+        "job jobs career careers hiring vacancy work trainee",
     ),
 ]
 
@@ -129,7 +288,8 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
     (
         "What is Smart Deposit?",
         "Smart Deposit saves a fixed amount for you on a schedule, so your savings grow "
-        "without you having to remember. You choose the amount and how often.",
+        "without you having to remember. It is a recurring deposit with Manjushree "
+        "Finance, from Rs. 100, for 6 to 60 months.",
         "smart deposit saving save automatic goal बचत bachat",
     ),
     (
@@ -197,4 +357,5 @@ FAQ_ARTICLES: list[tuple[str, str, str]] = [
         "okay privacy data ai assistant safe",
     ),
     *RULE_ARTICLES,
+    *COMPANY_ARTICLES,
 ]

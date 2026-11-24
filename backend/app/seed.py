@@ -581,12 +581,14 @@ def _clear(session: Session) -> None:
 
 
 def ensure_faq(session: Session) -> None:
-    """Help articles are shared by everyone; add any that are missing (an older database
-    gets the ones added since)."""
-    have = set(session.scalars(select(FaqArticle.question)))
-    session.add_all(
-        FaqArticle(question=q, answer=a, tags=t) for q, a, t in FAQ_ARTICLES if q not in have
-    )
+    """Help articles are shared by everyone. An older database gets the ones added since,
+    and an article whose words changed gets the new ones."""
+    have = {a.question: a for a in session.scalars(select(FaqArticle))}
+    for q, a, t in FAQ_ARTICLES:
+        if (row := have.get(q)) is None:
+            session.add(FaqArticle(question=q, answer=a, tags=t))
+        elif (row.answer, row.tags) != (a, t):
+            row.answer, row.tags = a, t
 
 
 def seed_user(

@@ -69,6 +69,9 @@ from app.periods import (
     to_bs_string,
 )
 from app.rules import (
+    ACCOUNT_RULES,
+    CARDLESS_ATM_PER_DAY_PAISA,
+    CARDLESS_ATM_PER_MONTH_PAISA,
     COMPLAINT_REPLY_HOURS,
     DEPOSIT_COUNT_NOTE,
     DEPOSITS_PER_DAY,
@@ -1114,6 +1117,11 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
             f"({LIMITS['escrow'].label}: {_rs(ESCROW_MIN_PAISA)})"
         )
         data["no_limit"] = "No limit for " + "; ".join(NO_LIMIT_PAYMENTS)
+        data["cardless_atm"] = (
+            "Cash from Nabil Bank ATMs without a card, with an OTP: up to "
+            f"{_rs(CARDLESS_ATM_PER_DAY_PAISA)} a day and "
+            f"{_rs(CARDLESS_ATM_PER_MONTH_PAISA)} a month"
+        )
         if use is not None:
             data["your_usage"] = {LIMITS[k].label: _use(use.limits[k]) for k in TRACKED} | {
                 "month": f"{ctx.today:%B %Y} (AD)"
@@ -1133,6 +1141,7 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
     if "kyc" in topics:
         status = kyc_status(ctx.session, ctx.user_id)
         data["kyc_rules"] = list(KYC_RULES)
+        data["account_rules"] = list(ACCOUNT_RULES)
         data["your_kyc"] = status.value if status else "unknown"
     if "security" in topics:
         data["security"] = list(SECURITY_RULES)
@@ -1590,7 +1599,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "search_help_articles",
-            "Khalti help articles (how-to questions).",
+            "Khalti help articles: how-to, and facts about Khalti (services, the company, "
+            "contacts, Super Wallet, IME Pay).",
             HelpArgs,
             search_help_articles,
             _obj(

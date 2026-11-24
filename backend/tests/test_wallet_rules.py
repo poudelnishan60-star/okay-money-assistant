@@ -89,7 +89,7 @@ def _set_kyc(session: Session, status: KycStatus) -> None:
 
 def test_the_rules_hold_the_values_from_the_source() -> None:
     assert SOURCE.startswith("Khalti Terms & Conditions and Transaction Limits page")
-    assert dt.date(2026, 11, 20) == LAST_CHECKED
+    assert dt.date(2026, 11, 24) == LAST_CHECKED
     assert OVERNIGHT_BALANCE_CAP_PAISA == 50_000_00
 
     def rs(lim: Limit) -> tuple[str, str, str, str]:
@@ -116,6 +116,14 @@ def test_the_rules_hold_the_values_from_the_source() -> None:
         "Rs. 10,00,000",
     )
     assert rs(LIMITS["card_load_sct"])[:3] == ("Rs. 1,00,000", "Rs. 2,00,000", "Rs. 5,00,000")
+    # From the fact sheet (24 Nov 2026): the Khalti card.
+    assert rs(LIMITS["khalti_card_online_pos"])[:3] == (
+        "Rs. 2,00,000",
+        "Rs. 5,00,000",
+        "Rs. 10,00,000",
+    )
+    assert rs(LIMITS["khalti_card_atm"])[:3] == ("Rs. 5,000", "Rs. 25,000", "Rs. 25,000")
+    assert rs(LIMITS["khalti_card_contactless"])[:3] == ("Rs. 5,000", "Rs. 5,000", "Rs. 50,000")
     assert FLOW_LIMITS == {
         "send_money": "wallet_to_wallet",
         "load_money": "bank_to_wallet",
@@ -192,7 +200,7 @@ def test_amounts_are_checked_against_every_limit(
 def test_wallet_rules_give_the_limits_and_what_is_left(ctx: ToolContext) -> None:
     r = run_tool(ctx, "get_wallet_rules", {})  # topic defaults to limits
     d = r.data
-    assert d["source"] == SOURCE and d["last_checked"] == "20 Nov 2026"
+    assert d["source"] == SOURCE and d["last_checked"] == "24 Nov 2026"
     assert d["limits"]["Wallet to wallet"] == (
         "Rs. 50,000 per transaction, Rs. 50,000 a day, Rs. 5,00,000 a month"
     )

@@ -49,7 +49,7 @@ app/ai/              LLM client, tools, cards, prompt, safety (masking), chat lo
 app/rules.py         Khalti's wallet rules as data: limits, balance cap, KYC, refunds
 app/periods.py       AD and BS months in Nepal time
 app/money.py         "Rs. 1,25,000.50" formatting
-app/seed.py          demo data (+ seed_faq.py: 24 mock help articles)
+app/seed.py          demo data (+ seed_faq.py: 41 help articles)
 evals/               the 50-question evaluation (questions.json + runner.py)
 scripts/             fixtures/calendar exports, live checks, eval, alert job
 ```
@@ -276,13 +276,19 @@ the chat's `get_balance_forecast` tool.
 
 ### Help articles, trust and the transactions switch
 
-`search_help_articles` has 24 mock articles. Eight cover Khalti's rules: transaction limits,
-how much a wallet may hold overnight, KYC and one wallet, refund and complaint times, a lost
-phone or fraud, scams (Khalti never asks for an OTP or MPIN; a prize that needs a fee first
-is a scam), card disputes and inactive wallets. Their numbers are filled in from
-`app/rules.py`, so the help, `get_wallet_rules` and the limit checks never disagree. The
-inactive-wallet article has no source yet and states no numbers. An older database gets
-the new articles on start.
+`search_help_articles` has 41 articles. Sixteen are generic how-to (mock). Eight cover
+Khalti's rules: transaction limits, how much a wallet may hold overnight, KYC and one wallet,
+refund and complaint times, a lost phone or fraud, scams (Khalti never asks for an OTP or
+MPIN; a prize that needs a fee first is a scam), card disputes and inactive wallets. Their
+numbers are filled in from `app/rules.py`, so the help, `get_wallet_rules` and the limit
+checks never disagree. Seventeen come from the fact sheet "Khalti by IME: Company Fact
+Sheet" (24 Nov 2026): what Khalti is, the IME Pay merger, founders, who runs it, services,
+Super Wallet, contacts (support, grievance officer, NRB complaints), cash without a card,
+freelancers, what's new, businesses and developers, size, awards, safety, account terms,
+Membership and jobs. The fact sheet also added the Khalti card limits, cardless ATM
+withdrawal, inactive wallets and Khalti's rights to `app/rules.py`. Fees stay out by
+decision: O-Kay says they are shown in the app. The developer test accounts' MPIN and OTP
+are left out. An older database gets new and changed articles on start.
 
 The chat's start screen and Settings say: "O-Kay is an AI and can make mistakes. Check
 important details in your transaction history." Settings also has "Let O-Kay read my

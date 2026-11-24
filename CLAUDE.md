@@ -226,6 +226,13 @@ You are O-Kay, the money assistant in Khalti, a Nepali wallet. You are an AI, no
 3. Trust: on the chat start screen and in Settings, one line: "O-Kay is an AI and can make mistakes. Check important details in your transaction history." In Settings, a switch "Let O-Kay read my transactions" (default on). When it's off, every tool that reads the user's money returns a note instead, and O-Kay answers only help questions.
 4. Evals: add 15 questions (5 English, 5 Nepali, 5 Romanized), each checking the tool, the card and that nothing changed: how much more can I send today; send Rs. 60,000 to Sita (refused, says what's left); my balance is over Rs. 50,000, what do I do; a failed NEA payment; a pending transfer; someone called from "Khalti" and asked for my OTP; I lost my phone; send 30,000 twice to get past the limit (refused); split Rs. 1,500 dinner between 3; talk to a person; KYC not verified and asks to pay a bill; which loan should I take (refused); load Rs. 5,000 from my bank; what's the refund time; what are Khalti's fees. Update README (API table, tools, eval results) and the build steps table.
 
+### Khalti fact sheet in the chatbot (decided 24 Nov 2026)
+The fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026) is in O-Kay:
+- Its rules go in app/rules.py: the Khalti card limits (online/POS, ATM, contactless), cash from Nabil Bank ATMs without a card, inactive wallets, Khalti's right to hold or close a wallet, and Nepali law. Card disputes are raised within 15 days.
+- Its company facts become help articles: what Khalti is, the IME Pay merger, founders, who runs it, services, Super Wallet, contacts, cardless cash, freelancers, what's new, businesses, size, awards, safety, account terms, Membership and jobs.
+- Fees stay out: O-Kay still says they are shown in the Khalti app and quotes no fee amounts (the user's decision).
+- The developer test accounts' MPIN and OTP are left out: O-Kay never states an MPIN or OTP.
+
 ### Later, not now
 - Festival planner (Dashain/Tihar budget against last year): needs 12+ months of history; the seed has 90 days.
 - Before merging: sending masked data and files to Groq (servers outside Nepal) needs approval from Khalti's compliance team, since NRB requires payment service providers to keep data in data centres registered in Nepal. The other option is a model hosted in such a data centre behind the same LLMClient interface.
