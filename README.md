@@ -127,6 +127,14 @@ How it stays safe and correct:
   inside "Rs. 1,300". Only text is taken out, so every figure stays exactly as it was. An
   answer with no card, or only a button (pay, send, support, block the wallet), keeps its
   content, so its steps aren't lost.
+- Each answer takes the format that suits its question (decided 24 Nov 2026): a total
+  with **the figure** first; a comparison with both figures and the change; "can I…?"
+  with **Yes.** or **No.** first; how-to and fixing a problem as numbered steps; facts,
+  contacts and limits as "Label: value" lines; a failed, pending or refunded payment as a
+  status line (**status** · amount · merchant · date) and what happens next; a scam, a
+  shared OTP or a refused amount with the warning first, in bold; an action with a button
+  as the answer, then "Next:". The chat shows plain text, bold and line breaks, so all of
+  these display without app changes.
 - The flow view is only for questions that ask for the flow: if the model asks for it for
   another question ("where did my money go?"), it gets the categories instead: that
   question has its own category pie, and the diagram stays for questions about the flow.

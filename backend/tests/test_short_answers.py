@@ -168,3 +168,22 @@ def test_steps_with_only_a_button_are_kept(seeded: Session) -> None:
     assert "reset" not in [e.event for e in events]
     assert _final(events) == steps
     assert [c["type"] for c in events[-1].data["cards"]] == ["open_app_flow"]
+
+
+def test_the_model_shapes_the_answer_by_the_question() -> None:
+    # The user chose (24 Nov 2026): each format for what it suits best.
+    prompt = system_prompt(dt.date(2026, 11, 24), Lang.EN)
+    for rule in (
+        "a total: **the figure** first",
+        "this vs that: both figures and the change",
+        "Can I/Is it/Did I: **Yes.** or **No.** first",
+        "(never for how-to or requests)",  # seen live: "Yes." before MPIN steps
+        "how-to: numbered steps, only from a tool result (no made-up menus)",  # a made-up menu
+        'facts, contacts, limits: "Label: value" lines',
+        "a failed, pending or refunded payment: **status** · amount · merchant · date",
+        "(· only there)",
+        "a scam, shared OTP/MPIN or refused amount: the warning first, in bold",
+        'a request with a button: what it does, then "Next:"',
+    ):
+        assert rule in prompt, rule
+    assert "in the user's language" in prompt

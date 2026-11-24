@@ -236,6 +236,18 @@ The fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026) is in O-Kay:
 ### Answer length (decided 24 Nov 2026)
 O-Kay's answers give full detail, but not long: every detail the question needs (figures, dates, names, what it means, what happens next) in as few words as that takes, usually one to three sentences. This replaces the prompt's "Very short: one sentence (two at most, under 30 words)" line in step 10 and the earlier "as little text as possible". Code still leaves out lists that a details card shows, and closing offers.
 
+Answer formats (decided 24 Nov 2026), each for what it suits best, in place of the step 10 prompt's "- " lines rule:
+- totals, balance or spending: **the figure** first, then one line of context;
+- this vs that: both figures, then the change;
+- "can I / is it": **Yes.** or **No.** first;
+- how-to or fixing a problem: numbered steps;
+- facts, contacts or limits: one "Label: value" line each;
+- a failed, pending or refunded payment: **status** · amount · merchant · date, then what happens next;
+- a scam, a shared OTP or MPIN, or a refused amount: the warning first, in bold;
+- an action with a button: the answer, then "Next:" and what to tap;
+- a receipt's items: "- " lines.
+App steps and menu names, like amounts, must come from a tool result (seen live: made-up steps for cash without a card). The rule is kept short: the request-size budget (LLM_INPUT_TOKEN_BUDGET) must still leave room for the newest chat messages next to an attached statement.
+
 ### Later, not now
 - Festival planner (Dashain/Tihar budget against last year): needs 12+ months of history; the seed has 90 days.
 - Before merging: sending masked data and files to Groq (servers outside Nepal) needs approval from Khalti's compliance team, since NRB requires payment service providers to keep data in data centres registered in Nepal. The other option is a model hosted in such a data centre behind the same LLMClient interface.
