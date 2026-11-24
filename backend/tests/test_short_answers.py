@@ -1,6 +1,7 @@
-"""Very short answers: the cards under an answer show the details, so its words are cut to a
-sentence or two in code (the user asked for as little text as possible). Only text is taken
-out, so no figure ever changes."""
+"""Answers with full detail, but not long: the cards under an answer show the lists, so its
+words are cut in code to whole sentences up to SHORT_ANSWER_CHARS (lists and closing offers
+left out). Since 24 Nov 2026; before, one very short sentence. Only text is taken out, so
+no figure ever changes."""
 
 from __future__ import annotations
 
@@ -35,7 +36,12 @@ LIVE = (
 @pytest.mark.parametrize(
     ("text", "short"),
     [
-        (LIVE, "**Money in — Rs. 34,550**\n**Money out — Rs. 25,822.33**"),
+        (
+            LIVE,
+            "**Money in — Rs. 34,550**\n**Money out — Rs. 25,822.33**\n"
+            "Your **total spent (excluding transfers and Smart Deposit) is Rs. 20,222.33** and "
+            "you have **Rs. 8,727.67 left over** for the rest of the month.",
+        ),
         (
             "You spent **Rs. 6,213.80** so far this month, 64.7% less than the same days of "
             "last month. Education was the biggest share. Want me to set a budget?",
@@ -65,15 +71,16 @@ def test_shortening_only_takes_text_out() -> None:
     for part in out.split("\n"):
         assert part in LIVE  # nothing new, nothing reworded
     # One long sentence is kept whole, never cut in the middle.
-    long = "You spent " + "a lot " * 40 + "on Rs. 1,270 worth of food."
+    long = "You spent " + "a lot " * 60 + "on Rs. 1,270 worth of food."
     assert shorten(long) == long and len(long) > SHORT_ANSWER_CHARS
     # A bold part cut in two loses its stars instead of breaking the text.
     assert "**" not in shorten("**Total Rs. 500. Then more.** More text here " + "x" * 200)
 
 
-def test_the_model_is_told_to_answer_in_one_sentence() -> None:
+def test_the_model_is_told_to_give_full_detail_but_briefly() -> None:
     prompt = system_prompt(dt.date(2026, 11, 18), Lang.EN)
-    assert "Very short: one sentence" in prompt
+    assert "Full detail, not long: give every detail the question needs" in prompt
+    assert "Very short" not in prompt
     assert "never list what they show" in prompt
 
 
@@ -138,11 +145,26 @@ def test_one_sentence_that_lists_everything_is_cut_between_two_items() -> None:
         "(Sikshya Language Institute) due in 18 days, **Rs. 499** Topup & Data (Ncell) due in "
         "22 days, **Rs. 1,140.67** Electricity (NEA) due in 25 days."
     )
-    short = shorten(bills)
+    assert shorten(bills) == bills  # under the limit now: the whole sentence stays
+    short = shorten(bills, 140)  # over a limit: cut between two items
     assert short == (
         "Upcoming bills: **Rs. 1,300** Internet/TV (Gurans Fibernet) due in 4 days, "
         "**Rs. 450** Internet/TV (Sajilo DTH) due in 6 days…"
     )
-    assert len(short) <= SHORT_ANSWER_CHARS + 1
+    assert len(short) <= 140 + 1
     assert bills.startswith(short.removesuffix("…"))  # a cut, nothing reworded
     assert "Rs. 1," not in short.split("…")[-1]  # never inside a number
+
+
+def test_steps_with_only_a_button_are_kept(seeded: Session) -> None:
+    # Seen live: a lost-phone answer's reporting steps were cut, as if a card listed them.
+    steps = (
+        "Tap Block my wallet below.\n"
+        "- Report it to Khalti right away.\n"
+        "- If you call, follow up in writing within 24 hours."
+    )
+    llm = FakeLLM(call(("open_app_flow", {"flow": "block_wallet"})), say(steps))
+    events = list(_service(seeded, llm).respond("I lost my phone"))
+    assert "reset" not in [e.event for e in events]
+    assert _final(events) == steps
+    assert [c["type"] for c in events[-1].data["cards"]] == ["open_app_flow"]

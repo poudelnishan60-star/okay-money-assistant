@@ -136,6 +136,15 @@ def test_a_reversed_payment_shows_the_money_returned(ctx: ToolContext) -> None:
         run_tool(ctx, "get_transaction_status", {"transaction_id": "txn_9999"})
 
 
+def test_biller_short_forms_find_the_payments(ctx: ToolContext) -> None:
+    # Seen live: merchant="NEA" found nothing, and the model said there was no NEA payment.
+    custom = {"period": "custom", "start": "2026-08-11", "end": "2026-11-09"}
+    nea = run_tool(ctx, "get_transactions", custom | {"merchant": "NEA"}).data
+    assert nea["count"] > 0
+    assert all(line["merchant"] == "Nepal Electricity Authority" for line in nea["latest"])
+    assert run_tool(ctx, "get_transactions", custom | {"merchant": "ntc"}).data["count"] > 0
+
+
 def test_failed_finds_reversed_and_earlier_ones(ctx: ToolContext) -> None:
     # Seen live: status=failed for the last 7 days of bill payments found nothing, and the
     # model said no money was taken, while the failed NEA payment a month earlier was refunded.

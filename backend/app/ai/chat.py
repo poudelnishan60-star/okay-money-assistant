@@ -56,10 +56,14 @@ audit = logging.getLogger("okay.audit")
 MAX_CARDS = 4
 # An answer that comes with cards: its words are cut to about this many characters (whole
 # sentences, at least one). The cards show the details.
-SHORT_ANSWER_CHARS = 140
+# Answers with cards are cut to whole sentences up to this length (the cards show the
+# lists). Was 140 ("as little text as possible"); since 24 Nov 2026 answers give full
+# detail, but not long.
+SHORT_ANSWER_CHARS = 300
 BRIEF_NOTE = (
-    "Be very brief: one short sentence. For how-to, at most 4 short steps and nothing else; "
-    "no offers or questions at the end."
+    "Give every detail the question needs in as few words as possible, usually one to "
+    "three sentences. For how-to, short steps, as many as needed. No offers or questions "
+    "at the end."
 )
 # Answers about a file may be a report: room for more than the usual short answer.
 FILE_ANSWER_TOKENS = 900
@@ -79,6 +83,8 @@ _CONFIRM_CLAIM = re.compile(
 # Khalti's own screen, where they confirm (seen live: "tap the button and confirm the request
 # in Khalti" with a split-the-bill button was taken back, and the shares went with it).
 _CONFIRM_CARDS = frozenset({"confirm_action", "open_app_flow"})
+# Cards that are only a button: they show no details, so the answer's words aren't cut.
+_ACTION_CARDS = _CONFIRM_CARDS
 _BUTTON_CLAIM = re.compile(
     r"button below|tap the [^.]{0,40}button|I(?:'ve| have) opened|tala ko button|तलको बटन",
     re.IGNORECASE,
@@ -169,8 +175,8 @@ _LIST_MARKER = re.compile(r"\s*(?:[-*•]|\d{1,2}[.)])\s+")
 
 
 def shorten(text: str, limit: int = SHORT_ANSWER_CHARS) -> str:
-    """An answer whose cards show the details, cut to its first sentence or two (the user
-    asked for as little text as possible). Lists are left out (the cards list the same
+    """An answer whose cards show the details, cut to whole sentences up to `limit`
+    (full detail, but not long). Lists are left out (the cards list the same
     things), and so is a line that only introduced one ("Here's your spending:"); whole
     sentences are kept up to `limit` characters, always at least one, and a first sentence
     still too long is cut between two of its items ("…"). Only text is removed, so every
@@ -284,8 +290,8 @@ MAX_CHART_CARDS = 3
 _FILE_TOPICS = {"attachment", "attachment_table"}
 CHARTS_NOTE = (
     "Under your answer the app shows charts of the file's worked-out figures (money flow, "
-    "money in and out, by type, week by week, biggest payments, balance). So answer in one "
-    "short sentence: the main total, or the one point that matters most."
+    "money in and out, by type, week by week, biggest payments, balance). So answer in a "
+    "sentence or two: the main totals and the points that matter most."
 )
 # Which of a sheet's charts a follow-up is about, in English, Nepali or Romanized Nepali. A
 # new file shows every chart; a follow-up that names none shows none (the text answers it).
@@ -906,8 +912,11 @@ class ChatService:
                 file_parts=report_parts("\n".join(sheets)) if sheets else None,
             )
         ]
-        if not quiet and not error and (cards or charts):
-            # The cards show the details, so the words stay as short as possible: seen live,
+        # A button (open_app_flow, confirm_action) shows no details: with only buttons, the
+        # words are the answer (seen live: a lost-phone answer's reporting steps were cut).
+        details_shown = bool(charts) or any(c.get("type") not in _ACTION_CARDS for c in cards)
+        if not quiet and not error and details_shown:
+            # The cards show the details, so the words leave out what they list: seen live,
             # answers listed every line of their cards even when asked not to.
             body = "".join(attempt).strip()
             short = shorten(body) if body else body

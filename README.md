@@ -116,14 +116,17 @@ How it stays safe and correct:
   the flow ("money flow", "where did my money come from", "आवतजावत", "kaha bata aayo") and
   the model looked it up another way, the server adds that card itself for the same period
   (logged like any tool call). "Where did my money go?" keeps its category pie.
-- Very short answers: the model is told to answer in one sentence (two at most) with the key
-  figure, since the cards show the details. Code makes sure of it: an answer that comes with
-  cards or charts keeps only its first sentence or two (about 140 characters; lists, a line
-  that only introduces a list, and a closing "Want me to...?" are left out; one sentence
-  that lists everything is cut between two items with "…", never inside "Rs. 1,300").
-  Only text is taken out, so every figure stays exactly as it was. An answer with no card
-  (how-to steps, a receipt's items) keeps its content; a reminder next to every question
-  ("be very brief; at most 4 short steps") keeps those short too.
+- Answers give full detail, but not long (since 24 Nov 2026; before, one very short
+  sentence): every detail the question needs (figures, dates, names, what it means, what
+  happens next) in as few words as that takes, usually one to three sentences, with no
+  filler or closing offers. A reminder next to every question says the same. Code keeps
+  them tight: an answer that comes with a card showing details (spending, bills,
+  transactions, charts...) keeps whole sentences up to about 300 characters, and leaves out
+  lists, a line that only introduces a list, and a closing "Want me to...?", since the card
+  shows them; one sentence that lists everything is cut between two items with "…", never
+  inside "Rs. 1,300". Only text is taken out, so every figure stays exactly as it was. An
+  answer with no card, or only a button (pay, send, support, block the wallet), keeps its
+  content, so its steps aren't lost.
 - The flow view is only for questions that ask for the flow: if the model asks for it for
   another question ("where did my money go?"), it gets the categories instead: that
   question has its own category pie, and the diagram stays for questions about the flow.

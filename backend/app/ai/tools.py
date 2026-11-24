@@ -501,6 +501,21 @@ class TransactionsArgs(PeriodArgs):
     max_amount: float | None = Field(None, ge=0)
     status: TxnStatus | None = None
 
+    @field_validator("merchant")
+    @classmethod
+    def _full_biller_name(cls, v: str | None) -> str | None:
+        # Seen live: merchant="NEA" found nothing ("Nepal Electricity Authority"), and the
+        # model said there was no NEA payment. People say the short forms.
+        return _BILLER_NAMES.get(v.strip().casefold(), v) if v else v
+
+
+# Short forms people use for the national billers, and the names in the history.
+_BILLER_NAMES = {
+    "nea": "Nepal Electricity Authority",
+    "ntc": "Nepal Telecom",
+    "kukl": "KUKL",
+}
+
 
 def _txn_title(t: Transaction) -> str:
     return t.subcategory or t.category.value
@@ -1325,6 +1340,9 @@ def open_app_flow(ctx: ToolContext, args: AppFlowArgs) -> ToolResult:
                 "tapping the button. Never say it is blocked.",
                 "next_step": "Then give the reporting steps from search_help_articles.",
                 "report_rule": SECURITY_RULES[1],
+                # Seen live: only "tap Block my wallet", without what to do next.
+                "say": "Tell the user to tap the button to block the wallet, then to report it "
+                "to Khalti right away (if by phone, in writing within 24 hours).",
             },
             money=False,
         )

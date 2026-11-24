@@ -233,6 +233,9 @@ The fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026) is in O-Kay:
 - Fees stay out: O-Kay still says they are shown in the Khalti app and quotes no fee amounts (the user's decision).
 - The developer test accounts' MPIN and OTP are left out: O-Kay never states an MPIN or OTP.
 
+### Answer length (decided 24 Nov 2026)
+O-Kay's answers give full detail, but not long: every detail the question needs (figures, dates, names, what it means, what happens next) in as few words as that takes, usually one to three sentences. This replaces the prompt's "Very short: one sentence (two at most, under 30 words)" line in step 10 and the earlier "as little text as possible". Code still leaves out lists that a details card shows, and closing offers.
+
 ### Later, not now
 - Festival planner (Dashain/Tihar budget against last year): needs 12+ months of history; the seed has 90 days.
 - Before merging: sending masked data and files to Groq (servers outside Nepal) needs approval from Khalti's compliance team, since NRB requires payment service providers to keep data in data centres registered in Nepal. The other option is a model hosted in such a data centre behind the same LLMClient interface.
