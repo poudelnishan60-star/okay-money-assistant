@@ -130,6 +130,13 @@ SECURITY_RULES = (
     "Khalti isn't responsible for losses on a rooted or jailbroken phone.",
 )
 
+# Khalti support's contacts (fact sheet, 24 Nov 2026). O-Kay adds them to every answer where
+# support comes up (chat.py), and the "How do I contact Khalti?" article uses them.
+SUPPORT_EMAIL = "support@khalti.com"
+SUPPORT_LANDLINE = "01-5970017"
+SUPPORT_TOLL_FREE = "16600158888"  # NTC
+SUPPORT_WHATSAPP_VIBER = "+977 9801165561"
+
 REFUND_HOURS = 24
 # NOT in the source: how long a pending transaction takes to go through or fail. Assumed
 # to be the refund time until Khalti confirms its own figure.

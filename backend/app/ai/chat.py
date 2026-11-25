@@ -46,6 +46,7 @@ from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, 
 from app.domain import KycStatus
 from app.models import ChatMessage, ToolCallLog
 from app.periods import now_npt
+from app.rules import SUPPORT_EMAIL, SUPPORT_LANDLINE, SUPPORT_TOLL_FREE, SUPPORT_WHATSAPP_VIBER
 from app.services.user_settings import load_settings
 from app.services.wallet_limits import kyc_status
 from app.sources.base import BillSource, TransactionSource
@@ -333,6 +334,29 @@ _FLOW_QUESTION = re.compile(
     r"|कहाँबाट|आवतजावत|aawat ?jawat",
     re.IGNORECASE,
 )
+
+# Support mentioned, by the user or in the answer (English, Nepali, Romanized Nepali): the
+# answer then ends with Khalti support's numbers, every time (the user's decision, 25 Nov 2026).
+_SUPPORT_MENTION = re.compile(
+    r"support|customer (?:care|service)|help ?line|helpdesk|call (?:cent|khalti)|contact(?!less)"
+    r"|complain|grievance|talk to (?:a |an )?(?:person|human|agent|someone)|real person"
+    r"|सहायता|सम्पर्क|गुनासो|उजुरी|ग्राहक सेवा|sahayata|sampark|gunaso|ujuri|grahak sewa",
+    re.IGNORECASE,
+)
+_SUPPORT_LABEL = {Lang.EN: "Khalti support", Lang.NE: "Khalti सहायता", Lang.ROM: "Khalti support"}
+
+
+def support_line(question: str, answer: str, lang: Lang) -> str | None:
+    """Khalti support's numbers when support comes up, unless the answer already has them."""
+    if SUPPORT_LANDLINE in answer or not (
+        _SUPPORT_MENTION.search(question) or _SUPPORT_MENTION.search(answer)
+    ):
+        return None
+    return (
+        f"**{_SUPPORT_LABEL.get(lang, _SUPPORT_LABEL[Lang.EN])}:** {SUPPORT_LANDLINE} · "
+        f"toll-free {SUPPORT_TOLL_FREE} (NTC) · WhatsApp/Viber {SUPPORT_WHATSAPP_VIBER} · "
+        f"{SUPPORT_EMAIL}"
+    )
 
 
 # A time other than this month, in English, Nepali or Romanized Nepali ("last month",
@@ -926,7 +950,12 @@ class ChatService:
                     yield ChatEvent("token", {"text": prefix})
                 yield ChatEvent("token", {"text": short})
                 answer = [prefix, short] if prefix else [short]
-        row = self._store("assistant", mask_pii("".join(answer).strip()), lang, cards, chips)
+        stored = mask_pii("".join(answer).strip())
+        contact = support_line(clean, "".join(answer), lang) if not error else None
+        if contact:  # added after masking: these are Khalti's public numbers, not the user's
+            yield ChatEvent("token", {"text": "\n\n" + contact})
+            stored = f"{stored}\n\n{contact}"
+        row = self._store("assistant", stored, lang, cards, chips)
         yield ChatEvent(
             "done",
             {

@@ -27,6 +27,10 @@ from app.rules import (
     REFUND_HOURS,
     REFUND_RULES,
     SECURITY_RULES,
+    SUPPORT_EMAIL,
+    SUPPORT_LANDLINE,
+    SUPPORT_TOLL_FREE,
+    SUPPORT_WHATSAPP_VIBER,
 )
 
 
@@ -171,8 +175,9 @@ COMPANY_ARTICLES: list[tuple[str, str, str]] = [
     ),
     (
         "How do I contact Khalti?",
-        "Support: support@khalti.com, landline 01-5970017, toll-free (NTC) 16600158888, "
-        "WhatsApp/Viber +977 9801165561. Grievance officer: Anil Tharu, +977 9801856460, "
+        f"Support: {SUPPORT_EMAIL}, landline {SUPPORT_LANDLINE}, toll-free (NTC) "
+        f"{SUPPORT_TOLL_FREE}, WhatsApp/Viber {SUPPORT_WHATSAPP_VIBER}. Grievance officer: "
+        "Anil Tharu, +977 9801856460, "
         "grievance@khalti.com (24/7). If Khalti doesn't resolve a complaint, you can complain "
         "to Nepal Rastra Bank at gunaso.nrb.org.np. Businesses: merchant@khalti.com. O-Kay can "
         "also open Khalti support with a transaction attached.",
