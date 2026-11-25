@@ -116,15 +116,17 @@ How it stays safe and correct:
   the flow ("money flow", "where did my money come from", "आवतजावत", "kaha bata aayo") and
   the model looked it up another way, the server adds that card itself for the same period
   (logged like any tool call). "Where did my money go?" keeps its category pie.
-- Answers give full detail, but not long (since 24 Nov 2026; before, one very short
-  sentence): every detail the question needs (figures, dates, names, what it means, what
-  happens next) in as few words as that takes, usually one to three sentences, with no
-  filler or closing offers. A reminder next to every question says the same. Code keeps
-  them tight: an answer that comes with a card showing details (spending, bills,
-  transactions, charts...) keeps whole sentences up to about 300 characters, and leaves out
-  lists, a line that only introduces a list, and a closing "Want me to...?", since the card
-  shows them; one sentence that lists everything is cut between two items with "…", never
-  inside "Rs. 1,300". Only text is taken out, so every figure stays exactly as it was. An
+- Answer length fits the question (since 25 Nov 2026; before, "full detail, but not long",
+  and before that one very short sentence): a simple figure, yes/no or one fact in one to
+  three sentences; explanations, how-to, rules, problems and advice long and detailed (what
+  and why, what it means for the user, what to do next) in short paragraphs or steps, with
+  no filler or closing offers. A reminder next to every question says the same, and answers
+  may use up to 1,000 tokens (`LLM_MAX_TOKENS`). An answer that comes with a card showing
+  details (spending, bills, transactions, charts...) keeps whole sentences up to about 900
+  characters, and leaves out lists, a line that only introduces a list, and a closing
+  "Want me to...?", since the card shows them; one sentence that lists everything is cut
+  between two items with "…", never inside "Rs. 1,300". Only text is taken out, so every
+  figure stays exactly as it was. An
   answer with no card, or only a button (pay, send, support, block the wallet), keeps its
   content, so its steps aren't lost.
 - Each answer takes the format that suits its question (decided 24 Nov 2026): a total

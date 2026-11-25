@@ -236,6 +236,8 @@ The fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026) is in O-Kay:
 ### Answer length (decided 24 Nov 2026)
 O-Kay's answers give full detail, but not long: every detail the question needs (figures, dates, names, what it means, what happens next) in as few words as that takes, usually one to three sentences. This replaces the prompt's "Very short: one sentence (two at most, under 30 words)" line in step 10 and the earlier "as little text as possible". Code still leaves out lists that a details card shows, and closing offers.
 
+Changed 25 Nov 2026 (the user: "answer everything in detail with long answer", then "long only when useful"): simple figures, yes/no and single facts stay one to three sentences; explanations, how-to, rules, problems and advice are long and detailed (what and why, what it means for the user, what to do next). Longer answers use more of the free Groq quota, so "O-Kay is busy" can show more often.
+
 Answer formats (decided 24 Nov 2026), each for what it suits best, in place of the step 10 prompt's "- " lines rule:
 - totals, balance or spending: **the figure** first, then one line of context;
 - this vs that: both figures, then the change;

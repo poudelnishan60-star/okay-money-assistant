@@ -1667,7 +1667,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_balance_forecast",
-            "Projected balance: always to this month's end; days=N adds N days ahead.",
+            "Current balance now, and projected balance: to this month's end; days=N adds N "
+            "days ahead.",
             ForecastArgs,
             get_balance_forecast,
             _obj({"days": {"type": "integer"}}),

@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     llm_reasoning_effort: str = "none"  # Qwen 3.8 on Groq: "none" = instruct mode (no thinking)
     llm_gpt_oss_reasoning_effort: str = "low"  # gpt-oss fallbacks: low = fast, few tokens
     llm_temperature: float = 0.6
-    llm_max_tokens: int = 500  # answers are short; Groq free tier is 8,000 tokens/min
+    # Long answers when the question needs it (25 Nov 2026); Groq free tier: 8,000 tokens/min
+    llm_max_tokens: int = 1000
     llm_timeout_seconds: float = 30.0
     chat_history_messages: int = 20
     chat_max_tool_rounds: int = 5

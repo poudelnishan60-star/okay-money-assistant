@@ -71,16 +71,18 @@ def test_shortening_only_takes_text_out() -> None:
     for part in out.split("\n"):
         assert part in LIVE  # nothing new, nothing reworded
     # One long sentence is kept whole, never cut in the middle.
-    long = "You spent " + "a lot " * 60 + "on Rs. 1,270 worth of food."
+    long = "You spent " + "a lot " * 160 + "on Rs. 1,270 worth of food."
     assert shorten(long) == long and len(long) > SHORT_ANSWER_CHARS
     # A bold part cut in two loses its stars instead of breaking the text.
     assert "**" not in shorten("**Total Rs. 500. Then more.** More text here " + "x" * 200)
 
 
-def test_the_model_is_told_to_give_full_detail_but_briefly() -> None:
+def test_the_model_is_told_to_fit_the_length_to_the_question() -> None:
+    # 25 Nov 2026: long, detailed answers when the question needs it; simple figures short.
     prompt = system_prompt(dt.date(2026, 11, 18), Lang.EN)
-    assert "Full detail, not long: give every detail the question needs" in prompt
-    assert "Very short" not in prompt
+    assert "Length to fit the question: a simple figure, yes/no or one fact" in prompt
+    assert "advice long and detailed (what and why" in prompt
+    assert "Very short" not in prompt and "Full detail, not long" not in prompt
     assert "never list what they show" in prompt
 
 

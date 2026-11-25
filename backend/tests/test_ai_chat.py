@@ -496,7 +496,7 @@ def test_language_reminder_goes_with_the_question_only(seeded: Session) -> None:
     _run(seeded, llm, "How much did I spend?")
     # English: no language note, only the reminder to be brief (not stored either).
     assert llm.calls[-1][0][-1]["content"] == f"How much did I spend?\n\n({BRIEF_NOTE})"
-    assert "(Give every detail the question needs" in llm.calls[0][0][-1]["content"]
+    assert "(Fit the length to the question" in llm.calls[0][0][-1]["content"]
 
 
 def test_language_rule_is_repeated_after_tool_results(seeded: Session) -> None:

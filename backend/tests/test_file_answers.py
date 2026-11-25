@@ -284,7 +284,7 @@ def test_follow_up_questions_still_see_the_file(seeded: Session) -> None:
         "content": "analyze this\n[Attached: new khalti statement.xlsx]",
     }
     assert second[-1].data["suggestions"][0]["text"] == "Break the file down by type"
-    assert llm.max_tokens == [900, 900]  # room for a report about the file
+    assert llm.max_tokens == [1400, 1400]  # room for a report about the file
 
     # The file itself is never stored; only its name.
     stored = " ".join(seeded.scalars(select(ChatMessage.content)))
@@ -298,7 +298,7 @@ def test_once_forgotten_the_model_is_told_the_file_is_gone(seeded: Session) -> N
     list(_service(seeded, llm, files).respond("what is this?", "auto", [STATEMENT]))
     files.forget(USER)
     list(_service(seeded, llm, files).respond("and by week?"))
-    assert llm.max_tokens == [900, None]  # usual short answers again
+    assert llm.max_tokens == [1400, None]  # usual short answers again
     turn = llm.calls[1][0][-1]["content"]
     assert "<attachment" not in turn
     assert llm.calls[1][0][1]["content"].endswith("[Attached: new khalti statement.xlsx]")

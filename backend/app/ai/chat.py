@@ -62,19 +62,16 @@ log = logging.getLogger(__name__)
 audit = logging.getLogger("okay.audit")
 
 MAX_CARDS = 4
-# An answer that comes with cards: its words are cut to about this many characters (whole
-# sentences, at least one). The cards show the details.
 # Answers with cards are cut to whole sentences up to this length (the cards show the
-# lists). Was 140 ("as little text as possible"); since 24 Nov 2026 answers give full
-# detail, but not long.
-SHORT_ANSWER_CHARS = 300
+# lists). Was 140 ("as little text as possible"), then 300 ("full detail, but not long",
+# 24 Nov 2026); since 25 Nov 2026 answers are long and detailed when the question needs it.
+SHORT_ANSWER_CHARS = 900
 BRIEF_NOTE = (
-    "Give every detail the question needs in as few words as possible, usually one to "
-    "three sentences. For how-to, short steps, as many as needed. No offers or questions "
-    "at the end."
+    "Fit the length to the question: a figure or yes/no in 1-3 sentences; explanations, "
+    "how-to, rules, problems and advice long and detailed. No offers or questions at the end."
 )
 # Answers about a file may be a report: room for more than the usual short answer.
-FILE_ANSWER_TOKENS = 900
+FILE_ANSWER_TOKENS = 1400
 _REPLY_IN = {
     Lang.NE: "Reply in Nepali, in Devanagari.",
     Lang.ROM: "Reply in Romanized Nepali.",
@@ -507,7 +504,9 @@ class ChatService:
     def _fit(self, messages: list[Message], tools: list[dict[str, Any]]) -> list[Message]:
         """Leave out the oldest history until the request is likely under the provider's
         input limit (Groq's free tier refuses about 7,000+ tokens with a 413)."""
-        fixed = len(json.dumps(tools)) + sum(len(str(m["content"] or "")) for m in messages[:1])
+        fixed = len(json.dumps(tools)) + sum(
+            len(str(m["content"] or "")) + 12 for m in messages[:1]
+        )
         last = messages[-1:]
         history = messages[1:-1]
 
@@ -765,8 +764,8 @@ class ChatService:
                     # Seen live: with the charts under it, an answer listing every type, week
                     # and payment said everything twice.
                     user_turn += f"\n({CHARTS_NOTE})"
-            # Seen live: a how-to answer of 600 characters despite the system prompt. Like the
-            # language, a reminder next to the question works better. Not stored.
+            # The length rule, next to the question: like the language, a reminder there works
+            # better than the system prompt alone. Not stored.
             user_turn += f"\n\n({BRIEF_NOTE})"
             if lang is not Lang.EN:
                 # The eval saw English replies to Romanized questions despite the system
