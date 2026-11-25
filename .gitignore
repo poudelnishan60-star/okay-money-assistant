@@ -43,3 +43,6 @@ Thumbs.db
 
 # Eval run reports (model answers); summaries go in the README
 backend/evals/results/
+
+# Reference images for a motion-graphics video (app/tool/motion_reference_test.dart)
+motion-reference/
