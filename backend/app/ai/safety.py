@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from enum import StrEnum
 
+from app.rules import KHALTI_EMAIL_DOMAIN, KHALTI_PUBLIC_NUMBERS
+
 _DIGIT = "[0-9०-९]"
 
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
@@ -22,11 +24,35 @@ _REFERENCE = re.compile(r"\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{8,}\b")
 _LONG_NUMBER = re.compile(r"(?<![\w.,])\d(?:\s?\d){7,}(?![\w.,])")
 
 
+def _national(number: str) -> str:
+    digits = re.sub(r"\D", "", number)
+    return digits.removeprefix("977")
+
+
+# Khalti's own published numbers and addresses aren't anyone's personal data: they are kept,
+# so answers that quote them still show them when the chat is reopened.
+_PUBLIC_NUMBERS = {_national(n) for n in KHALTI_PUBLIC_NUMBERS}
+
+
+def _keep_public(label: str):  # noqa: ANN202
+    def replace(m: re.Match[str]) -> str:
+        return m.group(0) if _national(m.group(0)) in _PUBLIC_NUMBERS else label
+
+    return replace
+
+
 def mask_pii(text: str) -> str:
-    text = _EMAIL.sub("[email]", text)
-    text = _PHONE.sub("[phone]", text)
+    text = _EMAIL.sub(
+        lambda m: (
+            m.group(0)
+            if m.group(0).lower().rstrip(".").endswith("@" + KHALTI_EMAIL_DOMAIN)
+            else "[email]"
+        ),
+        text,
+    )
+    text = _PHONE.sub(_keep_public("[phone]"), text)
     text = _REFERENCE.sub("[ref]", text)
-    return _LONG_NUMBER.sub("[number]", text)
+    return _LONG_NUMBER.sub(_keep_public("[number]"), text)
 
 
 _SENSITIVE_TERMS = (  # words that announce an MPIN, OTP or password

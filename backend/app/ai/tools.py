@@ -76,10 +76,16 @@ from app.rules import (
     COMPLAINT_REPLY_HOURS,
     DEPOSIT_COUNT_NOTE,
     DEPOSITS_PER_DAY,
+    DISPUTE_RULES,
+    DORMANT_RULES,
     ESCROW_MIN_PAISA,
+    FEE_GROUPS,
+    FEES,
     FEES_NOTE,
+    FEES_SOURCE,
     FLOW_LIMITS,
     KYC_RULES,
+    KYC_VERIFY_HOURS,
     LAST_CHECKED,
     LIMITS,
     MIN_PAYMENT_PAISA,
@@ -1215,12 +1221,17 @@ def get_wallet_rules(ctx: ToolContext, args: WalletRulesArgs) -> ToolResult:
         data["kyc_rules"] = list(KYC_RULES)
         data["account_rules"] = list(ACCOUNT_RULES)
         data["your_kyc"] = status.value if status else "unknown"
+        data["kyc_check_time"] = f"KYC is checked within {KYC_VERIFY_HOURS} hours (1 to 2 days)"
+        data["dormant_wallets"] = list(DORMANT_RULES)
     if "security" in topics:
         data["security"] = list(SECURITY_RULES)
     if "refunds" in topics:
         data["refunds_and_complaints"] = list(REFUND_RULES)
+        data["disputes"] = list(DISPUTE_RULES)
     if "fees" in topics:
-        data["fees"] = FEES_NOTE
+        data["fees"] = {g: list(FEES[g]) for g in FEE_GROUPS}
+        data["fees_source"] = FEES_SOURCE
+        data["fees_note"] = FEES_NOTE
     return ToolResult(data, [], {"help"})
 
 
@@ -1695,8 +1706,8 @@ TOOLS: dict[str, Tool] = {
         Tool(
             "get_wallet_rules",
             "Khalti's rules: transaction limits with the user's use today/this month and "
-            "what's left, overnight balance cap, KYC, security, refund and complaint times, "
-            "fees.",
+            "what's left, overnight balance cap, KYC, dormant wallets, security, refunds, "
+            "disputes, fees.",
             WalletRulesArgs,
             get_wallet_rules,
             _obj({"topic": {"type": "string", "enum": list(RuleTopic.__args__)}}),

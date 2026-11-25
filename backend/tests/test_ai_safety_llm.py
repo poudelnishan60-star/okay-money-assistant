@@ -39,6 +39,16 @@ from app.seed import INJECTION_REMARK
         ("I spent Rs. 1,25,000 on 2026-11-09", "I spent Rs. 1,25,000 on 2026-11-09"),
         ("budget 6000 for food, PIN code is fine", "budget 6000 for food, PIN code is fine"),
         ("NEA bill", "NEA bill"),
+        # Khalti's own published numbers and addresses aren't personal data (25 Nov 2026)
+        (
+            "WhatsApp +977 9801165561, toll-free 16600158888",
+            "WhatsApp +977 9801165561, toll-free 16600158888",
+        ),
+        (
+            "flights: 9801856364, traveldesk@khalti.com.",
+            "flights: 9801856364, traveldesk@khalti.com.",
+        ),
+        ("not khalti: x@khalti.com.evil.com", "not khalti: [email]"),
     ],
 )
 def test_mask_pii(text: str, expected: str) -> None:

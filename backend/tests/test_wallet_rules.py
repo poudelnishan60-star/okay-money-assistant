@@ -240,8 +240,13 @@ def test_the_other_topics(ctx: ToolContext) -> None:
     assert any("within 24 hours" in s for s in sec["security"])
     refunds = run_tool(ctx, "get_wallet_rules", {"topic": "refunds"}).data
     assert any("72 hours" in s for s in refunds["refunds_and_complaints"])
+    assert any("30 days" in s for s in refunds["disputes"])
+    assert any("18 months" in s for s in kyc["dormant_wallets"])
+    # Fees are quoted since 25 Nov 2026, from app/rules.py, with their source and a reminder.
     fees = run_tool(ctx, "get_wallet_rules", {"topic": "fees"}).data
-    assert "shown in the Khalti app" in fees["fees"] and "Rs." not in json.dumps(fees)
+    assert set(fees["fees"]) == {"sending", "loading", "bills", "cards", "other", "membership"}
+    assert "charges page" in fees["fees_source"] and "Khalti app" in fees["fees_note"]
+    assert any("Rs. 5 from Rs. 500" in line for line in fees["fees"]["bills"])
     everything = run_tool(ctx, "get_wallet_rules", {"topic": "all"}).data
     for key in ("limits", "overnight_balance_cap", "kyc_rules", "security", "fees"):
         assert key in everything

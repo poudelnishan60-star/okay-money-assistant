@@ -17,12 +17,17 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import dataclass
 
+from app.money import format_npr
+
 SOURCE = "Khalti Terms & Conditions and Transaction Limits page (NRB Unified Directive, 7 Mar 2025)"
 LAST_CHECKED = dt.date(2026, 11, 24)
 # Checked again on 24 Nov 2026 against the fact sheet "Khalti by IME: Company Fact Sheet"
 # (khalti.com/info/transaction-limits, /info/terms, /info/charges): it added the Khalti card
-# limits, cardless ATM withdrawal, inactive wallets and Khalti's rights. Fees stay out (the
-# app shows them; decided 24 Nov 2026).
+# limits, cardless ATM withdrawal, inactive wallets and Khalti's rights. Checked on 25 Nov 2026
+# against khalti.com's public pages (data the user gave): the limits match; fees, the dispute
+# and dormant-wallet policies, KYC timing and bank transfers were added. Where the site
+# contradicts itself, the official pages win (the transaction-limits page, which follows NRB,
+# and the charges page; the user's decision, 25 Nov 2026).
 
 # --- transaction limits ------------------------------------------------------------------
 
@@ -114,10 +119,30 @@ KYC_RULES = (
     "No false KYC and no one else's KYC.",
 )
 
+KYC_VERIFY_HOURS = 48  # "1-2 days (up to 48 hours)", khalti.com/kyc
+
+# Dormant wallets (khalti.com/info/inactive-and-dormant-wallet-treatment-policy).
+DORMANT_AFTER_MONTHS = 18  # a personal wallet with no transaction
+DORMANT_AFTER_MONTHS_BUSINESS = 6  # merchants, POS and dealers
+DORMANT_WARNING_DAYS = 15
+DORMANT_ARCHIVE = "10 years and 90 days"
+DORMANT_RULES = (
+    f"A wallet with no transaction for {DORMANT_AFTER_MONTHS} months becomes dormant "
+    f"({DORMANT_AFTER_MONTHS_BUSINESS} months for merchant, POS and dealer wallets): sign-in "
+    "and all payments stop.",
+    f"Khalti sends an SMS or email {DORMANT_WARNING_DAYS} days before, and again once it is "
+    "locked.",
+    "To reopen a KYC-verified wallet: a written letter, a photo of you holding your original "
+    "ID and proof of address. An unverified wallet: an OTP on your mobile, two past "
+    "transactions confirmed, and KYC completed.",
+    f"Money unclaimed after {DORMANT_ARCHIVE} goes to CSR or as Nepal Rastra Bank directs; "
+    "records are kept for 10 years.",
+)
+
 # The account itself (Khalti's terms).
 ACCOUNT_RULES = (
-    "An inactive wallet can be blocked. To reopen it, contact Khalti's head office and "
-    "complete KYC again.",
+    f"A wallet unused for {DORMANT_AFTER_MONTHS} months becomes dormant and is locked. To "
+    "reopen it, contact Khalti and verify yourself (see the dormant wallet rules).",
     "Khalti can hold, block or close a wallet, or report it to the authorities, without notice.",
     "Nepali law applies, and cases go to courts in Kathmandu.",
 )
@@ -136,6 +161,36 @@ SUPPORT_EMAIL = "support@khalti.com"
 SUPPORT_LANDLINE = "01-5970017"
 SUPPORT_TOLL_FREE = "16600158888"  # NTC
 SUPPORT_WHATSAPP_VIBER = "+977 9801165561"
+DISPUTE_EMAIL = "dispute@khalti.com"
+GRIEVANCE_OFFICER = "Anil Tharu, +977 9801856460, grievance@khalti.com (24/7)"
+NRB_COMPLAINTS = "gunaso.nrb.org.np"
+# Khalti's own published numbers (khalti.com/contact). Not the user's data: masking leaves
+# them, so an answer that quotes them still shows them after the chat is reopened.
+KHALTI_PUBLIC_NUMBERS = (
+    SUPPORT_LANDLINE,
+    SUPPORT_TOLL_FREE,
+    SUPPORT_WHATSAPP_VIBER,
+    "9801856460",
+    "01-4217601",
+    "9801492103",
+    "9801856364",
+    "9801462817",
+    "9801129427",
+    "9801165557",
+    "9801301163",
+    "9801856394",
+    "9801890085",
+    "9801165565",
+    "9843007232",
+    "9801856315",
+    "9801856369",
+    "9801856383",
+    "9801856422",
+    "9801856475",
+    "01-5970053",
+    "9801890083",
+)
+KHALTI_EMAIL_DOMAIN = "khalti.com"
 
 REFUND_HOURS = 24
 # NOT in the source: how long a pending transaction takes to go through or fail. Assumed
@@ -151,7 +206,100 @@ REFUND_RULES = (
     "A dispute with a merchant (goods, service, refund policy) is between you and the merchant.",
 )
 
-FEES_NOTE = (
-    "Fees are shown in the Khalti app before you confirm a payment. O-Kay doesn't have the "
-    "fee amounts."
+# Khalti's dispute policy (khalti.com/info/disputepolicy).
+DISPUTE_DAYS = 30
+DISPUTE_RESOLUTION_DAYS = "20 to 25"
+SUSPICIOUS_PROOF_DAYS = 35
+DISPUTE_RULES = (
+    f"Raise a dispute in writing within {DISPUTE_DAYS} days: email {DISPUTE_EMAIL} (or post) "
+    "with your Khalti ID, the amount, the date, the other party's details, screenshots, a "
+    "copy of your ID and a signed handwritten letter.",
+    f"Khalti resolves it in {DISPUTE_RESOLUTION_DAYS} days (longer for complex cases).",
+    f"For a transaction flagged as suspicious, proof is asked for within {SUSPICIOUS_PROOF_DAYS} "
+    "days.",
+    "Not covered: merchants that aren't authorised and don't deliver, money sent to the wrong "
+    "Khalti user, and betting, gambling, gift cards, crypto, unknown cash or forex.",
+    "For fraud, report to the police or the Cyber Bureau first.",
+    f"If Khalti doesn't resolve it, complain to Nepal Rastra Bank at {NRB_COMPLAINTS}.",
 )
+
+# Withdrawing to a bank (khalti.com/bank-transfer; its limits are the limits page's).
+BANK_TRANSFER_RULES = (
+    "It reaches the bank within seconds.",
+    "It can't be reversed once sent: check the account name and number first.",
+    "Steps: Bank Transfer, choose the bank and branch, enter the account name, number and "
+    "amount, then Withdraw.",
+)
+
+# --- fees ------------------------------------------------------------------------------------
+# Quoted since 25 Nov 2026 (before, O-Kay only said the app shows them). From the charges page;
+# where another page says otherwise, the charges page wins (the user's decision).
+
+
+def _rs(paisa: int) -> str:
+    return format_npr(paisa)
+
+
+FEES_SOURCE = "Khalti's charges page (khalti.com/info/charges), read 25 Nov 2026"
+FEES_NOTE = (
+    "Fees change often and VAT applies where required: the Khalti app shows the fee before "
+    "you confirm."
+)
+MEMBERSHIP_PRICE_PAISA = 599_00
+FEES: dict[str, tuple[str, ...]] = {
+    "sending": (
+        f"Khalti to Khalti: free below {_rs(100_00)}; above that free for 3 a day and 30 a "
+        f"month, then {_rs(10_00)} each.",
+        f"To a linked bank account: the first 3 a month free, then {_rs(10_00)} each.",
+        "To a bank account that isn't linked: a flat fee (the amount isn't published).",
+    ),
+    "loading": (
+        "From a Nepali Visa or Mastercard card: 3%.",
+        "From a foreign Visa or Mastercard card: 5%.",
+    ),
+    "bills": (
+        f"NEA electricity and KUKL water: free below {_rs(500_00)}, {_rs(5_00)} from "
+        f"{_rs(500_00)}.",
+        f"Community electricity: {_rs(7_00)}.",
+        f"Community water: free below {_rs(60_00)}, {_rs(5_00)} for {_rs(61_00)} to "
+        f"{_rs(150_00)}, {_rs(10_00)} above.",
+        "TV (DTH): no Khalti service charge.",
+        f"Government payments: {_rs(5_00)} up to {_rs(5_000_00)}, {_rs(8_00)} up to "
+        f"{_rs(10_000_00)}, {_rs(10_00)} above.",
+        f"Credit card bill: {_rs(15_00)} for {_rs(100_00)} to {_rs(1_000_00)}, {_rs(25_00)} up "
+        f"to {_rs(10_000_00)}, {_rs(35_00)} up to {_rs(30_000_00)}, {_rs(60_00)} up to "
+        f"{_rs(1_00_000_00)}.",
+        f"School fee: {_rs(10_00)}.",
+        f"Social Security Fund: {_rs(5_00)}.",
+        f"SIP: {_rs(10_00)}.",
+        f"EMI payment: {_rs(10_00)} (100% cashback through Hulas Finserve in the app).",
+        f"Bluebook renewal: {_rs(200_00)}.",
+        f"Demat / Mero Share renewal: {_rs(5_00)}.",
+        f"Broker collateral load: {_rs(5_00)} up to {_rs(1_000_00)}, {_rs(10_00)} above.",
+        f"Loan against IME Life insurance: {_rs(50_00)}.",
+    ),
+    "cards": (
+        f"Virtual card: {_rs(25_00)} a quarter.",
+        f"Physical card: {_rs(250_00)} to issue, {_rs(250_00)} a year to renew, {_rs(250_00)} "
+        "to replace a lost or damaged card.",
+        f"Physical card at an ATM: {_rs(15_00)} a withdrawal or balance enquiry.",
+        f"Chargeback handling: {_rs(1_000_00)}. PIN change: a fee after the second request "
+        "(amount not published).",
+    ),
+    "other": (
+        f"Paying a business through Khalti's payment gateway: {_rs(5_00)} or {_rs(10_00)}.",
+        f"Cash without a card at a Nabil Bank ATM: {_rs(15_00)}.",
+        f"Khalti Escrow: {_rs(10_00)}; settling an escrow dispute {_rs(100_00)}, paid by the "
+        "one who complains.",
+        f"Agent-assisted bank deposit: {_rs(100_00)} up to {_rs(25_000_00)}, {_rs(150_00)} up to "
+        f"{_rs(50_000_00)}. Agent-assisted transfer: {_rs(100_00)} up to {_rs(10_000_00)}, "
+        f"{_rs(200_00)} up to {_rs(25_000_00)}, {_rs(300_00)} up to {_rs(50_000_00)}.",
+    ),
+    "membership": (
+        f"Khalti Membership: {_rs(MEMBERSHIP_PRICE_PAISA)}. It gives 2% cashback on your own "
+        f"mobile top-ups, coupons up to {_rs(100_00)} a month for 10 months, double Khalti "
+        "Points, unlimited free Khalti-to-Khalti transfers, 8 free bank transfers a month and "
+        f"{_rs(100_00)} off one bluebook renewal.",
+    ),
+}
+FEE_GROUPS = tuple(FEES)

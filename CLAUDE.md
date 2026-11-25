@@ -230,8 +230,15 @@ You are O-Kay, the money assistant in Khalti, a Nepali wallet. You are an AI, no
 The fact sheet "Khalti by IME: Company Fact Sheet" (24 Nov 2026) is in O-Kay:
 - Its rules go in app/rules.py: the Khalti card limits (online/POS, ATM, contactless), cash from Nabil Bank ATMs without a card, inactive wallets, Khalti's right to hold or close a wallet, and Nepali law. Card disputes are raised within 15 days.
 - Its company facts become help articles: what Khalti is, the IME Pay merger, founders, who runs it, services, Super Wallet, contacts, cardless cash, freelancers, what's new, businesses, size, awards, safety, account terms, Membership and jobs.
-- Fees stay out: O-Kay still says they are shown in the Khalti app and quotes no fee amounts (the user's decision).
+- Fees stay out: O-Kay still says they are shown in the Khalti app and quotes no fee amounts (the user's decision). Changed 25 Nov 2026: fees are quoted (see below).
 - The developer test accounts' MPIN and OTP are left out: O-Kay never states an MPIN or OTP.
+
+### khalti.com data in the chatbot (decided 25 Nov 2026)
+The user gave data from khalti.com's public pages (company, contacts, services, money movement, charges, limits, KYC, businesses, developer API, policies, programmes). The user's choices:
+- Fees are quoted now, from app/rules.py (FEES, from the charges page) through get_wallet_rules(topic="fees"), with the source and "the app shows the fee before you confirm". This replaces "fees stay out" above and step 10's "Fees: say they are shown in the app; no numbers".
+- After the IME Pay merger, linked banks and cards carry over automatically (this data), replacing the earlier "link them again".
+- Where khalti.com contradicts itself, the official pages win: the transaction-limits page (NRB) and the charges page; the other figures are left out.
+The dispute and dormant-wallet policies, KYC timing and bank transfers are in app/rules.py; everything else is help articles. Khalti's published numbers and @khalti.com addresses are not masked.
 
 ### Answer length (decided 24 Nov 2026)
 O-Kay's answers give full detail, but not long: every detail the question needs (figures, dates, names, what it means, what happens next) in as few words as that takes, usually one to three sentences. This replaces the prompt's "Very short: one sentence (two at most, under 30 words)" line in step 10 and the earlier "as little text as possible". Code still leaves out lists that a details card shows, and closing offers.

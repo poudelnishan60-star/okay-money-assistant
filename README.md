@@ -289,7 +289,7 @@ the chat's `get_balance_forecast` tool.
 
 ### Help articles, trust and the transactions switch
 
-`search_help_articles` has 41 articles. Sixteen are generic how-to (mock). Eight cover
+`search_help_articles` has 65 articles. Sixteen are generic how-to (mock). Eight cover
 Khalti's rules: transaction limits, how much a wallet may hold overnight, KYC and one wallet,
 refund and complaint times, a lost phone or fraud, scams (Khalti never asks for an OTP or
 MPIN; a prize that needs a fee first is a scam), card disputes and inactive wallets. Their
@@ -299,9 +299,24 @@ Sheet" (24 Nov 2026): what Khalti is, the IME Pay merger, founders, who runs it,
 Super Wallet, contacts (support, grievance officer, NRB complaints), cash without a card,
 freelancers, what's new, businesses and developers, size, awards, safety, account terms,
 Membership and jobs. The fact sheet also added the Khalti card limits, cardless ATM
-withdrawal, inactive wallets and Khalti's rights to `app/rules.py`. Fees stay out by
-decision: O-Kay says they are shown in the app. The developer test accounts' MPIN and OTP
-are left out. An older database gets new and changed articles on start.
+withdrawal, inactive wallets and Khalti's rights to `app/rules.py`. The developer test
+accounts' MPIN and OTP are left out. Twenty-four more come from khalti.com's public pages
+(25 Nov 2026): the office and its hours, Khalti's aims, department contacts, apps and social
+links, bills and billers, insurance and Khalti Suraksha, movie, event and flight tickets,
+rides, bluebook renewal, school fees, the bridge course, partner banks, bank transfers,
+disputes, fees, the payment gateway, Bazaar and Daami QR, Pasal and agents, the developer
+API, Smart Chhori and policy links. The same data updated others (IME Pay: linked banks and
+cards carry over; KYC steps and fields; loading money; dormant wallets) and added fees, the
+dispute and dormant-wallet policies, KYC timing and bank transfers to `app/rules.py`.
+
+Fees are quoted since 25 Nov 2026 (before, O-Kay said the app shows them):
+`get_wallet_rules(topic="fees")` returns every fee from the charges page, grouped (sending,
+loading, bills, cards, other, Membership), with the source and "fees change; the app shows
+the fee before you confirm", and the articles fill in their fees from the same place. Where
+khalti.com contradicts itself, the official pages win: the transaction-limits page (NRB)
+and the charges page. Khalti's own published numbers and `@khalti.com` addresses aren't
+masked, so answers that quote them still show them when the chat is reopened. An older
+database gets new and changed articles on start.
 
 The chat's start screen and Settings say: "O-Kay is an AI and can make mistakes. Check
 important details in your transaction history." Settings also has "Let O-Kay read my
