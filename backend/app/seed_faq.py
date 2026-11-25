@@ -117,10 +117,14 @@ COMPANY_ARTICLES: list[tuple[str, str, str]] = [
         "What happened to IME Pay?",
         "IME Pay and Khalti merged: an MoU in February 2025, Nepal Rastra Bank's final approval "
         "on 19 June 2025 (the first merger in Nepal's digital payments), and joint operation as "
-        "Khalti by IME from 17 July 2025 (2082/04/01). The IME Pay app closed on Kartik 30, "
-        "2082, and accounts that hadn't moved to Khalti stopped working. IME Pay users kept "
-        "their balance, interest and reward points; Daami Points now combine both apps' rewards.",
-        "ime pay imepay merger merge closed moved migrate old account daami points",
+        "Khalti by IME, run by IME Khalti Limited, from 17 July 2025 (2082/04/01). IME Pay is no "
+        "longer a separate app: its wallet services moved into the Khalti app, and the IME Pay "
+        "app closed on Kartik 30, 2082; accounts that hadn't moved to Khalti stopped working. "
+        "IME Pay users kept their balance, KYC verification, interest and reward points (Daami "
+        "Points now combine both apps' rewards), but bank accounts usually need to be linked "
+        "again in Khalti. IME remittance can be received directly in the Khalti app.",
+        "ime pay imepay merger merge closed moved migrate old account daami points separate app "
+        "still work ime khalti limited remittance bank link relink kyc",
     ),
     (
         "Who founded Khalti?",
