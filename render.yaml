@@ -36,7 +36,7 @@ services:
         sync: false # asked for when the Blueprint is created; kept secret by Render
       - key: PUBLIC_MODE
         value: "true"
-      - key: CORS_ORIGINS
-        value: https://poudelnishan60-star.github.io
+      - key: CORS_ORIGINS # O-Kay's site, and the wallet replica's (O-Kay inside it)
+        value: https://poudelnishan60-star.github.io,https://nepal-wallet-demo.pages.dev
       - key: CORS_ORIGIN_REGEX # no localhost origins in production
         value: ""
