@@ -47,6 +47,7 @@ from app.ai.tools import (
     ToolContext,
     ToolError,
     ToolResult,
+    compact_tool_specs,
     openai_tool_specs,
     run_tool,
 )
@@ -116,6 +117,25 @@ def _norm(number: str) -> str:
     digits = number.translate(str.maketrans("०१२३४५६७८९", "0123456789"))
     digits = re.sub(r"[^\d.]", "", digits)
     return re.sub(r"\.0+$", "", digits)
+
+
+OLDER_ANSWER_CHARS = 400
+
+
+def _shorten_older_answers(history: list[Message]) -> list[Message]:
+    """Every answer but the newest, cut to about OLDER_ANSWER_CHARS at a word: follow-ups
+    mostly ask about the last answer, and the history goes with every request, so long answers
+    used up the free tier's daily tokens (25 Nov 2026). The grounding check still reads the
+    full history, so amounts from older answers still count as known."""
+    last = max((i for i, m in enumerate(history) if m["role"] == "assistant"), default=-1)
+    out: list[Message] = []
+    for i, m in enumerate(history):
+        text = str(m["content"] or "")
+        if m["role"] == "assistant" and i != last and len(text) > OLDER_ANSWER_CHARS:
+            cut = text[:OLDER_ANSWER_CHARS].rsplit(" ", 1)[0].rstrip(",;:")
+            m = {**m, "content": cut + " …"}
+        out.append(m)
+    return out
 
 
 def check_answer(
@@ -599,15 +619,15 @@ class ChatService:
     ) -> Generator[ChatEvent, None, int]:
         """Model <-> tools until it answers in text (at most `max_rounds` tool rounds; the
         round after that may not use tools). Streams events; returns tool rounds used."""
+        later = compact_tool_specs(tools)
         for round_no in range(max_rounds + 1):
             allow_tools = round_no < max_rounds
             round_text: list[str] = []
             calls: list[ToolCall] = []
             started = False
             choice = "required" if force_first_tool and round_no == 0 and allow_tools else "auto"
-            for ev in self.llm.stream_chat(
-                messages, tools if allow_tools else None, choice, max_tokens=self._max_tokens
-            ):
+            offered = (tools if round_no == 0 else later) if allow_tools else None
+            for ev in self.llm.stream_chat(messages, offered, choice, max_tokens=self._max_tokens):
                 if isinstance(ev, TextDelta):
                     if not started and out and not out[-1].endswith("\n"):
                         out.append("\n\n")
@@ -713,6 +733,7 @@ class ChatService:
             )
         tools = openai_tool_specs(with_inbox=self.ctx.inbox is not None)
         known = " ".join([clean, *(str(m["content"] or "") for m in history)])
+        history = _shorten_older_answers(history)
 
         attempt: list[str] = []
         readings: list[Reading] = []
@@ -777,7 +798,13 @@ class ChatService:
                 [
                     {
                         "role": "system",
-                        "content": system_prompt(self.today, lang, kyc_verified=kyc),
+                        "content": system_prompt(
+                            self.today,
+                            lang,
+                            kyc_verified=kyc,
+                            files=bool(readings or remembered)
+                            or any("[Attached:" in str(m["content"] or "") for m in history),
+                        ),
                     },
                     *history,
                     {"role": "user", "content": user_turn},

@@ -1586,9 +1586,8 @@ TOOLS: dict[str, Tool] = {
     for t in [
         Tool(
             "get_spending_summary",
-            "Spending total vs previous period, by category/merchant/day, unusual spending. "
-            "category= focuses on one category. group_by=flow (no category): money in by "
-            "source and out by use, for money flow / where money came from and went.",
+            "Spending vs the previous period, by category/merchant/day, unusual spending. "
+            "group_by=flow (no category): money in by source, out by use.",
             SpendingSummaryArgs,
             get_spending_summary,
             _obj(
@@ -1604,8 +1603,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_transactions",
-            "Transactions for a period: count, totals, latest ten with ids. type remittance "
-            "= money from abroad; transfer = to/from people. status finds failed/pending/reversed.",
+            "Transactions in a period: count, totals, latest ten with ids. remittance = from "
+            "abroad; transfer = to/from people.",
             TransactionsArgs,
             get_transactions,
             _obj(
@@ -1623,8 +1622,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "get_transaction_status",
-            "One transaction's status (failed, pending, reversed), refund and expected "
-            "time, and whether it is overdue.",
+            "One transaction's status, refund, expected time and whether it's overdue.",
             TxnStatusArgs,
             get_transaction_status,
             _obj({"transaction_id": {"type": "string"}}, ["transaction_id"]),
@@ -1632,8 +1630,7 @@ TOOLS: dict[str, Tool] = {
         Tool("get_budgets", "Monthly budgets: limit, spent, left.", NoArgs, get_budgets, _obj({})),
         Tool(
             "upsert_budget",
-            "PROPOSE a monthly budget for one category, or category Overall for all "
-            "spending. Saved only when the user taps Confirm.",
+            "PROPOSE a monthly budget (category Overall: all spending); saved only on Confirm.",
             UpsertBudgetArgs,
             upsert_budget,
             _obj(
@@ -1654,8 +1651,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "upsert_goal",
-            "PROPOSE a savings goal (goal_id to change one). Saved only when the user taps "
-            "Confirm.",
+            "PROPOSE a savings goal (goal_id to change one); saved only on Confirm.",
             UpsertGoalArgs,
             upsert_goal,
             _obj(
@@ -1686,8 +1682,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "search_help_articles",
-            "Khalti help articles: how-to, and facts about Khalti (services, the company, "
-            "contacts, Super Wallet, IME Pay).",
+            "Khalti help: how-to steps, services, contacts, fees, company facts.",
             HelpArgs,
             search_help_articles,
             _obj(
@@ -1714,9 +1709,8 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             "open_app_flow",
-            "Button that opens Khalti's own screen pre-filled: pay bill, send/request/load "
-            "money, withdraw to bank, Autopay, Smart Deposit, support (to reach a person), "
-            "block wallet. Never moves money. Refuses amounts over Khalti's limits.",
+            "Button opening Khalti's own screen, pre-filled (support: reach a person). "
+            "Never moves money; refuses amounts over the limits.",
             AppFlowArgs,
             open_app_flow,
             _obj(
@@ -1736,6 +1730,31 @@ TOOLS: dict[str, Tool] = {
         ),
     ]
 }
+
+
+def compact_tool_specs(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The same tools without their descriptions: for the rounds after the first, where the
+    model has already chosen and mostly writes the answer (the system prompt still says when
+    to use each). Every request carries the tool list, so this saves tokens on the free
+    tier's daily quota (25 Nov 2026)."""
+
+    def bare(schema: dict[str, Any]) -> dict[str, Any]:
+        props = {
+            k: {kk: vv for kk, vv in v.items() if kk != "description"}
+            for k, v in schema.get("properties", {}).items()
+        }
+        return {**schema, "properties": props}
+
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": s["function"]["name"],
+                "parameters": bare(s["function"]["parameters"]),
+            },
+        }
+        for s in specs
+    ]
 
 
 def openai_tool_specs(*, with_inbox: bool = False) -> list[dict[str, Any]]:

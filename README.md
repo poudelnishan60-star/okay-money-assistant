@@ -200,9 +200,21 @@ How it stays safe and correct:
   have that data". The eval counts this as a grounding problem.
 - The last 20 messages are sent as context; at most 5 tool rounds per message.
 
-**Groq free tier:** 8,000 tokens/minute and 1,000 requests/day *per model*; one question
-uses about 3,000 tokens, so expect roughly 2-3 questions a minute per model. Fine for a demo;
-a busy public site needs a paid Groq tier (or lower limits in `.env`).
+**Groq free tier:** per model, 8,000 tokens a minute, 1,000 requests a day and **200,000
+tokens a day** (a rolling 24 hours), for the whole API key: every visitor of both sites and
+any testing share it. A question usually takes two calls (one picks a tool, one writes the
+answer), each carrying the system prompt, the tool list and the history: about 5,000 to
+7,000 tokens, so the main model covers only some 30 to 40 questions a day. After that the
+fallback models answer (each with its own allowance); they are weaker and more often skip
+the tools. Fewer tokens per question (25 Nov 2026), about 18% fewer in a new chat and more
+in a longer one:
+- the attachments rule (about 170 tokens) is sent only when a file is involved, in this
+  turn or earlier in the chat;
+- tool descriptions are shorter, and the calls after the first get the tool list without
+  descriptions (the model has already chosen; the system prompt still says when to use each);
+- older answers in the history are cut to about 400 characters (the newest stays whole); the
+  check against made-up amounts still reads them in full.
+A busy public site needs Groq's paid tier.
 
 Live check against Groq (mock data only): `python scripts/live_chat_check.py`.
 
