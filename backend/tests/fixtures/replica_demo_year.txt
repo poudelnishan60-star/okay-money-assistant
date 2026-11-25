@@ -1,0 +1,419 @@
+2025-11-24T12:45Z|load_bank|1000000|Load from Nabil Bank|
+2025-11-25T01:30Z|qr_pay|-4500|Ason Chiya Ghar|
+2025-11-25T10:46Z|qr_pay|-231000|Patan Kirana Pasal|
+2025-11-28T09:05Z|bill_pay|-123288|Nepal Electricity Authority|
+2025-11-28T10:00Z|p2p|-64000|To Ram Thapa|Movie tickets
+2025-11-28T11:01Z|topup|-20000|Top-up 984 100 0001|
+2025-12-01T13:50Z|p2p|-28000|To Anjali Rai|Lunch
+2025-12-03T10:39Z|qr_pay|-11500|Ason Chiya Ghar|
+2025-12-03T12:51Z|p2p|42000|From Prakash Adhikari|Movie tickets
+2025-12-06T07:36Z|bill_pay|-41200|KUKL water (Kathmandu valley)|
+2025-12-06T10:12Z|qr_pay|-9000|Ason Chiya Ghar|
+2025-12-07T09:33Z|qr_pay|-7500|Ason Chiya Ghar|
+2025-12-08T04:11Z|qr_pay|-76000|Sahara Pharmacy|
+2025-12-09T07:33Z|p2p|-129000|To Ram Thapa|Returning the loan
+2025-12-10T07:28Z|topup|-20000|Top-up 984 100 0001|
+2025-12-10T10:59Z|p2p|-43000|To Anjali Rai|Futsal
+2025-12-11T02:43Z|qr_pay|-12500|Ason Chiya Ghar|
+2025-12-11T12:07Z|qr_pay|-51000|Jhamsikhel Bake House|
+2025-12-13T09:49Z|qr_pay|-10500|Jhamsikhel Bake House|
+2025-12-14T12:57Z|load_bank|600000|Load from Nabil Bank|
+2025-12-14T13:47Z|qr_pay|-284500|Patan Kirana Pasal|
+2025-12-17T11:32Z|p2p|-13000|To Ram Thapa|Chiya
+2025-12-17T12:35Z|load_bank|2000000|Load from Nabil Bank|
+2025-12-17T14:25Z|qr_pay|-55000|Boudha Thakali Kitchen|
+2025-12-17T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2025-12-18T11:55Z|bill_pay|-135000|Chautari Fibernet|
+2025-12-19T06:04Z|p2p|-42000|To Bikash Gurung|Futsal
+2025-12-20T06:46Z|p2p|47000|From Ram Thapa|Momo party share
+2025-12-20T11:39Z|p2p|-34000|To Anjali Rai|Taxi fare
+2025-12-22T02:08Z|qr_pay|-14000|Ason Chiya Ghar|
+2025-12-23T09:47Z|topup|-20000|Top-up 984 100 0001|
+2025-12-23T11:17Z|p2p|-207000|To Sunita Tamang|Birthday gift
+2025-12-26T02:20Z|qr_pay|-61000|Kalimati Fresh Tarkari|
+2025-12-26T13:09Z|qr_pay|-67500|Sahara Pharmacy|Bill INV-2082-1001
+2025-12-27T03:31Z|bill_pay|-161193|Nepal Electricity Authority|
+2025-12-27T07:04Z|qr_pay|-40000|Himal Momo Corner|
+2025-12-28T04:41Z|qr_pay|-21500|Kalimati Fresh Tarkari|
+2025-12-28T09:53Z|qr_pay|-30500|Jhamsikhel Bake House|
+2025-12-28T11:03Z|qr_pay|-14000|Ason Chiya Ghar|
+2025-12-28T13:19Z|p2p|-30000|To Sunita Tamang|Lunch
+2025-12-29T02:01Z|qr_pay|-7000|Ason Chiya Ghar|
+2025-12-29T08:06Z|qr_pay|-22000|Himal Momo Corner|
+2025-12-29T13:57Z|p2p|-170000|To Bikash Gurung|Picnic share
+2025-12-30T10:06Z|qr_pay|-11500|Ason Chiya Ghar|
+2025-12-31T02:39Z|qr_pay|-10500|Jhamsikhel Bake House|
+2026-01-01T10:06Z|qr_pay|-14500|Ason Chiya Ghar|
+2026-01-04T05:22Z|bill_pay|-30500|KUKL water (Kathmandu valley)|
+2026-01-06T06:30Z|p2p|-62000|To Ram Thapa|Futsal
+2026-01-06T07:54Z|qr_pay|-32000|Himal Momo Corner|
+2026-01-06T16:05Z|topup|-20000|Top-up 984 100 0001|
+2026-01-07T10:29Z|qr_pay|-30000|Sahara Pharmacy|
+2026-01-08T11:15Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-01-10T02:56Z|qr_pay|-11500|Ason Chiya Ghar|
+2026-01-10T04:34Z|qr_pay|-72000|Patan Kirana Pasal|
+2026-01-13T03:06Z|qr_pay|-25000|Kalimati Fresh Tarkari|
+2026-01-16T03:50Z|qr_pay|-127500|Sahara Pharmacy|Bill INV-2082-1002
+2026-01-16T12:27Z|qr_pay|-31500|Jhamsikhel Bake House|
+2026-01-16T14:53Z|load_bank|2000000|Load from Nabil Bank|
+2026-01-16T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-01-16T16:53Z|bank_withdraw|-1500000|To Nabil Bank **** 4821|
+2026-01-17T08:19Z|bill_pay|-135000|Chautari Fibernet|
+2026-01-17T09:39Z|p2p|-259000|To Sunita Tamang|Returning the loan
+2026-01-18T06:20Z|qr_pay|-34000|Jhamsikhel Bake House|
+2026-01-20T08:24Z|topup|-50000|Top-up 984 100 0001|
+2026-01-22T05:10Z|qr_pay|-12500|Kalimati Fresh Tarkari|
+2026-01-22T05:59Z|qr_pay|-15000|Bhaktapur Juju Dhau|
+2026-01-23T14:44Z|p2p|89000|From Prakash Adhikari|Momo party share
+2026-01-24T03:23Z|qr_pay|-14000|Ason Chiya Ghar|
+2026-01-24T08:12Z|p2p|-42000|To Sunita Tamang|Taxi fare
+2026-01-26T06:59Z|bill_pay|-153213|Nepal Electricity Authority|
+2026-01-27T08:18Z|qr_pay|-15000|Bhaktapur Juju Dhau|
+2026-01-27T10:56Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-01-28T07:03Z|qr_pay|-36000|Himal Momo Corner|
+2026-01-30T09:50Z|qr_pay|-8000|Ason Chiya Ghar|
+2026-02-01T03:09Z|qr_pay|-9000|Ason Chiya Ghar|
+2026-02-01T06:32Z|topup|-50000|Top-up 984 100 0001|
+2026-02-03T09:29Z|bill_pay|-67800|KUKL water (Kathmandu valley)|
+2026-02-04T10:54Z|qr_pay|-48000|Himal Momo Corner|
+2026-02-05T12:19Z|load_bank|600000|Load from Nabil Bank|
+2026-02-05T13:25Z|qr_pay|-322500|Patan Kirana Pasal|
+2026-02-07T10:25Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-02-09T07:39Z|p2p|10000|From Prakash Adhikari|Taxi share
+2026-02-10T11:55Z|qr_pay|-9000|Ason Chiya Ghar|
+2026-02-12T05:37Z|p2p|-47000|To Bikash Gurung|Taxi fare
+2026-02-14T02:32Z|qr_pay|-338000|Patan Kirana Pasal|
+2026-02-14T05:05Z|load_bank|600000|Load from Nabil Bank|
+2026-02-14T05:39Z|topup|-10000|Top-up 984 100 0001|
+2026-02-14T14:10Z|load_bank|1500000|Load from Nabil Bank|
+2026-02-14T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-02-15T11:33Z|p2p|-7000|To Sunita Tamang|Chiya
+2026-02-15T14:56Z|bill_pay|-135000|Chautari Fibernet|
+2026-02-17T01:25Z|qr_pay|-13500|Ason Chiya Ghar|
+2026-02-17T13:04Z|qr_pay|-130000|Boudha Thakali Kitchen|
+2026-02-18T03:25Z|qr_pay|-13000|Ason Chiya Ghar|
+2026-02-19T08:24Z|qr_pay|-30000|Bhaktapur Juju Dhau|
+2026-02-20T12:16Z|p2p|-46000|To Sunita Tamang|Lunch
+2026-02-23T04:50Z|qr_pay|-69500|Kalimati Fresh Tarkari|
+2026-02-24T08:23Z|bill_pay|-119298|Nepal Electricity Authority|
+2026-02-24T10:34Z|qr_pay|-8500|Ason Chiya Ghar|
+2026-02-25T02:44Z|qr_pay|-7000|Ason Chiya Ghar|
+2026-02-25T08:20Z|p2p|-96000|To Prakash Adhikari|Returning the loan
+2026-02-26T03:01Z|qr_pay|-12500|Ason Chiya Ghar|
+2026-02-26T13:01Z|topup|-20000|Top-up 984 100 0001|
+2026-02-28T02:33Z|qr_pay|-47000|Kalimati Fresh Tarkari|
+2026-03-01T09:35Z|p2p|135000|From Sunita Tamang|Returned, thanks
+2026-03-03T10:56Z|qr_pay|-11500|Ason Chiya Ghar|
+2026-03-04T08:53Z|bill_pay|-62300|KUKL water (Kathmandu valley)|
+2026-03-04T11:07Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-03-04T14:07Z|p2p|26000|From Anjali Rai|Taxi share
+2026-03-05T09:46Z|qr_pay|-13500|Ason Chiya Ghar|
+2026-03-05T13:26Z|qr_pay|-32000|Himal Momo Corner|
+2026-03-06T12:11Z|p2p|30000|From Prakash Adhikari|Taxi share
+2026-03-10T02:12Z|qr_pay|-11500|Kalimati Fresh Tarkari|
+2026-03-10T05:48Z|p2p|66000|From Prakash Adhikari|Movie tickets
+2026-03-10T06:21Z|qr_pay|-48000|Himal Momo Corner|
+2026-03-11T04:07Z|qr_pay|-19500|Kalimati Fresh Tarkari|
+2026-03-11T08:54Z|topup|-20000|Top-up 984 100 0001|
+2026-03-12T01:39Z|qr_pay|-14500|Ason Chiya Ghar|
+2026-03-12T10:02Z|p2p|-13000|To Ram Thapa|Chiya
+2026-03-13T08:10Z|qr_pay|-117500|Patan Kirana Pasal|
+2026-03-15T14:06Z|qr_pay|-54000|Himal Momo Corner|
+2026-03-16T02:01Z|qr_pay|-10500|Ason Chiya Ghar|
+2026-03-16T02:33Z|qr_pay|-27500|Kalimati Fresh Tarkari|
+2026-03-16T12:39Z|load_bank|1000000|Load from Nabil Bank|
+2026-03-16T14:32Z|p2p|51000|From Ram Thapa|Lunch share
+2026-03-16T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-03-17T10:06Z|bill_pay|-135000|Chautari Fibernet|
+2026-03-18T09:49Z|qr_pay|-40000|Himal Momo Corner|
+2026-03-19T12:34Z|qr_pay|-174500|Sahara Pharmacy|
+2026-03-20T12:55Z|p2p|-19000|To Prakash Adhikari|Chiya
+2026-03-21T01:17Z|qr_pay|-63500|Kalimati Fresh Tarkari|
+2026-03-22T08:23Z|qr_pay|-63000|Patan Kirana Pasal|
+2026-03-22T10:20Z|p2p|19000|From Ram Thapa|Taxi share
+2026-03-23T11:38Z|qr_pay|-7000|Ason Chiya Ghar|
+2026-03-25T10:55Z|topup|-50000|Top-up 984 100 0001|
+2026-03-26T04:04Z|qr_pay|-40000|Sahara Pharmacy|Bill INV-2082-1003
+2026-03-26T07:13Z|bill_pay|-110320|Nepal Electricity Authority|
+2026-03-28T10:18Z|qr_pay|-32500|Jhamsikhel Bake House|
+2026-03-30T02:40Z|qr_pay|-14000|Ason Chiya Ghar|
+2026-03-30T05:28Z|p2p|-23000|To Bikash Gurung|Taxi fare
+2026-03-30T06:40Z|qr_pay|-44000|Himal Momo Corner|
+2026-04-01T10:37Z|p2p|-244000|To Prakash Adhikari|Birthday gift
+2026-04-03T04:31Z|qr_pay|-10000|Jhamsikhel Bake House|
+2026-04-03T06:16Z|qr_pay|-54000|Himal Momo Corner|
+2026-04-03T10:23Z|bill_pay|-51300|KUKL water (Kathmandu valley)|
+2026-04-03T11:21Z|qr_pay|-13000|Ason Chiya Ghar|
+2026-04-04T04:06Z|qr_pay|-5500|Ason Chiya Ghar|
+2026-04-04T06:34Z|topup|-50000|Top-up 984 100 0001|
+2026-04-05T13:53Z|qr_pay|-32000|Himal Momo Corner|
+2026-04-06T03:06Z|qr_pay|-12500|Ason Chiya Ghar|
+2026-04-06T05:28Z|qr_pay|-66000|Koteshwor Hardware|
+2026-04-08T16:02Z|p2p|40000|From Sunita Tamang|Taxi share
+2026-04-09T12:59Z|p2p|-80000|To Ram Thapa|Futsal
+2026-04-11T02:36Z|qr_pay|-4000|Ason Chiya Ghar|
+2026-04-11T08:33Z|p2p|-27000|To Anjali Rai|Taxi fare
+2026-04-13T10:08Z|qr_pay|-12500|Ason Chiya Ghar|
+2026-04-13T16:14Z|p2p|59000|From Bikash Gurung|Returned, thanks
+2026-04-14T12:11Z|qr_pay|-46000|Jhamsikhel Bake House|
+2026-04-14T13:02Z|p2p|17000|From Sunita Tamang|Taxi share
+2026-04-15T13:35Z|load_bank|1500000|Load from Nabil Bank|
+2026-04-15T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-04-16T03:13Z|topup|-30000|Top-up 984 100 0001|
+2026-04-16T05:32Z|bill_pay|-135000|Chautari Fibernet|
+2026-04-16T05:32Z|p2p|-21000|To Sunita Tamang|Lunch
+2026-04-17T08:24Z|p2p|-167000|To Anjali Rai|Returning the loan
+2026-04-19T02:50Z|qr_pay|-6500|Ason Chiya Ghar|
+2026-04-21T12:31Z|p2p|-29000|To Bikash Gurung|Taxi fare
+2026-04-22T10:02Z|p2p|-38000|To Bikash Gurung|Taxi fare
+2026-04-23T04:19Z|qr_pay|-316000|Patan Kirana Pasal|
+2026-04-23T12:48Z|p2p|57000|From Bikash Gurung|Momo party share
+2026-04-23T13:25Z|qr_pay|-54000|Himal Momo Corner|
+2026-04-25T08:12Z|bill_pay|-110320|Nepal Electricity Authority|
+2026-04-27T07:08Z|p2p|51000|From Sunita Tamang|Momo party share
+2026-04-29T01:51Z|topup|-10000|Top-up 984 100 0001|
+2026-04-29T09:35Z|p2p|-63000|To Ram Thapa|Lunch
+2026-05-01T14:19Z|p2p|-266000|To Ram Thapa|Returning the loan
+2026-05-02T07:18Z|qr_pay|-310000|Patan Kirana Pasal|
+2026-05-03T04:12Z|bill_pay|-47800|KUKL water (Kathmandu valley)|
+2026-05-04T09:00Z|qr_pay|-55000|Jhamsikhel Bake House|
+2026-05-06T09:41Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-05-07T13:53Z|qr_pay|-159000|Patan Kirana Pasal|
+2026-05-08T09:19Z|qr_pay|-5500|Ason Chiya Ghar|
+2026-05-08T15:40Z|p2p|-53000|To Ram Thapa|Futsal
+2026-05-09T07:36Z|load_bank|500000|Load from Global IME Bank|
+2026-05-09T08:04Z|qr_pay|-162500|Patan Kirana Pasal|
+2026-05-09T10:41Z|qr_pay|-32000|Himal Momo Corner|
+2026-05-10T09:44Z|qr_pay|-109500|Sahara Pharmacy|Bill INV-2083-1004
+2026-05-11T02:56Z|qr_pay|-7000|Ason Chiya Ghar|
+2026-05-11T14:48Z|topup|-30000|Top-up 984 100 0001|
+2026-05-13T04:31Z|qr_pay|-40500|Kalimati Fresh Tarkari|
+2026-05-13T11:08Z|load_bank|500000|Load from Nabil Bank|
+2026-05-13T11:28Z|qr_pay|-294500|Patan Kirana Pasal|
+2026-05-15T08:52Z|qr_pay|-36000|Himal Momo Corner|
+2026-05-16T14:20Z|load_bank|1500000|Load from Nabil Bank|
+2026-05-16T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-05-17T06:48Z|qr_pay|-29500|Sahara Pharmacy|
+2026-05-17T08:08Z|bill_pay|-135000|Chautari Fibernet|
+2026-05-18T09:09Z|p2p|-190000|To Bikash Gurung|Birthday gift
+2026-05-19T11:03Z|qr_pay|-12000|Jhamsikhel Bake House|
+2026-05-19T13:21Z|qr_pay|-36000|Himal Momo Corner|
+2026-05-23T11:37Z|qr_pay|-140000|Boudha Thakali Kitchen|
+2026-05-24T05:58Z|topup|-50000|Top-up 984 100 0001|
+2026-05-24T12:14Z|qr_pay|-12000|Ason Chiya Ghar|
+2026-05-25T09:08Z|p2p|-71000|To Prakash Adhikari|Movie tickets
+2026-05-26T08:10Z|bill_pay|-114310|Nepal Electricity Authority|
+2026-05-26T08:48Z|qr_pay|-292000|Patan Kirana Pasal|
+2026-05-26T10:26Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-05-27T13:18Z|qr_pay|-18000|Himal Momo Corner|
+2026-05-28T05:59Z|qr_pay|-36000|Bhaktapur Juju Dhau|
+2026-05-30T07:46Z|p2p|35000|From Sunita Tamang|Movie tickets
+2026-05-30T13:55Z|p2p|-17000|To Sunita Tamang|
+2026-06-01T02:43Z|qr_pay|-11500|Ason Chiya Ghar|
+2026-06-01T03:25Z|qr_pay|-23500|Kalimati Fresh Tarkari|
+2026-06-03T07:16Z|bill_pay|-65000|KUKL water (Kathmandu valley)|
+2026-06-03T10:11Z|qr_pay|-15000|Bhaktapur Juju Dhau|
+2026-06-03T10:24Z|p2p|-274000|To Bikash Gurung|Returning the loan
+2026-06-04T05:16Z|p2p|-24000|To Sunita Tamang|Taxi fare
+2026-06-05T04:19Z|topup|-30000|Top-up 984 100 0001|
+2026-06-06T12:03Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-06-08T06:57Z|p2p|23000|From Sunita Tamang|Taxi share
+2026-06-09T13:48Z|load_bank|500000|Load from Global IME Bank|
+2026-06-09T14:36Z|p2p|-255000|To Bikash Gurung|Returning the loan
+2026-06-10T03:05Z|qr_pay|-3000|Ason Chiya Ghar|
+2026-06-10T04:47Z|qr_pay|-15000|Bhaktapur Juju Dhau|
+2026-06-11T05:26Z|qr_pay|-163000|Koteshwor Hardware|
+2026-06-12T07:06Z|qr_pay|-110000|Boudha Thakali Kitchen|
+2026-06-12T10:41Z|qr_pay|-65000|Jhamsikhel Bake House|
+2026-06-13T09:09Z|load_bank|500000|Load from Nabil Bank|
+2026-06-13T09:35Z|qr_pay|-54000|Himal Momo Corner|
+2026-06-15T10:13Z|qr_pay|-23000|Jhamsikhel Bake House|
+2026-06-16T03:10Z|qr_pay|-13000|Kalimati Fresh Tarkari|
+2026-06-16T14:54Z|load_bank|1500000|Load from Global IME Bank|
+2026-06-16T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-06-17T02:23Z|qr_pay|-247500|Patan Kirana Pasal|
+2026-06-17T07:24Z|bill_pay|-135000|Chautari Fibernet|
+2026-06-17T10:42Z|qr_pay|-48000|Himal Momo Corner|
+2026-06-19T06:03Z|topup|-20000|Top-up 984 100 0001|
+2026-06-20T04:02Z|qr_pay|-205500|Patan Kirana Pasal|
+2026-06-20T04:41Z|qr_pay|-13000|Kalimati Fresh Tarkari|
+2026-06-22T01:35Z|qr_pay|-7500|Ason Chiya Ghar|
+2026-06-23T12:06Z|qr_pay|-3000|Ason Chiya Ghar|
+2026-06-24T11:59Z|qr_pay|-7500|Ason Chiya Ghar|
+2026-06-24T13:16Z|p2p|-15000|To Bikash Gurung|Taxi fare
+2026-06-25T02:30Z|qr_pay|-223500|Patan Kirana Pasal|
+2026-06-26T06:01Z|bill_pay|-115308|Nepal Electricity Authority|
+2026-06-26T11:22Z|qr_pay|-22500|Jhamsikhel Bake House|
+2026-06-28T03:42Z|qr_pay|-12500|Ason Chiya Ghar|
+2026-06-29T08:15Z|topup|-20000|Top-up 984 100 0001|
+2026-06-30T02:26Z|qr_pay|-15500|Kalimati Fresh Tarkari|
+2026-06-30T10:48Z|qr_pay|-4500|Ason Chiya Ghar|
+2026-07-02T03:47Z|qr_pay|-8500|Ason Chiya Ghar|
+2026-07-02T04:20Z|qr_pay|-103500|Sahara Pharmacy|
+2026-07-04T04:47Z|bill_pay|-33400|KUKL water (Kathmandu valley)|
+2026-07-05T05:47Z|qr_pay|-189500|Patan Kirana Pasal|
+2026-07-07T03:27Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-07-07T03:36Z|qr_pay|-162500|Sahara Pharmacy|
+2026-07-07T03:47Z|qr_pay|-25500|Kalimati Fresh Tarkari|
+2026-07-09T11:00Z|p2p|55000|From Ram Thapa|Momo party share
+2026-07-09T11:44Z|qr_pay|-140000|Thamel Book Nook|
+2026-07-10T03:30Z|load_bank|500000|Load from Nabil Bank|
+2026-07-10T04:09Z|qr_pay|-69000|Koteshwor Hardware|
+2026-07-13T03:45Z|qr_pay|-65500|Kalimati Fresh Tarkari|
+2026-07-13T06:51Z|topup|-20000|Top-up 984 100 0001|
+2026-07-15T11:29Z|qr_pay|-14000|Ason Chiya Ghar|
+2026-07-15T11:32Z|qr_pay|-258000|Patan Kirana Pasal|
+2026-07-16T12:27Z|load_bank|500000|Load from Nabil Bank|
+2026-07-16T13:22Z|p2p|-140000|To Anjali Rai|
+2026-07-17T04:59Z|qr_pay|-33000|Kalimati Fresh Tarkari|
+2026-07-18T05:35Z|p2p|62000|From Bikash Gurung|Momo party share
+2026-07-18T13:51Z|load_bank|1000000|Load from Global IME Bank|
+2026-07-18T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-07-19T03:03Z|qr_pay|-4000|Ason Chiya Ghar|
+2026-07-19T03:38Z|bill_pay|-135000|Chautari Fibernet|
+2026-07-19T04:24Z|qr_pay|-46000|Kalimati Fresh Tarkari|
+2026-07-19T08:44Z|qr_pay|-18000|Bhaktapur Juju Dhau|
+2026-07-20T07:25Z|p2p|-12000|To Bikash Gurung|Chiya
+2026-07-21T03:08Z|qr_pay|-7000|Ason Chiya Ghar|
+2026-07-21T10:19Z|qr_pay|-338500|Patan Kirana Pasal|
+2026-07-22T02:50Z|qr_pay|-23000|Kalimati Fresh Tarkari|
+2026-07-23T15:34Z|topup|-50000|Top-up 984 100 0001|
+2026-07-24T02:49Z|qr_pay|-47000|Jhamsikhel Bake House|
+2026-07-24T04:06Z|qr_pay|-12000|Ason Chiya Ghar|
+2026-07-25T12:11Z|p2p|75000|From Bikash Gurung|Momo party share
+2026-07-28T02:30Z|qr_pay|-14000|Ason Chiya Ghar|
+2026-07-28T03:04Z|qr_pay|-53000|Kalimati Fresh Tarkari|
+2026-07-28T03:33Z|bill_pay|-123288|Nepal Electricity Authority|
+2026-08-01T11:12Z|qr_pay|-4000|Ason Chiya Ghar|
+2026-08-03T04:08Z|topup|-20000|Top-up 984 100 0001|
+2026-08-03T09:25Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-08-04T03:26Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-08-05T03:24Z|bill_pay|-62600|KUKL water (Kathmandu valley)|
+2026-08-06T12:33Z|p2p|-272000|To Ram Thapa|Returning the loan
+2026-08-08T03:34Z|qr_pay|-19000|Sahara Pharmacy|
+2026-08-08T11:49Z|qr_pay|-66000|Himal Momo Corner|
+2026-08-09T01:30Z|qr_pay|-19000|Kalimati Fresh Tarkari|
+2026-08-09T10:12Z|qr_pay|-6000|Ason Chiya Ghar|
+2026-08-10T13:24Z|qr_pay|-54000|Himal Momo Corner|
+2026-08-12T00:24Z|load_bank|500000|Load from Global IME Bank|
+2026-08-12T01:38Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-08-13T10:31Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-08-16T03:47Z|qr_pay|-7000|Ason Chiya Ghar|
+2026-08-16T11:45Z|qr_pay|-195500|Patan Kirana Pasal|
+2026-08-16T14:39Z|p2p|256000|From Ram Thapa|Returned, thanks
+2026-08-17T03:10Z|topup|-10000|Top-up 984 100 0001|
+2026-08-18T12:30Z|qr_pay|-16000|Himal Momo Corner|
+2026-08-18T14:00Z|load_bank|1500000|Load from Nabil Bank|
+2026-08-18T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-08-19T10:44Z|bill_pay|-135000|Chautari Fibernet|
+2026-08-21T08:46Z|qr_pay|-60000|Himal Momo Corner|
+2026-08-21T13:37Z|p2p|-16000|To Sunita Tamang|Chiya
+2026-08-25T01:22Z|qr_pay|-61500|Kalimati Fresh Tarkari|
+2026-08-26T02:22Z|qr_pay|-9000|Kalimati Fresh Tarkari|
+2026-08-26T02:26Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-08-28T06:50Z|bill_pay|-125283|Nepal Electricity Authority|
+2026-08-28T10:39Z|qr_pay|-40000|Bhaktapur Juju Dhau|
+2026-08-30T12:06Z|p2p|-211000|To Bikash Gurung|Birthday gift
+2026-08-31T01:16Z|qr_pay|-4500|Ason Chiya Ghar|
+2026-08-31T12:09Z|topup|-20000|Top-up 984 100 0001|
+2026-09-04T09:44Z|qr_pay|-7500|Ason Chiya Ghar|
+2026-09-05T04:07Z|bill_pay|-59200|KUKL water (Kathmandu valley)|
+2026-09-06T11:49Z|qr_pay|-14500|Ason Chiya Ghar|
+2026-09-07T14:46Z|p2p|-142000|To Prakash Adhikari|
+2026-09-09T07:21Z|p2p|-15000|To Bikash Gurung|Chiya
+2026-09-09T09:31Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-09-10T02:12Z|qr_pay|-14000|Ason Chiya Ghar|
+2026-09-12T01:56Z|qr_pay|-5000|Ason Chiya Ghar|
+2026-09-12T05:53Z|qr_pay|-158000|Thamel Book Nook|
+2026-09-14T06:05Z|topup|-20000|Top-up 984 100 0001|
+2026-09-16T03:12Z|qr_pay|-15500|Kalimati Fresh Tarkari|
+2026-09-17T02:05Z|qr_pay|-69000|Kalimati Fresh Tarkari|
+2026-09-17T12:07Z|qr_pay|-14500|Ason Chiya Ghar|
+2026-09-18T02:30Z|qr_pay|-38500|Jhamsikhel Bake House|
+2026-09-18T06:25Z|qr_pay|-218500|Patan Kirana Pasal|
+2026-09-18T12:39Z|load_bank|1500000|Load from Nabil Bank|
+2026-09-18T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-09-19T08:44Z|bill_pay|-135000|Chautari Fibernet|
+2026-09-23T07:25Z|p2p|22000|From Anjali Rai|Taxi share
+2026-09-23T10:48Z|p2p|-48000|To Anjali Rai|Lunch
+2026-09-25T02:44Z|qr_pay|-6500|Ason Chiya Ghar|
+2026-09-26T03:02Z|qr_pay|-15000|Ason Chiya Ghar|
+2026-09-26T11:34Z|qr_pay|-14000|Sahara Pharmacy|Bill INV-2083-1005
+2026-09-28T07:44Z|bill_pay|-97353|Nepal Electricity Authority|
+2026-09-28T10:14Z|qr_pay|-9000|Ason Chiya Ghar|
+2026-09-28T11:17Z|topup|-30000|Top-up 984 100 0001|
+2026-09-29T10:55Z|qr_pay|-11500|Ason Chiya Ghar|
+2026-09-30T08:44Z|p2p|-289000|To Sunita Tamang|Birthday gift
+2026-09-30T09:41Z|qr_pay|-6500|Ason Chiya Ghar|
+2026-09-30T14:09Z|qr_pay|-66000|Himal Momo Corner|
+2026-10-01T11:13Z|qr_pay|-4000|Ason Chiya Ghar|
+2026-10-02T05:20Z|load_bank|500000|Load from Global IME Bank|
+2026-10-03T12:01Z|qr_pay|-186000|Patan Kirana Pasal|
+2026-10-05T01:59Z|qr_pay|-6000|Ason Chiya Ghar|
+2026-10-06T05:07Z|bill_pay|-62500|KUKL water (Kathmandu valley)|
+2026-10-06T14:15Z|qr_pay|-65000|Boudha Thakali Kitchen|
+2026-10-07T06:24Z|qr_pay|-32000|Himal Momo Corner|
+2026-10-09T03:42Z|qr_pay|-6500|Ason Chiya Ghar|
+2026-10-09T07:53Z|qr_pay|-48500|Jhamsikhel Bake House|
+2026-10-09T11:09Z|p2p|-7000|To Prakash Adhikari|Chiya
+2026-10-09T12:55Z|p2p|-300000|To Ram Thapa|Dashain kharcha
+2026-10-10T06:34Z|p2p|-84000|To Anjali Rai|
+2026-10-11T10:40Z|qr_pay|-54000|Himal Momo Corner|
+2026-10-12T04:11Z|topup|-20000|Top-up 984 100 0001|
+2026-10-12T06:35Z|p2p|-59000|To Sunita Tamang|
+2026-10-12T14:03Z|p2p|79000|From Sunita Tamang|Momo party share
+2026-10-13T06:59Z|qr_pay|-32000|Himal Momo Corner|
+2026-10-14T02:24Z|qr_pay|-66000|Kalimati Fresh Tarkari|
+2026-10-15T07:55Z|qr_pay|-317500|Patan Kirana Pasal|
+2026-10-15T11:40Z|qr_pay|-60000|Boudha Thakali Kitchen|
+2026-10-16T02:27Z|topup|-20000|Top-up 984 100 0001|
+2026-10-16T03:57Z|qr_pay|-5000|Ason Chiya Ghar|
+2026-10-18T06:25Z|p2p|20000|From Prakash Adhikari|Taxi share
+2026-10-19T03:59Z|qr_pay|-66000|Kalimati Fresh Tarkari|
+2026-10-19T14:47Z|load_bank|500000|Load from Global IME Bank|
+2026-10-19T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-10-20T03:13Z|qr_pay|-31000|Kalimati Fresh Tarkari|
+2026-10-20T07:53Z|p2p|245000|From Ram Thapa|Returned, thanks
+2026-10-20T13:44Z|bill_pay|-135000|Chautari Fibernet|
+2026-10-20T14:13Z|qr_pay|-18000|Himal Momo Corner|
+2026-10-22T09:34Z|qr_pay|-3500|Ason Chiya Ghar|
+2026-10-23T02:01Z|qr_pay|-52500|Kalimati Fresh Tarkari|
+2026-10-24T09:06Z|qr_pay|-212500|Patan Kirana Pasal|
+2026-10-25T09:47Z|qr_pay|-5000|Ason Chiya Ghar|
+2026-10-26T10:06Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-10-26T13:13Z|qr_pay|-60000|Himal Momo Corner|
+2026-10-27T04:31Z|qr_pay|-49500|Kalimati Fresh Tarkari|
+2026-10-27T14:18Z|p2p|120000|From Sunita Tamang|Picnic share
+2026-10-28T04:05Z|qr_pay|-60500|Kalimati Fresh Tarkari|
+2026-10-30T11:49Z|qr_pay|-11000|Ason Chiya Ghar|
+2026-10-31T03:41Z|qr_pay|-63000|Kalimati Fresh Tarkari|
+2026-11-01T02:08Z|qr_pay|-4500|Ason Chiya Ghar|
+2026-11-01T05:06Z|qr_pay|-36000|Bhaktapur Juju Dhau|
+2026-11-01T08:38Z|p2p|58000|From Sunita Tamang|Movie tickets
+2026-11-02T04:57Z|load_bank|500000|Load from Nabil Bank|
+2026-11-02T05:45Z|qr_pay|-120500|Patan Kirana Pasal|
+2026-11-03T03:45Z|bill_pay|-38600|KUKL water (Kathmandu valley)|
+2026-11-03T11:29Z|qr_pay|-132500|Patan Kirana Pasal|
+2026-11-05T14:01Z|p2p|-192000|To Prakash Adhikari|Birthday gift
+2026-11-06T02:56Z|qr_pay|-35000|Kalimati Fresh Tarkari|
+2026-11-09T13:30Z|p2p|-75000|To Bikash Gurung|Futsal
+2026-11-10T08:29Z|load_bank|500000|Load from Nabil Bank|
+2026-11-10T09:23Z|qr_pay|-85500|Patan Kirana Pasal|
+2026-11-10T09:28Z|qr_pay|-14500|Ason Chiya Ghar|
+2026-11-11T12:20Z|qr_pay|-43550|Sahara Pharmacy|Bill INV-2083-1098
+2026-11-11T13:09Z|qr_pay|-30000|Bhaktapur Juju Dhau|
+2026-11-13T02:44Z|load_bank|800000|Load from Global IME Bank|
+2026-11-13T03:16Z|qr_pay|-67500|Kalimati Fresh Tarkari|
+2026-11-13T09:42Z|qr_pay|-6000|Ason Chiya Ghar|
+2026-11-14T04:35Z|load_bank|1000000|Load from Nabil Bank|
+2026-11-14T06:35Z|qr_pay|-63500|Jhamsikhel Bake House|
+2026-11-15T01:21Z|qr_pay|-10000|Ason Chiya Ghar|
+2026-11-18T05:34Z|qr_pay|-150500|Sahara Pharmacy|Bill INV-2083-1006
+2026-11-18T15:15Z|p2p|-150000|To Anjali Rai|Room rent share
+2026-11-19T06:38Z|bill_pay|-135000|Chautari Fibernet|
+2026-11-19T07:35Z|qr_pay|-36000|Himal Momo Corner|
+2026-11-20T02:51Z|qr_pay|-8000|Ason Chiya Ghar|
+2026-11-20T03:17Z|topup|-20000|Top-up 984 100 0001|
+2026-11-20T10:58Z|qr_pay|-32500|Jhamsikhel Bake House|
+2026-11-21T04:57Z|bill_pay|-121400|Nepal Electricity Authority|
+2026-11-22T13:30Z|p2p|250000|From Ram Thapa|Momo party share

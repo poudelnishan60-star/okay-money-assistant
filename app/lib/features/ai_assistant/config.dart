@@ -4,7 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// How the host app configures the assistant. The host overrides [assistantConfigProvider].
 @immutable
 class AssistantConfig {
-  const AssistantConfig({required this.baseUrl, this.userId, this.useVisitorSessions = false});
+  const AssistantConfig({
+    required this.baseUrl,
+    this.userId,
+    this.useVisitorSessions = false,
+    this.sessionDataset,
+    this.hostClock,
+  });
 
   /// Backend base URL, e.g. http://10.0.2.2:8000 on the Android emulator.
   final Uri baseUrl;
@@ -14,6 +20,15 @@ class AssistantConfig {
 
   /// Public website: give each browser its own demo copy (POST /sessions, remembered locally).
   final bool useVisitorSessions;
+
+  /// A host app with its own demo data asks for it here, e.g. 'replica' for the wallet
+  /// replica's demo account, so O-Kay talks about the money the host's screens show.
+  /// Null: O-Kay's own demo person.
+  final String? sessionDataset;
+
+  /// With [sessionDataset]: the moment the host made its demo data, sent with the session
+  /// request so the server makes the same data (the replica's year depends on it).
+  final DateTime Function()? hostClock;
 
   /// Compile-time settings, so builds can point elsewhere without code changes:
   ///   flutter run --dart-define=OKAY_API_BASE_URL=http://192.168.1.10:8000

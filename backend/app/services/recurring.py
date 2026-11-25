@@ -4,6 +4,10 @@ A series needs at least MIN_OCCURRENCES transactions whose gaps all sit within t
 tolerance of a known cadence (weekly / fortnightly / monthly) and whose amounts all sit
 within a tolerance of the median amount. Bills are usage-based (electricity changes with
 the season), so bill payments get a wider amount tolerance than fixed-price items.
+
+One missed payment (a gap of about two intervals) doesn't break a monthly series: people skip
+a month and pay two together, or pay one elsewhere. (Seen with the wallet replica's demo
+year: an NEA month missing, and water bills between Rs 334 and Rs 650.)
 """
 
 from __future__ import annotations
@@ -35,7 +39,8 @@ CADENCES: dict[Cadence, tuple[int, int]] = {
     Cadence.MONTHLY: (30, 5),
 }
 
-AMOUNT_TOLERANCE_BILLS = 0.40  # usage-based bills vary month to month
+AMOUNT_TOLERANCE_BILLS = 0.50  # usage-based bills vary month to month (water: 334 to 650)
+MISSED_PAYMENTS_ALLOWED = 1  # gaps of about two intervals, monthly series only
 AMOUNT_TOLERANCE_DEFAULT = 0.25
 
 # A series whose last payment is older than this many intervals is treated as stopped.
@@ -112,8 +117,13 @@ def _analyse(key: str, txns: list[Transaction], as_of: dt.date) -> RecurringSeri
     if cadence is None:
         return None
     _, gap_tol = CADENCES[cadence]
-    if any(abs(g - median_gap) > gap_tol for g in gaps):
+    off = [g for g in gaps if abs(g - median_gap) > gap_tol]
+    missed = [g for g in off if abs(g - 2 * median_gap) <= 2 * gap_tol]
+    if len(off) != len(missed) or len(missed) > (
+        MISSED_PAYMENTS_ALLOWED if cadence is Cadence.MONTHLY else 0
+    ):
         return None
+    gaps = [g for g in gaps if g not in missed]
 
     amounts = [t.amount_paisa for t in txns]
     usual = _median_int(amounts)

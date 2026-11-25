@@ -134,3 +134,29 @@ def test_deposit_source(source: MockTransactionSource) -> None:
     assert plan.installment_paisa == 2_000_00
     assert plan.total_deposited_paisa == 6_000_00
     assert plan.next_date is not None and plan.next_date > ANCHOR
+
+
+def test_one_missed_month_keeps_a_bill_series() -> None:
+    # Seen with the wallet replica's demo year: no NEA payment one month, then the next.
+    bill = TxnType.BILL_PAYMENT
+    days = ["2026-06-28", "2026-07-28", "2026-08-28", "2026-09-28", "2026-11-21"]
+    txns = [make_txn(d, 1200, "NEA", type=bill, service="electricity") for d in days]
+    (series,) = detect_recurring(txns, as_of=dt.date(2026, 11, 23))
+    assert series.cadence is Cadence.MONTHLY and series.occurrences == 5
+    # Two missed months is no longer a monthly bill.
+    days = ["2026-05-28", "2026-07-28", "2026-08-28", "2026-10-28", "2026-11-21"]
+    txns = [make_txn(d, 1200, "NEA", type=bill, service="electricity") for d in days]
+    assert detect_recurring(txns, as_of=dt.date(2026, 11, 23)) == []
+
+
+def test_water_bills_vary_widely() -> None:
+    # The replica's KUKL bills: Rs 334 to Rs 650 (within 50% of the usual amount).
+    bill = TxnType.BILL_PAYMENT
+    amounts = [650, 334, 626, 592, 625, 386]
+    days = ["2026-06-03", "2026-07-04", "2026-08-05", "2026-09-05", "2026-10-06", "2026-11-03"]
+    txns = [
+        make_txn(d, a, "KUKL", type=bill, service="khanepani")
+        for d, a in zip(days, amounts, strict=True)
+    ]
+    (series,) = detect_recurring(txns, as_of=dt.date(2026, 11, 23))
+    assert series.service == "khanepani"

@@ -55,11 +55,21 @@ class MemorySessionStore implements SessionStore {
 }
 
 class VisitorSession implements SessionProvider {
-  VisitorSession({required this.baseUrl, required this.httpClient, required this.store});
+  VisitorSession({
+    required this.baseUrl,
+    required this.httpClient,
+    required this.store,
+    this.dataset,
+    this.hostClock,
+  });
 
   final Uri baseUrl;
   final http.Client httpClient;
   final SessionStore store;
+
+  /// See [AssistantConfig.sessionDataset] and [AssistantConfig.hostClock].
+  final String? dataset;
+  final DateTime Function()? hostClock;
 
   String? _id;
   Future<String?>? _creating;
@@ -79,8 +89,22 @@ class VisitorSession implements SessionProvider {
 
   Future<String?> _create() async {
     final base = baseUrl.toString().replaceFirst(RegExp(r'/+$'), '');
+    // No body: O-Kay's own demo person. A host's dataset (and its clock) goes in the body.
+    final ask = dataset == null
+        ? null
+        : jsonEncode({
+            'dataset': dataset,
+            if (hostClock != null) 'now': hostClock!().toUtc().toIso8601String(),
+          });
     final response = await httpClient
-        .post(Uri.parse('$base/sessions'), headers: {'Accept': 'application/json'})
+        .post(
+          Uri.parse('$base/sessions'),
+          headers: {
+            'Accept': 'application/json',
+            if (ask != null) 'Content-Type': 'application/json',
+          },
+          body: ask,
+        )
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 201) return null; // requests then go out without a session
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, Object?>;
@@ -103,5 +127,7 @@ final sessionProviderProvider = Provider<SessionProvider?>((ref) {
     baseUrl: config.baseUrl,
     httpClient: client,
     store: ref.watch(sessionStoreProvider),
+    dataset: config.sessionDataset,
+    hostClock: config.hostClock,
   );
 });

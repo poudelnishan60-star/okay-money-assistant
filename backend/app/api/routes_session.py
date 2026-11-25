@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import datetime as dt
 import secrets
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -18,9 +19,37 @@ from app.api.deps import SessionDep, TodayDep
 from app.models import User
 from app.periods import now_npt
 from app.ratelimit import Limit
+from app.replica.seed import seed_replica_user
 from app.seed import DEMO_USER_ID, ensure_faq, seed_user
 
 router = APIRouter(tags=["session"])
+
+
+class SessionIn(BaseModel):
+    dataset: Literal["okay", "replica"] = Field(
+        "okay",
+        description="okay: O-Kay's demo person. replica: the wallet replica's demo account "
+        "(Sita Shrestha), for O-Kay inside the replica app.",
+    )
+    now: dt.datetime | None = Field(
+        None,
+        description="replica: the app's clock, so both make the same year. Used only if "
+        "within a day of the server's clock.",
+    )
+
+
+# The replica's year depends on the exact time it is made for; the app's clock is trusted
+# only this close to the server's (it can't be used to make other years).
+MAX_CLOCK_SKEW = dt.timedelta(days=1)
+
+
+def _replica_now(asked: dt.datetime | None) -> dt.datetime:
+    server = dt.datetime.now(dt.UTC)
+    if asked is None:
+        return server
+    if asked.tzinfo is None:
+        asked = asked.replace(tzinfo=dt.UTC)
+    return asked if abs(asked - server) <= MAX_CLOCK_SKEW else server
 
 
 class SessionOut(BaseModel):
@@ -50,9 +79,15 @@ def evict_oldest_sessions(session: Session, keep: int) -> int:
 
 
 @router.post("/sessions", response_model=SessionOut, status_code=201)
-def create_session(request: Request, session: SessionDep, today: TodayDep) -> SessionOut:
+def create_session(
+    request: Request,
+    session: SessionDep,
+    today: TodayDep,
+    body: SessionIn | None = Body(None),  # noqa: B008  (FastAPI's way to declare a body)
+) -> SessionOut:
     """Start a visitor session with a fresh copy of the demo data. Send the returned
-    session_id as the X-User-Id header on every other request."""
+    session_id as the X-User-Id header on every other request. With no body, O-Kay's demo
+    person; with {"dataset": "replica"}, the wallet replica's demo account."""
     settings = request.app.state.settings
     ip = request.client.host if request.client else "unknown"
     verdict = request.app.state.rate_limiter.check(
@@ -70,7 +105,10 @@ def create_session(request: Request, session: SessionDep, today: TodayDep) -> Se
 
     user_id = "v_" + secrets.token_urlsafe(18)
     ensure_faq(session)
-    seed_user(session, user_id, anchor=today, commit=False)
+    if body is not None and body.dataset == "replica":
+        seed_replica_user(session, user_id, _replica_now(body.now), commit=False)
+    else:
+        seed_user(session, user_id, anchor=today, commit=False)
     session.commit()
     user = session.get(User, user_id)
     assert user is not None  # noqa: S101

@@ -86,7 +86,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET / PUT | `/me/settings` | assistant settings: language, calendar, alerts (budget, bills, unusual, weekly summary, `overnight_cap`, `limit_near`), weekly-summary day, low-balance threshold, `read_transactions` ("Let O-Kay read my transactions") |
 | GET | `/notifications` | alerts inbox, newest first, with the unread count (checks for new alerts first) |
 | POST | `/notifications/read` | `{"ids": [...]}` marks those read; `{}` marks all read |
-| POST | `/sessions` | public site: a private copy of the demo data for this visitor |
+| POST | `/sessions` | public site: a private copy of the demo data for this visitor; `{"dataset": "replica", "now": ...}` gives the wallet replica's demo account instead (see "Inside the wallet replica") |
 | POST | `/chat` | ask O-Kay; streams server-sent events (see below) |
 | GET / DELETE | `/chat/history` | the conversation / clear it |
 | PUT | `/chat/messages/{id}/feedback` | thumbs `up` / `down` |
@@ -580,6 +580,32 @@ cd backend && python scripts/export_bs_calendar.py
 `nepali_utils` 3.0.8 was not used: it converts AD to BS one day late (9 Nov 2026 gave
 Kartik 24; the published calendar says Kartik 23) and its 2084 table differs from the
 published calendar (Jestha 2084 has 31 days, not 32).
+
+## Inside the wallet replica
+
+O-Kay also runs inside the wallet replica ("Wallet (demo)", `Desktop/replica`), the way it is
+meant to drop into the Khalti app:
+
+- **App:** the replica copies `lib/features/ai_assistant/` and the mascot with its
+  `tool/sync_okay.py` (edit O-Kay here, then run it there). Its own wiring is in its
+  `lib/features/okay/`: O-Kay's routes (in O-Kay's look, via `aiAssistantRoutes(theme:)`), a
+  `HostAppBridge` that opens the replica's own screens (send money with the person and amount
+  filled in, the electricity, water and internet bills, top-up, load money, to bank, request
+  money, settings; Autopay, Smart Deposit, support and TV bills say they aren't in the wallet
+  yet), the hide-balance switch kept in step both ways, and on Home the floating "Ask me"
+  button and a "Financial services" row (Money Insights, Budgets, Savings goals, Ask O-Kay).
+- **Data:** O-Kay talks about the replica's demo account, Sita Shrestha, to the paisa. The
+  replica makes her year of transactions on every start; the app sends that moment with
+  `POST /sessions {"dataset": "replica", "now": ...}` (`AssistantConfig.sessionDataset` and
+  `hostClock`), and the backend makes the same year with the replica's own generator, copied
+  into `app/replica/` by `scripts/sync_replica_demo.py` (`tests/test_replica_data.py` checks
+  it against the replica's pinned year, line for line). The app's clock is used only within a
+  day of the server's. Checked end to end: the replica's Home and O-Kay both said Rs 17,047.35.
+- **Branding:** O-Kay keeps its name, mascot and Khalti references inside the replica (the
+  user's choice), although the replica itself is rebranded and avoids the name Khalti.
+
+The recurring-bill detector learned from that year: one missed month no longer breaks a
+monthly bill, and bills may vary by 50% (water: Rs 334 to Rs 650).
 
 ## Deployment
 

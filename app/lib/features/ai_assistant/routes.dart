@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -36,7 +36,12 @@ abstract final class OkayRoutes {
 
 /// Every assistant route, behind the feature flag: with the flag off they redirect to '/'.
 /// Pass the host's root navigator key so assistant screens cover the host's bottom bar.
-List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey}) => [
+/// A host with its own look passes [theme] (usually [buildOkayTheme]) to show the assistant's
+/// pages in theirs. (Not a ShellRoute: its separate navigator would hide the back arrow.)
+List<RouteBase> aiAssistantRoutes({
+  GlobalKey<NavigatorState>? parentNavigatorKey,
+  ThemeData? theme,
+}) => [
   GoRoute(
     path: OkayRoutes.root,
     parentNavigatorKey: parentNavigatorKey,
@@ -47,11 +52,18 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
       return null;
     },
     routes: [
-      GoRoute(path: 'chat', builder: (context, state) => const _Root(ChatScreen())),
-      GoRoute(path: 'insights', builder: (context, state) => const _Root(InsightsScreen())),
+      GoRoute(
+        path: 'chat',
+        builder: (context, state) => _Root(const ChatScreen(), theme: theme),
+      ),
+      GoRoute(
+        path: 'insights',
+        builder: (context, state) => _Root(const InsightsScreen(), theme: theme),
+      ),
       GoRoute(
         path: 'transactions',
         builder: (context, state) => _Root(
+          theme: theme,
           TransactionsScreen(
             // Opened from a chat link or a dashboard tap: start with those filters.
             initial: state.uri.queryParameters.isEmpty
@@ -60,11 +72,26 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
           ),
         ),
       ),
-      GoRoute(path: 'budgets', builder: (context, state) => const _Root(BudgetsScreen())),
-      GoRoute(path: 'goals', builder: (context, state) => const _Root(GoalsScreen())),
-      GoRoute(path: 'bills', builder: (context, state) => const _Root(BillsScreen())),
-      GoRoute(path: 'settings', builder: (context, state) => const _Root(SettingsScreen())),
-      GoRoute(path: 'alerts', builder: (context, state) => const _Root(AlertsScreen())),
+      GoRoute(
+        path: 'budgets',
+        builder: (context, state) => _Root(const BudgetsScreen(), theme: theme),
+      ),
+      GoRoute(
+        path: 'goals',
+        builder: (context, state) => _Root(const GoalsScreen(), theme: theme),
+      ),
+      GoRoute(
+        path: 'bills',
+        builder: (context, state) => _Root(const BillsScreen(), theme: theme),
+      ),
+      GoRoute(
+        path: 'settings',
+        builder: (context, state) => _Root(const SettingsScreen(), theme: theme),
+      ),
+      GoRoute(
+        path: 'alerts',
+        builder: (context, state) => _Root(const AlertsScreen(), theme: theme),
+      ),
       GoRoute(path: 'ui-kit', builder: (context, state) => const UiKitScreen()),
     ],
   ),
@@ -73,12 +100,14 @@ List<RouteBase> aiAssistantRoutes({GlobalKey<NavigatorState>? parentNavigatorKey
 /// Wraps every assistant screen: keeps the user's saved settings (language, calendar) loaded,
 /// so all screens and the chat use them from the first frame they are available.
 class _Root extends ConsumerWidget {
-  const _Root(this.child);
+  const _Root(this.child, {this.theme});
   final Widget child;
+  final ThemeData? theme;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(settingsProvider);
-    return child;
+    final look = theme;
+    return look == null ? child : Theme(data: look, child: child);
   }
 }

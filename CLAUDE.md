@@ -248,6 +248,13 @@ Answer formats (decided 24 Nov 2026), each for what it suits best, in place of t
 - a receipt's items: "- " lines.
 App steps and menu names, like amounts, must come from a tool result (seen live: made-up steps for cash without a card). The rule is kept short: the request-size budget (LLM_INPUT_TOKEN_BUDGET) must still leave room for the newest chat messages next to an attached statement.
 
+### O-Kay inside the wallet replica (decided 24 Nov 2026)
+O-Kay is integrated into the wallet replica (`Desktop/replica`, "Wallet (demo)", a rebuild of Khalti's core wallet). The user's choices:
+- Data: inside the replica, O-Kay talks about the replica's demo account (Sita Shrestha), made with the replica's own generator from the moment the app started, so its figures match the wallet's screens.
+- Branding: O-Kay stays as it is (name, mascot, Khalti references), although the replica avoids the name Khalti.
+- The replica was put under git (local) before any change.
+O-Kay's feature folder stays the one source: the replica copies it with its `tool/sync_okay.py`; its own wiring is in its `lib/features/okay/`. Publishing the replica with O-Kay needs the user's go (and `CORS_ORIGINS` on Render to include the replica's site).
+
 ### Later, not now
 - Festival planner (Dashain/Tihar budget against last year): needs 12+ months of history; the seed has 90 days.
 - Before merging: sending masked data and files to Groq (servers outside Nepal) needs approval from Khalti's compliance team, since NRB requires payment service providers to keep data in data centres registered in Nepal. The other option is a model hosted in such a data centre behind the same LLMClient interface.

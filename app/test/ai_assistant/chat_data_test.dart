@@ -186,6 +186,23 @@ void main() {
       expect(store.value, 'v_abc');
     });
 
+    test("a host's own dataset and clock go with the session request", () async {
+      final bodies = <String>[];
+      final client = MockClient((r) async {
+        bodies.add(r.body);
+        return http.Response('{"session_id": "v_sita"}', 201);
+      });
+      final session = VisitorSession(
+        baseUrl: Uri.parse('http://x'),
+        httpClient: client,
+        store: MemorySessionStore(),
+        dataset: 'replica',
+        hostClock: () => DateTime.utc(2026, 11, 23, 6, 15),
+      );
+      expect(await session.currentId(), 'v_sita');
+      expect(jsonDecode(bodies.single), {'dataset': 'replica', 'now': '2026-11-23T06:15:00.000Z'});
+    });
+
     test('an expired session is renewed once and the request retried', () async {
       var sessions = 0;
       final client = MockClient((r) async {
