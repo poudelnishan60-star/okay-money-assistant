@@ -156,8 +156,14 @@ class FakeChatRepository implements ChatRepository {
     if (holdOpen != null) await holdOpen!.future;
   }
 
+  /// Thrown by the next history() calls, one each (e.g. a timeout while the server sleeps).
+  final historyErrors = <Object>[];
+
   @override
-  Future<List<ChatMessage>> history() async => historyMessages;
+  Future<List<ChatMessage>> history() async {
+    if (historyErrors.isNotEmpty) throw historyErrors.removeAt(0);
+    return historyMessages;
+  }
 
   @override
   Future<void> clearHistory() async => cleared = true;

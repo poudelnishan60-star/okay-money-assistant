@@ -52,6 +52,9 @@ jobs:
         run: |
           flutter pub get
           flutter build web --release --base-href "$BASE" --dart-define=OKAY_API_BASE_URL="$API"
+          # The page wakes the server as soon as it opens (web/index.html): give it the address.
+          sed -i "s#__OKAY_API_BASE_URL__#$API#" build/web/index.html
+          grep -q "content=\"$API\"" build/web/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

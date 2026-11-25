@@ -81,12 +81,26 @@ class ChatController extends Notifier<ChatState> {
   Future<void> loadHistory() async {
     if (state.historyLoaded) return;
     try {
-      final history = await _repo.history();
-      if (state.messages.isEmpty) state = state.copyWith(messages: history);
-    } on ApiException {
-      // No history is fine: the chat simply starts empty.
+      await _loadHistoryOnce();
+    } on ApiException catch (e) {
+      // No answer in time: the demo's free server was probably asleep. Wait for it to wake
+      // (the screen says "Waking O-Kay up…"), then try once more, so the first question
+      // doesn't fail too.
+      if (e.isNetwork) {
+        await ref.read(apiClientProvider).wake();
+        try {
+          await _loadHistoryOnce();
+        } on ApiException {
+          // No history is fine: the chat simply starts empty.
+        }
+      }
     }
     state = state.copyWith(historyLoaded: true);
+  }
+
+  Future<void> _loadHistoryOnce() async {
+    final history = await _repo.history();
+    if (state.messages.isEmpty) state = state.copyWith(messages: history);
   }
 
   void _updateLast(ChatMessage Function(ChatMessage) change) {

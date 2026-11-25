@@ -29,6 +29,20 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <!-- O-Kay's server; the build fills it in (.github/workflows/pages.yml). -->
+  <meta name="okay-api" content="__OKAY_API_BASE_URL__">
+  <script>
+    // Wake O-Kay's server the moment the page opens. The free server sleeps when nobody
+    // uses it and takes up to a minute to wake; this starts that before Flutter has even
+    // loaded. One empty request, nothing about the visitor.
+    (function () {
+      var api = document.querySelector('meta[name="okay-api"]').content;
+      if (api.indexOf('http') !== 0) return; // a local build: no address filled in
+      fetch(api.replace(/\/+$/, '') + '/health', { mode: 'no-cors', cache: 'no-store' })
+        .catch(function () {});
+    })();
+  </script>
+
   <title>O-Kay · unofficial money-assistant prototype</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#121212">

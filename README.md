@@ -636,7 +636,14 @@ Render access to the GitHub account, which is why backend changes are deployed b
 
 What the free plan means:
 - The server sleeps after 15 minutes without requests; the next visitor waits up to about a
-  minute while it wakes. The website itself loads at once.
+  minute while it wakes. The website itself loads at once. To shorten the wait, the page
+  wakes the server the moment it opens, before Flutter has loaded (an empty `GET /health`
+  in `app/web/index.html`; the build fills in the address), and the wallet replica's page
+  does the same, so the server is awake by the time someone opens O-Kay there. If the
+  chat's first request still times out, the app waits for the server to answer (up to 90
+  seconds, "Waking O-Kay up…") and tries again, so the first question doesn't fail too.
+  Keeping it awake all the time would need a paid Render plan or a scheduled ping (which
+  would use up nearly all of Render's 750 free hours a month).
 - Nothing on disk survives a restart or a deploy. That is fine for this demo: the mock data is
   seeded again on start, and a visitor whose copy is gone gets a fresh one automatically. Their
   budgets, goals and chat history from before are lost.

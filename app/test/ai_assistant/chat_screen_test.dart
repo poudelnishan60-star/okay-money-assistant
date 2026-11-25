@@ -259,6 +259,25 @@ void main() {
     expect(find.text('Start Chatting with O-Kay'), findsOneWidget);
   });
 
+  testWidgets('a sleeping server: the chat waits for it to wake, then loads', (t) async {
+    final chat = FakeChatRepository()
+      ..historyErrors.add(const ApiException.network()) // the first try timed out
+      ..historyMessages = [
+        const ChatMessage(role: MessageRole.user, text: 'old question', id: 1),
+        const ChatMessage(role: MessageRole.assistant, text: 'old answer', id: 2),
+      ];
+    final demo = demoApp(chat: chat);
+    await openChat(t, demo.app);
+    expect(demo.api.requests, contains('GET /health'));
+    expect(find.text('old answer'), findsOneWidget);
+  });
+
+  testWidgets('an awake server: no wake-up call', (t) async {
+    final demo = demoApp();
+    await openChat(t, demo.app);
+    expect(demo.api.requests, isNot(contains('GET /health')));
+  });
+
   group('design (the Khalti chat screen, with the UI/UX skill\'s checks)', () {
     testWidgets('the mascot images are bundled', (t) async {
       for (final asset in [OkayAssets.mascot, OkayAssets.mascotAvatar]) {

@@ -122,6 +122,17 @@ class ApiClient {
     }
   }
 
+  /// Waits until the server answers, up to [patience]. A free demo server that was asleep
+  /// takes up to a minute to wake: longer than [timeout]. Never throws; the requests after
+  /// it report any real problem.
+  Future<void> wake({Duration patience = const Duration(seconds: 90)}) async {
+    try {
+      await _http.get(uri('/health')).timeout(patience);
+    } on Object {
+      // Best effort.
+    }
+  }
+
   void close() => _http.close();
 }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,18 @@ ApiClient clientWith(MockClientHandler handler, {String? userId}) => ApiClient(
 );
 
 void main() {
+  test('wake waits for /health and never throws', () async {
+    final asked = <String>[];
+    await clientWith((r) async {
+      asked.add(r.url.path);
+      return http.Response('{"status": "ok"}', 200);
+    }).wake();
+    expect(asked, ['/health']);
+    await clientWith((_) async => throw http.ClientException('offline')).wake(); // no throw
+    await clientWith((_) => Completer<http.Response>().future) // never answers
+        .wake(patience: const Duration(milliseconds: 10));
+  });
+
   test('builds URLs: drops nulls, formats dates, keeps the base path clean', () {
     final api = clientWith((_) async => http.Response('{}', 200));
     final url = api.uri('/transactions', {
