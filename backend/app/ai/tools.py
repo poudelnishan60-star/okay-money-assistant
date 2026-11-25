@@ -58,6 +58,7 @@ from app.domain import (
 from app.models import Budget, FaqArticle, Goal
 from app.money import format_npr, to_paisa
 from app.periods import (
+    NPT,
     CalendarSystem,
     Period,
     custom_period,
@@ -102,6 +103,18 @@ from app.services.wallet_limits import TRACKED, LimitUse, check_amount, kyc_stat
 from app.sources.base import BillSource, TransactionFilter, TransactionSource
 
 
+@dataclass(frozen=True)
+class InboxMessage:
+    """An unread message in the host app's own Inbox (e.g. "Rs 2,500 from Ram Thapa"), sent
+    by the app with the chat message. Written by other people: untrusted data."""
+
+    title: str
+    body: str
+    at: dt.datetime
+    kind: str = ""
+    amount_paisa: int | None = None
+
+
 @dataclass
 class ToolContext:
     session: Session
@@ -117,6 +130,8 @@ class ToolContext:
     now: dt.datetime | None = None
     # Settings, "Let O-Kay read my transactions": off means the money tools return a note.
     can_read_money: bool = True
+    # The host app's unread Inbox messages; None: the app has no inbox O-Kay can read.
+    inbox: list[InboxMessage] | None = None
 
     def clock(self) -> dt.datetime:
         return self.now or dt.datetime.combine(self.today, dt.time(12))
@@ -1049,6 +1064,48 @@ def get_balance_forecast(ctx: ToolContext, args: ForecastArgs) -> ToolResult:
 # --- help articles ----------------------------------------------------------------------------
 
 
+class InboxArgs(BaseModel):
+    pass
+
+
+INBOX_MAX = 10
+
+
+def _inbox_when(at: dt.datetime) -> str:
+    t = at.astimezone(NPT) if at.tzinfo else at
+    return f"{t.day} {t:%b %Y}, {t.hour % 12 or 12}:{t:%M} {'AM' if t.hour < 12 else 'PM'}"
+
+
+def get_inbox_messages(ctx: ToolContext, args: InboxArgs) -> ToolResult:
+    """The app's unread Inbox messages, newest first. Reading never marks them read (the
+    user's decision, 25 Nov 2026): the badges stay until the user opens the Inbox."""
+    if ctx.inbox is None:
+        return ToolResult({"note": "This app has no inbox O-Kay can read."}, [], {"help"})
+    if not ctx.can_read_money:
+        return ToolResult(dict(NO_MONEY_ACCESS), [], {"help"})
+    newest = sorted(ctx.inbox, key=lambda m: m.at, reverse=True)[:INBOX_MAX]
+    messages = []
+    for m in newest:
+        item: dict[str, Any] = {
+            "title": untrusted(m.title, 80),
+            "text": untrusted(m.body, 200),
+            "when": _inbox_when(m.at),
+        }
+        if m.kind:
+            item["kind"] = untrusted(m.kind, 30)
+        if m.amount_paisa is not None:
+            item["amount"] = format_npr(m.amount_paisa)
+        messages.append(item)
+    data: dict[str, Any] = {
+        "unread_count": len(ctx.inbox),
+        "messages": messages,
+        "note": "Read only: they stay unread in the app's Inbox.",
+    }
+    if not messages:
+        data["note"] = "No unread messages in the Inbox."
+    return ToolResult(data, [], {"help"})
+
+
 class HelpArgs(BaseModel):
     query: str = Field(min_length=1, max_length=200)
 
@@ -1627,6 +1684,14 @@ TOOLS: dict[str, Tool] = {
             ),
         ),
         Tool(
+            "get_inbox_messages",
+            "The user's unread messages and notifications in this app's Inbox (money "
+            "received, requests, KYC). Read only.",
+            InboxArgs,
+            get_inbox_messages,
+            _obj({}),
+        ),
+        Tool(
             "get_wallet_rules",
             "Khalti's rules: transaction limits with the user's use today/this month and "
             "what's left, overnight balance cap, KYC, security, refund and complaint times, "
@@ -1661,13 +1726,15 @@ TOOLS: dict[str, Tool] = {
 }
 
 
-def openai_tool_specs() -> list[dict[str, Any]]:
+def openai_tool_specs(*, with_inbox: bool = False) -> list[dict[str, Any]]:
+    """The inbox tool only when the app sent an inbox (inside a host app like the wallet)."""
     return [
         {
             "type": "function",
             "function": {"name": t.name, "description": t.description, "parameters": t.parameters},
         }
         for t in TOOLS.values()
+        if with_inbox or t.name != "get_inbox_messages"
     ]
 
 

@@ -25,6 +25,7 @@ from sqlalchemy import delete, select
 from app.ai.attachments import AttachmentError, decode
 from app.ai.cards import Card, Suggestion
 from app.ai.chat import ChatService
+from app.ai.tools import InboxMessage
 from app.api.deps import SessionDep, TodayDep, UserDep
 from app.models import ChatMessage
 from app.periods import NPT
@@ -44,6 +45,14 @@ class AttachmentOut(BaseModel):
     kind: Literal["photo", "pdf", "spreadsheet", "file"]
 
 
+class InboxMessageIn(BaseModel):
+    title: str = Field(max_length=200)
+    body: str = Field("", max_length=500)
+    at: dt.datetime
+    kind: str = Field("", max_length=40)
+    amount_paisa: int | None = Field(None, ge=0)
+
+
 class ChatIn(BaseModel):
     message: str = Field("", max_length=1000, description="may be empty when files are added")
     language: Literal["auto", "en", "ne", "rom"] = Field(
@@ -53,6 +62,14 @@ class ChatIn(BaseModel):
         default_factory=list,
         description="Photos (JPEG, PNG, WebP, GIF), PDF, Excel (.xlsx) or CSV. They are read "
         "to answer (photos by the AI provider's image model) and never stored.",
+    )
+
+    inbox: list[InboxMessageIn] | None = Field(
+        None,
+        max_length=50,
+        description="A host app's unread Inbox messages (e.g. the wallet replica's), for "
+        "O-Kay's get_inbox_messages tool. Read only, never stored. Leave out when the app has "
+        "no inbox.",
     )
 
     @model_validator(mode="after")
@@ -156,6 +173,9 @@ def chat(body: ChatIn, request: Request, user_id: UserDep, today: TodayDep) -> S
                 max_tool_rounds=settings.chat_max_tool_rounds,
                 files=files,
                 token_budget=settings.llm_input_token_budget,
+                inbox=None
+                if body.inbox is None
+                else [InboxMessage(**m.model_dump()) for m in body.inbox],
             )
             for ev in service.respond(body.message, body.language, uploads):
                 yield _sse(ev.event, ev.data)

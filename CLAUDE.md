@@ -255,6 +255,8 @@ O-Kay is integrated into the wallet replica (`Desktop/replica`, "Wallet (demo)",
 - The replica was put under git (local) before any change.
 O-Kay's feature folder stays the one source: the replica copies it with its `tool/sync_okay.py`; its own wiring is in its `lib/features/okay/`. Publishing the replica with O-Kay needs the user's go (and `CORS_ORIGINS` on Render to include the replica's site).
 
+Inbox (decided 25 Nov 2026): inside the replica, O-Kay reads the wallet's own unread Inbox messages when asked (only the wallet's Inbox, not O-Kay's alerts). Reading never marks them read. Khalti support's numbers end every answer where support comes up (decided 25 Nov 2026), added in code from app/rules.py.
+
 ### Later, not now
 - Festival planner (Dashain/Tihar budget against last year): needs 12+ months of history; the seed has 90 days.
 - Before merging: sending masked data and files to Groq (servers outside Nepal) needs approval from Khalti's compliance team, since NRB requires payment service providers to keep data in data centres registered in Nepal. The other option is a model hosted in such a data centre behind the same LLMClient interface.

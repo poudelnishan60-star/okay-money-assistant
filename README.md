@@ -87,7 +87,7 @@ are inclusive. The user comes from an `X-User-Id` header that defaults to `demo_
 | GET | `/notifications` | alerts inbox, newest first, with the unread count (checks for new alerts first) |
 | POST | `/notifications/read` | `{"ids": [...]}` marks those read; `{}` marks all read |
 | POST | `/sessions` | public site: a private copy of the demo data for this visitor; `{"dataset": "replica", "now": ...}` gives the wallet replica's demo account instead (see "Inside the wallet replica") |
-| POST | `/chat` | ask O-Kay; streams server-sent events (see below) |
+| POST | `/chat` | ask O-Kay; streams server-sent events (see below). A host app may add `inbox`, its unread Inbox messages, for `get_inbox_messages` |
 | GET / DELETE | `/chat/history` | the conversation / clear it |
 | PUT | `/chat/messages/{id}/feedback` | thumbs `up` / `down` |
 
@@ -601,6 +601,12 @@ meant to drop into the Khalti app:
   into `app/replica/` by `scripts/sync_replica_demo.py` (`tests/test_replica_data.py` checks
   it against the replica's pinned year, line for line). The app's clock is used only within a
   day of the server's. Checked end to end: the replica's Home and O-Kay both said Rs 17,047.35.
+- **Inbox:** O-Kay reads the wallet's unread Inbox messages when asked ("any unread
+  messages?", "mero inbox ma ke aayo?"). The app sends them with each chat message
+  (`AssistantConfig.hostInbox`, the `inbox` field of `POST /chat`), and the
+  `get_inbox_messages` tool gives them to the model as untrusted data, masked, newest first.
+  The tool is offered only when an inbox was sent, so O-Kay's own website doesn't have it.
+  Read only: messages stay unread until the user opens the Inbox. Nothing is stored.
 - **Branding:** O-Kay keeps its name, mascot and Khalti references inside the replica (the
   user's choice), although the replica itself is rebranded and avoids the name Khalti.
 

@@ -124,6 +124,38 @@ void main() {
       expect(done.suggestions.single.feature, 'smart_deposit');
     });
 
+    test("a host's unread Inbox goes with the message", () async {
+      final client = MockClient.streaming((request, body) async {
+        final sent = jsonDecode(await body.bytesToString()) as Map<String, Object?>;
+        expect(sent['inbox'], [
+          {
+            'title': 'Money received',
+            'body': 'Rs 2,500.00 from Ram Thapa',
+            'at': '2026-11-24T13:30:00.000Z',
+            'kind': 'moneyReceived',
+            'amount_paisa': 250000,
+          },
+        ]);
+        return http.StreamedResponse(
+          chunks(['event: done\ndata: {"cards": [], "suggestions": []}\n\n']),
+          200,
+        );
+      });
+      final repo = ChatRepository(
+        ApiClient(baseUrl: Uri.parse('http://x'), httpClient: client),
+        inbox: () async => [
+          HostInboxMessage(
+            title: 'Money received',
+            body: 'Rs 2,500.00 from Ram Thapa',
+            at: DateTime.utc(2026, 11, 24, 13, 30),
+            kind: 'moneyReceived',
+            amountPaisa: 250000,
+          ),
+        ],
+      );
+      await repo.send('any unread messages?').toList();
+    });
+
     test('a 429 before streaming becomes an ApiException with the server message', () async {
       final client = MockClient(
         (_) async => http.Response('{"detail": "You\'re sending messages quickly."}', 429),

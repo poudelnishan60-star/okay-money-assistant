@@ -123,6 +123,8 @@ class FakeChatRepository implements ChatRepository {
   FakeChatRepository([List<List<ChatStreamEvent>>? scripts]) : scripts = [...?scripts];
 
   final List<List<ChatStreamEvent>> scripts;
+  @override
+  Future<List<HostInboxMessage>> Function()? get inbox => null;
   final sent = <(String, String)>[];
   final confirmed = <ApiRequestSpec>[];
   final feedback = <(int, String?)>[];

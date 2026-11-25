@@ -10,6 +10,7 @@ class AssistantConfig {
     this.useVisitorSessions = false,
     this.sessionDataset,
     this.hostClock,
+    this.hostInbox,
   });
 
   /// Backend base URL, e.g. http://10.0.2.2:8000 on the Android emulator.
@@ -30,6 +31,11 @@ class AssistantConfig {
   /// request so the server makes the same data (the replica's year depends on it).
   final DateTime Function()? hostClock;
 
+  /// A host app with its own Inbox gives O-Kay its unread messages here; they go with each
+  /// chat message so O-Kay can read them out when asked. Read only: O-Kay never marks
+  /// them read. Null: the app has no inbox (O-Kay's own website).
+  final Future<List<HostInboxMessage>> Function()? hostInbox;
+
   /// Compile-time settings, so builds can point elsewhere without code changes:
   ///   flutter run --dart-define=OKAY_API_BASE_URL=http://192.168.1.10:8000
   ///   flutter run --dart-define=OKAY_VISITOR_SESSIONS=false   (everyone shares the demo user)
@@ -41,6 +47,36 @@ class AssistantConfig {
       useVisitorSessions: sessions,
     );
   }
+}
+
+/// An unread message in the host app's own Inbox, as O-Kay is given it.
+@immutable
+class HostInboxMessage {
+  const HostInboxMessage({
+    required this.title,
+    required this.body,
+    required this.at,
+    this.kind = '',
+    this.amountPaisa,
+  });
+
+  final String title;
+  final String body;
+  final DateTime at;
+
+  /// The host's own name for the kind of message, e.g. 'moneyReceived'.
+  final String kind;
+
+  /// The amount the message is about, when it has one.
+  final int? amountPaisa;
+
+  Map<String, Object?> toJson() => {
+    'title': title,
+    'body': body,
+    'at': at.toUtc().toIso8601String(),
+    if (kind.isNotEmpty) 'kind': kind,
+    if (amountPaisa != null) 'amount_paisa': amountPaisa,
+  };
 }
 
 /// The Android emulator reaches the host machine at 10.0.2.2; web, desktop and the iOS

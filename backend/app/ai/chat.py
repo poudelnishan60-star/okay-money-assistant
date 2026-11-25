@@ -42,7 +42,14 @@ from app.ai.prompt import system_prompt
 from app.ai.safety import Lang, detect_language, mask_pii, message, redact_secrets
 from app.ai.sheets import report_parts
 from app.ai.suggestions import suggestions_for
-from app.ai.tools import ToolContext, ToolError, ToolResult, openai_tool_specs, run_tool
+from app.ai.tools import (
+    InboxMessage,
+    ToolContext,
+    ToolError,
+    ToolResult,
+    openai_tool_specs,
+    run_tool,
+)
 from app.domain import KycStatus
 from app.models import ChatMessage, ToolCallLog
 from app.periods import now_npt
@@ -452,6 +459,7 @@ class ChatService:
         max_tool_rounds: int = 5,
         files: FileMemory | None = None,
         token_budget: int = 5000,
+        inbox: list[InboxMessage] | None = None,
     ) -> None:
         self.session = session
         self.llm = llm
@@ -466,6 +474,7 @@ class ChatService:
         self.ctx = ToolContext(
             session, source, bills, user_id, today, now=now if now.date() == today else None
         )
+        self.ctx.inbox = inbox
         self._reply_note: str | None = None  # language reminder after tool results
         self._max_tokens: int | None = None  # longer answers about files
         # Sentences taken out of the last answer because they still failed the grounding
@@ -703,7 +712,7 @@ class ChatService:
                 "\n\n(System note: the user's message contained an MPIN/OTP/password; "
                 "it was removed and they were already warned. Don't mention it again.)"
             )
-        tools = openai_tool_specs()
+        tools = openai_tool_specs(with_inbox=self.ctx.inbox is not None)
         known = " ".join([clean, *(str(m["content"] or "") for m in history)])
 
         attempt: list[str] = []

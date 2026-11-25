@@ -214,7 +214,8 @@ def test_bad_calls_come_back_as_tool_errors(ctx: ToolContext) -> None:
         run_tool(ctx, "get_spending_summary", {"period": "forever"})
     with pytest.raises(ToolError, match="needs month"):
         run_tool(ctx, "get_spending_summary", {"period": "month"})
-    assert set(TOOLS) == {s["function"]["name"] for s in openai_tool_specs()}
+    assert set(TOOLS) == {s["function"]["name"] for s in openai_tool_specs(with_inbox=True)}
+    assert "get_inbox_messages" not in {s["function"]["name"] for s in openai_tool_specs()}
 
 
 def test_budget_category_must_be_explicit(ctx: ToolContext) -> None:

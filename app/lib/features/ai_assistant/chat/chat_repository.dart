@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config.dart';
 import '../core/api_client.dart';
 import '../core/sse.dart';
 import 'attachments.dart';
@@ -9,8 +10,11 @@ import 'chat_models.dart';
 
 /// Talks to /chat. The only place that knows the wire format of the chat stream.
 class ChatRepository {
-  const ChatRepository(this._api);
+  const ChatRepository(this._api, {this.inbox});
   final ApiClient _api;
+
+  /// The host app's unread Inbox messages (see [AssistantConfig.hostInbox]).
+  final Future<List<HostInboxMessage>> Function()? inbox;
 
   /// Ask O-Kay. Emits tool-status and text events as they arrive, then one DoneEvent.
   /// [language]: 'auto' | 'en' | 'ne' | 'rom'. [attachments] go as base64 in the body.
@@ -19,6 +23,7 @@ class ChatRepository {
     String language = 'auto',
     List<ChatAttachment> attachments = const [],
   }) async* {
+    final unread = inbox == null ? null : await inbox!();
     final response = await _api.openStream(
       '/chat',
       body: {
@@ -29,6 +34,7 @@ class ChatRepository {
             for (final a in attachments)
               if (a.bytes != null) {'name': a.name, 'data_base64': base64Encode(a.bytes!)},
           ],
+        if (unread != null) 'inbox': [for (final m in unread.take(50)) m.toJson()],
       },
     );
     await for (final ev in parseSse(response.stream)) {
@@ -69,5 +75,8 @@ class ChatRepository {
 }
 
 final chatRepositoryProvider = Provider<ChatRepository>(
-  (ref) => ChatRepository(ref.watch(apiClientProvider)),
+  (ref) => ChatRepository(
+    ref.watch(apiClientProvider),
+    inbox: ref.watch(assistantConfigProvider).hostInbox,
+  ),
 );
