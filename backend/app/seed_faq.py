@@ -124,12 +124,17 @@ COMPANY_ARTICLES: list[tuple[str, str, str]] = [
     ),
     (
         "Who founded Khalti?",
-        "Amit Agrawal, Arbin Sah, Dhruva Adhikari and Manish Modi. Three of them had started "
-        "Janaki Technology in 2007 and Sparrow SMS in 2010. The app was finished in 15 days, in "
-        "two rented rooms in Pulchowk, for the CAN fair in January 2017. Before the merger "
-        "Sparrow Pay ran Khalti from Bakhundole, Lalitpur; WorldLink and Triveni Group invested "
-        "later.",
-        "founder founders founded history started who made sparrow",
+        "Four co-founders: Amit Agrawal (from Birgunj; then studying at White House College), "
+        "and Arbin Sah (Bara; also spelled Arvind Sah), Dhruva Adhikari (Pokhara) and Manish "
+        "Modi (Janakpur), then third-year students at Pulchowk Engineering Campus. Three of them "
+        "had started Janaki Technology, the parent company, in 2007 and Sparrow SMS in 2010. The "
+        "app was finished in 15 days, in two rented rooms in Pulchowk, for the CAN fair, and "
+        "Khalti launched formally on 26 January 2017. Amit Agrawal was CEO of Sparrow Pay, which "
+        "ran Khalti from Bakhundole, Lalitpur. In 2021 Binay Khadka became CEO and the co-founders "
+        "stayed on the board. WorldLink and Triveni Group invested later, and in July 2025 IME "
+        "Pay and Khalti merged as Khalti by IME.",
+        "founder founders co-founder founded history started launch who made sparrow arvind "
+        "arbin amit dhruva manish janaki",
     ),
     (
         "Who runs Khalti?",
